@@ -1,26 +1,74 @@
 import numpy as np
 from scipy.linalg import lstsq
+from scipy.special import legendre
 
-def rectangular_kernel(x):
-	if np.abs(x) < 1:
-		return 0.5
-	else:
-		return 0.0
+def rectangular_kernel(calcP,measP,param):
+	return np.where(np.abs(calcP-measP)<param,0.5,0.0)
+
+def legendre_kernel(calcP,measP,param):
+	# TODO: Handle calcP == measP
+	# How is that possible? Would like to not use loop.
+	# Maybe np.where?
+	# But what should the result be in that case anyways?
+	pn = legendre(param)
+	pn1 = legendre(param+1)
+	return (param+1.)/2 * (pn(calcP)*pn1(measP) - pn(measP)*pn1(calcP))/(measP-calcP)
 
 def hammersteinApproximation( inputsignal, outputsignal, 
-	kernel=rectangular_kernel, h=lambda n: n**(-0.25), 
+	kernel=rectangular_kernel, kernelParam=lambda n: n**(-0.25), 
 	npoints=None, shift=True):
-	K = np.vectorize(kernel)
+	"""
+	Return a approximation to the nonlinearity of a Hammerstein system.
+
+	Parameters
+	----------
+	inputsignal : array_like
+		The sampled input values to the system
+	outputsignal : array_like
+		The sampled output values from the system
+	kernel : callable or string
+		This will specify which kernel to use in the calculations.
+		Can be a function with signature `kernel(calcPoints,measPoints,param)`
+		that will act as the kernel for the approximation. 
+		`calcP` is the value where the approximation is calculated, 
+		`measP` is the sampled points, and `param` can be used to specify 
+		additional parameters using the `kernelParam` parameter.
+		Note that the kernel function must be vectorized for `measPoint`.
+		Alternatively, this can be a string that specifies any of the following kernels:
+			- rectangular : A rectangular kernel
+	kernelParam : callable or any
+		Specifies parameters for the kernel.
+		If this is callable it will be called with `npoints` and passed to the kernel.
+		Otherwise it will be passed to the kernel as is. Make sure that any non-standard
+		kernels have a matching kernelParam or does not make use of the param.
+		This is per default used to specify the resonution parameter h(n) and order parameter N(n)
+	npoints : int
+		Use this to specify the number of points where the nonlinearity will be approximated.
+		If set to `None` this will be set to the length of the input signal.
+	shift : bool
+		Specifies if shifting is applied. If `True` this will shift the approximation
+		so that mu(0)=0.
+
+	Returns
+	-------
+	approxPoints : ndarray
+		This is the points where the approxiation is calculated.
+	mu : ndarray
+		This is the approximated nonlinearity. Will be `None` at points where
+		the approximation of not valid.
+
+	"""
 	if not npoints:
 		npoints = inputsignal.size
-	hn = h(npoints)
+	if callable(kernelParam):
+		kernelParam = kernelParam(npoints)
 
 	# TODO: Change to the statistically significant region
 	approxPoints = np.linspace(np.min(inputsignal), np.max(inputsignal), npoints)
 	mu = np.zeros(npoints)
 	for i in range(npoints):
-		numer = np.sum(outputsignal * K( (approxPoints[i]-inputsignal)/hn ))
-		denom = np.sum(K( (approxPoints[i]-inputsignal)/hn ))
+		numer = np.sum(outputsignal * kernel(approxPoints[i],inputsignal,hn) )
+		denom = np.sum(kernel(approxPoints[i],inputsignal,hn))
 		if denom == 0:
 			mu[i] = None
 		else:
@@ -64,7 +112,7 @@ def hammerseinLinearApproximationCorrelation( inputsignal, outputsignal, len=Non
 def weinerApproximation( inputsignal, outputsignal, 
 	kernel=rectangular_kernel, h=lambda n: n**(-0.25),
 	npoints=None, shift=True):
-	K = np.vectorize(kernel)
+	
 	if not npoints:
 		npoints = inputsignal.size
 	hn = h(npoints)
@@ -72,8 +120,8 @@ def weinerApproximation( inputsignal, outputsignal,
 	approxPoints = np.linspace(np.min(outputsignal), np.max(outputsignal), npoints)
 	nu = np.zeros(npoints)
 	for i in range(npoints):
-		numer = np.sum(inputsignal * K( (approxPoints[i]-outputsignal)/hn ))
-		denom = np.sum(K((approxPoints[i]-outputsignal)/hn))
+		numer = np.sum(inputsignal * kernel(approxPoints[i],outputsignal,hn ))
+		denom = np.sum(kernel(approxPoints[i],outputsignal,hn))
 		if denom == 0:
 			nu[i] = None
 		else:
