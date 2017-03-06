@@ -21,6 +21,59 @@ def legendre_kernel(calcP,measP,param):
 	# and the nan replaced by the correct values?
 	# This could be implemented using `if any(np.isnan(out)):` and then replacing the nans.
 
+class hammersteinModel:
+	'''
+	A Hammerstein Model Class
+
+	Wraps all the functionality to create simulations of Hammerstein Models,
+	calculate approximations for the linear and nonlinear parts from sampled
+	input/output relations.
+	'''
+
+	def __init__(self):
+		# TODO: Do stuff here!
+		pass
+
+	def __call__(self,inputsignal):
+		'''
+		Feeds an input signal through the hammerstein model.
+		'''
+		pass
+
+	def approximateNonlinearity(self,inputsignal,outputsignal):
+		pass
+
+	def approximateLinearity(self,inputsignal,outputsignal):
+		pass
+
+	def setKernel(self,kernel):
+		''' Selects kernel.
+		
+		Call with a string to select a kernel from the default kernels.
+		This will reset the kernelParam, so any custom kernel parameters 
+		must be set again.
+		To use a custom kernel, change `model.kernel` directly, or 
+		pass a callable for more safe changes.
+
+		'''
+		#TODO: Document better!
+		if isinstance(kernel,str):
+			if kernel.lower()[:4] == 'rect':
+				self.kernel = rectangular_kernel
+				self.kernelParam = lambda n: n**(-0.25)
+			elif kernel.lower()[:4] == 'lege':
+				self.kernel = legendre_kernel
+				self.kernelParam = lambda n: np.ceil(n**0.25).astype('int')
+			else:
+				raise KeyError('Kernel `{}` is not an implemented default kernel!'.format(kernel))
+		elif callable(kernel):
+			self.kernel = kernel
+		else:
+			raise TypeError('`kernel` must be a string or a callable!')
+
+
+
+
 def hammersteinApproximation( inputsignal, outputsignal, 
 	kernel=rectangular_kernel, kernelParam=None, 
 	npoints=None, shift=True):
