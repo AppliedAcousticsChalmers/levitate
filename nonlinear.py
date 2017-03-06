@@ -6,16 +6,23 @@ def rectangular_kernel(calcP,measP,param):
 	return np.where(np.abs(calcP-measP)<param,0.5,0.0)
 
 def legendre_kernel(calcP,measP,param):
-	# TODO: Handle calcP == measP
-	# How is that possible? Would like to not use loop.
-	# Maybe np.where?
-	# But what should the result be in that case anyways?
+	calcP = np.asarray(calcP)
+	measP = np.asarray(measP)
 	pn = legendre(param)
 	pn1 = legendre(param+1)
-	return (param+1.)/2 * (pn(calcP)*pn1(measP) - pn(measP)*pn1(calcP))/(measP-calcP)
+	with np.errstate(divide='ignore',invalid='ignore'):
+		# This supresses the potential warning about dividing with zero.
+		# `np.where` will handle the issue and choose the valid approach, 
+		# but both expressions will be evaluated.
+		return np.where( calcP==measP,
+			(param+1.)/2 * (pn1.deriv()(calcP) * pn(calcP) - pn.deriv()(calcP)*pn1(calcP) ), 
+			(param+1.)/2 * (pn(calcP)*pn1(measP) - pn(measP)*pn1(calcP))/(measP-calcP))
+	# TODO: Will this be much faster if the second expression is evaluated everywhere first,
+	# and the nan replaced by the correct values?
+	# This could be implemented using `if any(np.isnan(out)):` and then replacing the nans.
 
 def hammersteinApproximation( inputsignal, outputsignal, 
-	kernel=rectangular_kernel, kernelParam=lambda n: n**(-0.25), 
+	kernel=rectangular_kernel, kernelParam=None, 
 	npoints=None, shift=True):
 	"""
 	Return a approximation to the nonlinearity of a Hammerstein system.
@@ -36,6 +43,7 @@ def hammersteinApproximation( inputsignal, outputsignal,
 		Note that the kernel function must be vectorized for `measPoint`.
 		Alternatively, this can be a string that specifies any of the following kernels:
 			- rectangular : A rectangular kernel
+			- legendre : A kernel representing series expansion in legendre polynomials
 	kernelParam : callable or any
 		Specifies parameters for the kernel.
 		If this is callable it will be called with `npoints` and passed to the kernel.
@@ -58,8 +66,19 @@ def hammersteinApproximation( inputsignal, outputsignal,
 		the approximation of not valid.
 
 	"""
+	if isinstance(kernel, str):
+		# Choose the correct kernel and kernelParam pair.
+		if kernel.lower()[:4] == 'rect':
+			kernel = rectangular_kernel
+			if not kernelParam: kernelParam = lambda n: n**(-0.25)
+		elif kernel.lower()[:4] == 'lege':
+			kernel = legendre_kernel
+			if not kernelParam: kernelParam = lambda n: np.ceil(n**0.25).astype('int')
+			# TODO: Is this a good choise of order??
 	if not npoints:
 		npoints = inputsignal.size
+	if not kernelParam:
+		kernelParam = lambda n: n**(-0.25)
 	if callable(kernelParam):
 		kernelParam = kernelParam(npoints)
 
@@ -67,8 +86,8 @@ def hammersteinApproximation( inputsignal, outputsignal,
 	approxPoints = np.linspace(np.min(inputsignal), np.max(inputsignal), npoints)
 	mu = np.zeros(npoints)
 	for i in range(npoints):
-		numer = np.sum(outputsignal * kernel(approxPoints[i],inputsignal,hn) )
-		denom = np.sum(kernel(approxPoints[i],inputsignal,hn))
+		numer = np.sum(outputsignal * kernel(approxPoints[i],inputsignal,kernelParam) )
+		denom = np.sum(kernel(approxPoints[i],inputsignal,kernelParam))
 		if denom == 0:
 			mu[i] = None
 		else:
