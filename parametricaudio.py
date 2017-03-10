@@ -40,7 +40,7 @@ class ParametricAudioModel:
 	def modulate(self):self._modulate(self)
 	def demodulate(self):self._demodulate(self)
 
-	def __init__(self,fc=40e3,fs=None,
+	def __init__(self,fc=40e3,fs=None, equalize=True,
 		demodulation='envelope',modulation='sqrt',depth=0.95,
 		padcycles=10, smoothcycles=25, lpf=True):
 		
@@ -54,8 +54,9 @@ class ParametricAudioModel:
 			elif fs<2.56*fc:
 				raise RuntimeWarning('Sampling frequency close to the nyquist frequency!')
 
+		self.equalize = equalize
 		self.depth=depth
-		self.padding = np.ceil(padcycles*(fs/fc)).astype('int')
+		self.padding = np.ceil(padcycles*(self.fs/fc)).astype('int')
 		self.smoothcycles = smoothcycles
 
 		if isinstance(lpf,bool):
@@ -67,17 +68,21 @@ class ParametricAudioModel:
 			self.lpf = lpf
 		else:
 			raise ValueError('Specify lpf as bool or filter tuple!')
+		self.setModulation(modulation)
+		self.setDemodulation(demodulation)
 
-
-		if demodulation == 'envelope':
+	def setDemodulation(self,demodulation):
+		if demodulation == 'square':
+			def _demodulate(self): 
+				self.audiblesound = np.abs(self.envelope-1)**2
+			self._demodulate = _demodulate
+		elif demodulation == 'envelope':
 			def _demodulate (self):
-				ddenv2 = np.diff(self.envelope**2,2)
+				ddenv2 = np.diff(np.abs(self.envelope)**2,2)
 				fullsignal = np.r_[0, ddenv2, 0]
-				#fullsignal = fullsignal[self.padding:-(self.padding+1)]
-				#fullsignal = fullsignal/np.max(np.abs(fullsignal[self.padding:-(self.padding+1)]))
-				fullsignal = fullsignal/np.median(np.abs(fullsignal[self.padding:-self.padding]))/np.sqrt(2)
-				fullsignal = fullsignal/np.median(np.abs(fullsignal[self.padding:-self.padding]))*self._scale
-				self.audiblesound = fullsignal
+				if self.lpf:
+					fullsignal = signal.lfilter(self.lpf[0], self.lpf[1], fullsignal)
+				self.audiblesound = fullsignal/np.median(np.abs(fullsignal[self.padding:-self.padding]))*self._scale
 			self._demodulate = _demodulate
 		elif demodulation == 'detection':
 			def _demodulate (self):
@@ -91,8 +96,9 @@ class ParametricAudioModel:
 				self.audiblesound = fullsignal/np.median(np.abs(fullsignal[self.padding:-self.padding]))*self._scale
 			self._demodulate = _demodulate
 		else:
-			raise ValueError('Unknown demodulation model:', demodulate)
+			raise ValueError('Unknown demodulation model: `{}`'.format(demodulate))
 
+	def setModulation(self,modulation):
 		if modulation == 'dsb':
 			def _modulate (self):
 				self.envelope = 1 + self.depth*self.eqsignal
@@ -103,26 +109,33 @@ class ParametricAudioModel:
 				self.envelope = np.sqrt(1 + self.depth*self.eqsignal)
 				self.ultrasound = self.envelope*self.carrier
 			self._modulate = _modulate
+		elif modulation == 'exponential':
+			def _modulate(self):
+				self.envelope = np.exp(signal.hilbert(np.log(1+self.depth*self.eqsignal))/2)
+				self.ultrasound = np.real( self.envelope * signal.hilbert(self.carrier) )
+			self._modulate = _modulate
 		else:
-			raise ValueError('Unknown modulation model:',modulate)
+			raise ValueError('Unknown modulation model: `{}`'.format(modulate))
 
-	def set_signal(self,inputsignal):
+	def setSignal(self,inputsignal):
 		self.signal = inputsignal
 		self.eqsignal = inputsignal/np.max(np.abs(inputsignal))
-		self.eqsignal = signal.detrend( np.cumsum( signal.detrend( np.cumsum( self.eqsignal )/self.fs ) )/self.fs )
-		self.eqsignal = self.eqsignal/np.max(np.abs(self.eqsignal))
+		if self.equalize:
+			# Note that if no equalization is applied, the signal will be inverted by the differentiation later
+			self.eqsignal = signal.detrend( np.cumsum( signal.detrend( np.cumsum( self.eqsignal )/self.fs ) )/self.fs )
+			self.eqsignal = self.eqsignal/np.max(np.abs(self.eqsignal))
 		self._scale = np.median(np.abs(self.signal))
 		window = signal.tukey(inputsignal.size, self.smoothcycles*2*self.fs/self.fc/inputsignal.size,sym=True)
 		self.window = window
 		self.eqsignal = self.eqsignal*window
 		self.eqsignal = np.r_[np.zeros(self.padding), self.eqsignal, np.zeros(self.padding)]
 		self.n = self.eqsignal.size
-		self.t = (np.r_[0:self.n]-self.padding)/self.fs
+		self.t = (np.arange(self.n)-self.padding)/self.fs
 		self.carrier = np.sin(2*np.pi*self.fc*self.t)
 
 
-	def simulate_path(self,inputsignal):
-		self.set_signal(inputsignal)
+	def __call__(self,inputsignal):  
+		self.setSignal(inputsignal)
 		self.modulate()
 		self.demodulate()
 		return(self.audiblesound[self.padding:-self.padding])
