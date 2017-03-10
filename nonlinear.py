@@ -1,6 +1,9 @@
 import numpy as np
 from scipy.linalg import lstsq
 from scipy.special import legendre
+from scipy.interpolate import interp1d
+from scipy.signal import fftconvolve
+from scipy.fftpack import fft,ifft
 
 def rectangular_kernel(calcP,measP,param):
 	return np.where(np.abs(calcP-measP)<param,0.5,0.0)
@@ -30,23 +33,86 @@ class hammersteinModel:
 	input/output relations.
 	'''
 
-	def __init__(self):
-		# TODO: Do stuff here!
-		pass
+	def __init__(self,kernel='rectangular',npoints=None,irlen=256,shift=True,normalize=True):
+		self.setKernel(kernel)
+		self.npoints = npoints
+		self.shift = shift
+		self.irlen = irlen
+		self.normalize = normalize
 
-	def __call__(self,inputsignal):
+	def __call__(self,inputsignal,trunkate=True):
 		'''
 		Feeds an input signal through the hammerstein model.
 		'''
-		pass
+		outputsignal = fftconvolve(self.nonlinearity(inputsignal),self.impulseResponse,'full')
+		if trunkate:
+			return outputsignal[:inputsignal.size]
+		else:
+			return outputsignal
 
 	def approximateNonlinearity(self,inputsignal,outputsignal):
-		pass
+		inputsignal	= np.asarray(inputsignal)
+		outputsignal = np.asarray(outputsignal)
+		if self.npoints: 
+			npoints = self.npoints
+		else:
+			npoints = inputsignal.size 
+		if callable(self.kernelParam):
+			kernelParam = self.kernelParam(npoints) 
+			# TODO: The theory always wants to call this with the length of the input signal,
+			# regardless of how dense the calculation will be.
+		else:
+			kernelParam = self.kernelParam
+		
+		approxPoints = np.linspace(np.min(inputsignal), np.max(inputsignal), npoints)
+		mu = np.zeros(npoints)
+		for i in range(npoints):
+			numer = np.sum(outputsignal * self.kernel(approxPoints[i],inputsignal,kernelParam) )
+			denom = np.sum(self.kernel(approxPoints[i],inputsignal,kernelParam))
+			if denom == 0:
+				mu[i] = None
+			else:
+				mu[i] = numer/denom
+	
+		if self.shift:
+			closezero = np.searchsorted(approxPoints,0)
+			if -approxPoints[closezero-1] < approxPoints[closezero]:
+				closezero -= 1
+			mu = mu - mu[closezero]
+		if self.normalize:
+			scale = np.max(mu)-np.min(mu)
+			mu/=scale
+
+		self.rawApprox = approxPoints, mu
+		finiteIdx = np.isfinite(mu)
+		self.nonlinearity = interp1d(approxPoints[finiteIdx],mu[finiteIdx],bounds_error=False)
+	
+	def refineModel(self,inputsignal,outputsignal):
+		#inputspectrum = fft(inputsignal)
+		irpad = np.r_[self.impulseResponse,np.zeros(inputsignal.size-self.impulseResponse.size)]
+		irspectrum = fft(irpad)
+		outputspectrum = fft(outputsignal)
+		nonlinearspectrum = outputspectrum/irspectrum
+		nonlinearoutput = np.real(ifft(nonlinearspectrum))
+		self.approximateNonlinearity(inputsignal,nonlinearoutput)
+		self.approximateLinearity(inputsignal,outputsignal)
+
 
 	def approximateLinearity(self,inputsignal,outputsignal):
-		pass
+		if hasattr(self,'nonlinearity'):
+			# Approximate using the nonlinearity
+			Y = outputsignal[self.irlen:]
+			mu = np.zeros((Y.size,self.irlen))
+			for row in range(Y.size):
+				mu[row] = self.nonlinearity(inputsignal[row+self.irlen:row:-1])
+			IR=lstsq(mu,Y)
+			self.impulseResponse = IR[0]
+			if self.normalize:
+				self.impulseResponse /= np.max(np.abs(self.impulseResponse))
+		else:
+			raise NotImplementedError('Approximations of linearities before approximations of the nonlinearity is not implemented!')
 
-	def setKernel(self,kernel):
+	def setKernel(self,kernel,kernelParam=None):
 		''' Selects kernel.
 		
 		Call with a string to select a kernel from the default kernels.
@@ -60,17 +126,53 @@ class hammersteinModel:
 		if isinstance(kernel,str):
 			if kernel.lower()[:4] == 'rect':
 				self.kernel = rectangular_kernel
-				self.kernelParam = lambda n: n**(-0.25)
+				if not kernelParam: kernelParam = lambda n: n**(-0.25)
 			elif kernel.lower()[:4] == 'lege':
 				self.kernel = legendre_kernel
-				self.kernelParam = lambda n: np.ceil(n**0.25).astype('int')
+				if not kernelParam: kernelParam = lambda n: np.floor(n**0.25).astype('int')
 			else:
 				raise KeyError('Kernel `{}` is not an implemented default kernel!'.format(kernel))
 		elif callable(kernel):
 			self.kernel = kernel
 		else:
 			raise TypeError('`kernel` must be a string or a callable!')
+		self.kernelParam = kernelParam
 
+	def setOrthogonalBasis(self,basis,basisParam=None):
+		# TODO: Docuent!
+		if isinstance(basis,str):
+			if basis.lower()[:4] == 'lege':
+				self.orthogonalBasis = lambda n: ((2*n+1)/2)**0.5*legendre(n)
+				if not basisParam: basisParam = lambda n: np.floor(n**0.25).astype('int')
+			else:
+				raise KeyError('Basis function `{}` is not an implemented default expansion!'.format(basis))
+		elif callable(basis):
+			self.orthogonalBasis = basis
+		else:
+			raise TypeError('`basis` must be a string or a callable!')
+		self.orthogonalBasisParam = basisParam
+
+	def orthogonalSeriesExpansion(self,inputsignal,outputsignal):
+		inputsignal = np.asarray(inputsignal)
+		outputsignal = np.asarray(outputsignal)
+		if callable(self.orthogonalBasisParam):
+			param = self.orthogonalBasisParam(inputsignal.size)
+		else:
+			param = self.orthogonalBasisParam
+		numerCoeff = np.zeros(param+1)
+		denomCoeff = np.zeros(param+1)
+		for i in range(param+1):
+			numerCoeff[i] = np.mean(outputsignal*self.orthogonalBasis(i)(inputsignal))
+			denomCoeff[i] = np.mean(self.orthogonalBasis(i)(inputsignal))
+		if self.shift:
+			numerat0 = np.sum([self.orthogonalBasis(i)(0)*numerCoeff[i] for i in range(param+1)])
+			denomat0 = np.sum([self.orthogonalBasis(i)(0)*denomCoeff[i] for i in range(param+1)])
+			mu0 = numerat0/denomat0
+			numerCoeff -= mu0*denomCoeff
+		self.orthogonalCoefficients = numerCoeff,denomCoeff
+		self.orthogonalNumerator = np.sum([self.orthogonalBasis(i)*numerCoeff[i] for i in range(param+1)])
+		self.orthogonalDenominator = np.sum([self.orthogonalBasis(i)*denomCoeff[i] for i in range(param+1)])
+		self.orthogonalApproximation = lambda x: self.orthogonalNumerator(x)/self.orthogonalDenominator(x)
 
 
 
