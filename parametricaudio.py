@@ -1,5 +1,7 @@
 import numpy as np
 import scipy.signal as signal
+from scipy.fftpack import fft,ifft,fftfreq
+# TODO: Check if the real versions always will work. Might give a performace boost?
 
 class ParametricAudioModel:
 
@@ -44,21 +46,24 @@ class ParametricAudioModel:
 			self._demodulate = _demodulate
 		elif demodulation == 'envelope':
 			def _demodulate (self):
-				ddenv2 = np.diff(np.abs(self.envelope)**2,2)
-				fullsignal = np.r_[0, ddenv2, 0]
+				# np.abs required for the exponential modulation: the envelope is complex
+				envfft = fft(np.abs(self.envelope)**2)
+				w=2*np.pi*fftfreq(envfft.size,1/self.fs)
+				demodSignal = np.real(ifft(-w**2 * envfft))
 				if self.lpf:
-					fullsignal = signal.lfilter(self.lpf[0], self.lpf[1], fullsignal)
-				self.audiblesound = fullsignal/np.median(np.abs(fullsignal[self.padding:-self.padding]))*self._scale
+					demodSignal = signal.lfilter(self.lpf[0], self.lpf[1], demodSignal)
+				self.audiblesound = demodSignal/np.median(np.abs(demodSignal[self.padding:-self.padding]))*self._scale
 			self._demodulate = _demodulate
 		elif demodulation == 'detection':
 			def _demodulate (self):
 				env = np.abs(signal.hilbert(self.ultrasound)) 
 				self.detectenvelope = env
-				ddenv2 = np.diff( env**2 ,2)
-				fullsignal = np.r_[0, ddenv2, 0] 
+				envfft = fft(env**2)
+				w=2*np.pi*fftfreq(envfft.size,1/self.fs)
+				demodSignal = np.real(ifft(-w**2 * envfft))
 				if self.lpf:
-					fullsignal = signal.lfilter(self.lpf[0], self.lpf[1], fullsignal)
-				self.audiblesound = fullsignal/np.median(np.abs(fullsignal[self.padding:-self.padding]))*self._scale
+					demodSignal = signal.lfilter(self.lpf[0], self.lpf[1], demodSignal)
+				self.audiblesound = demodSignal/np.median(np.abs(demodSignal[self.padding:-self.padding]))*self._scale
 			self._demodulate = _demodulate
 		else:
 			raise ValueError('Unknown demodulation model: `{}`'.format(demodulate))
@@ -87,7 +92,11 @@ class ParametricAudioModel:
 		self.eqsignal = inputsignal/np.max(np.abs(inputsignal))
 		if self.equalize:
 			# Note that if no equalization is applied, the signal will be inverted by the differentiation later
-			self.eqsignal = signal.detrend( np.cumsum( signal.detrend( np.cumsum( self.eqsignal )/self.fs ) )/self.fs )
+			fftsignal = fft(self.eqsignal)
+			w = fftfreq(fftsignal.size,1/self.fs)
+			eqfft = np.r_[0,-fftsignal[1:]/(w[1:]**2) ]
+			self.eqsignal = np.real(ifft(eqfft))
+			#self.eqsignal = signal.detrend( np.cumsum( signal.detrend( np.cumsum( self.eqsignal )/self.fs ) )/self.fs )
 			self.eqsignal = self.eqsignal/np.max(np.abs(self.eqsignal))
 		self._scale = np.median(np.abs(self.signal))
 		window = signal.tukey(inputsignal.size, self.smoothcycles*2*self.fs/self.fc/inputsignal.size,sym=True)
