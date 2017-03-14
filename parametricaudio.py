@@ -1,39 +1,5 @@
 import numpy as np
-#from scipy.fftpack import hilbert
 import scipy.signal as signal
-
-def demodulate_envelope(envelope):
-	'''A model for the non-linear demodulation in air.
-
-	The model is based on direct interpretation of the envelope 
-	of the ultrasonic signal. 
-	The output is normalised to unity, so no physical interpresation
-	of the signal level is possible.
-	The output is approximated at the first and last sample using linear
-	extrapolation.
-
-	Arguments:
-	envelope -- The envelope of the ultrasound signal.
-	'''
-
-	dde2 = np.diff(envelope**2,2)
-	fullsignal = np.r_[2*dde2[0]-dde2[1],dde2,2*dde2[-1]-dde2[-2]]
-	fullsignal = fullsignal/np.max(np.abs(fullsignal))
-	return(fullsignal)
-
-def modulate_dsb(signal,fc,fs,depth=1):
-	n=signal.size
-	t=np.r_[0:n]/fs
-	carrier=np.sin(2*np.pi*fc*t)
-	env=1+depth*signal
-	return(evn*carrier)
-
-def modulate_sqrt(signal,fc,fs,depth=1):
-	n=signal.size
-	t=np.r_[0:n]/fs
-	carrier=np.sin(2*np.pi*fc*t)
-	env=np.sqrt(1+depth*signal)
-	return(env*carrier)
 
 class ParametricAudioModel:
 
@@ -92,7 +58,6 @@ class ParametricAudioModel:
 				fullsignal = np.r_[0, ddenv2, 0] 
 				if self.lpf:
 					fullsignal = signal.lfilter(self.lpf[0], self.lpf[1], fullsignal)
-				#fullsignal = fullsignal[self.padding:-(self.padding+1)]
 				self.audiblesound = fullsignal/np.median(np.abs(fullsignal[self.padding:-self.padding]))*self._scale
 			self._demodulate = _demodulate
 		else:
@@ -147,8 +112,8 @@ if __name__ == '__main__':
 	fs=402e3
 	fs=204.8e3
 	inputsignal = np.sin(2*np.pi*f0*np.r_[0:n]/fs)
-	model = ParametricAudioModel(demodulation='detection',fs=400e3)
-	outputsignal = model.simulate_path(inputsignal)
+	model = ParametricAudioModel(demodulation='detection',fs=fs)
+	outputsignal = model(inputsignal)
 	plt.plot(model.t,model.signal)
 	plt.plot(model.t,model.audiblesound)
 	plt.show()
