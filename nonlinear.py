@@ -81,7 +81,7 @@ class hammersteinModel:
 		inputsignal	= np.asarray(inputsignal)
 		outputsignal = np.asarray(outputsignal)
 		if self.npoints: 
-			npoints = self.npoints
+			npoints = int(self.npoints)
 		else:
 			npoints = inputsignal.size 
 		if callable(self.kernelParam):
