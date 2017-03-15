@@ -5,9 +5,36 @@ from scipy.interpolate import interp1d
 from scipy.signal import fftconvolve
 from scipy.fftpack import fft,ifft
 
+#### Normal kernels ####
 def rectangular_kernel(calcP,measP,param):
-	return np.where(np.abs(calcP-measP)<param,0.5,0.0)
+	return np.where( np.abs(calcP-measP)<param, 0.5, 0.0)
 
+def triangular_kernel(calcP,measP,param):
+	return np.where( np.abs(calcP-measP)<param, 1-np.abs(calcP-measP)/param, 0)
+
+def parabolic_kernel(calcP,measP,param):
+	return np.where( np.abs(calcP-measP)<param, 3/4*(1-((calcP-measP)/param)**2), 0)
+
+def gaussian_kernel(calcP,measP,param):
+	# Also called Gauss-Weierstass kernel
+	return np.exp(-0.5*((calcP-measP)/param)**2)/np.sqrt(2*np.pi)
+
+def poisson_kernel(calcP,measP,param):
+	return 1/(np.pi*(1+((calcP-measP)/param)**2))
+
+def sincsquare_kernel(calcP,measP,param):
+	# Also called Fejer kernel
+	# TODO: What about the pi in the denominator inside sinc? Does it matter if it is there or not?
+	# It seems as if this is only a scaling of the default parameter
+	return np.sinc( (calcP-measP)/(np.pi*param) )**2/np.pi
+
+def sinc_kernel(calcP,measP,param):
+	return np.sinc( (calcP-measP)/(np.pi*param) )/np.pi
+
+def lebesgue_kernel(calcP,measP,param):
+	return np.exp(-np.abs(calcP-measP)/param)/2
+
+#### Orthogonal polynomial kernels ####
 def legendre_kernel(calcP,measP,param):
 	calcP = np.asarray(calcP)
 	measP = np.asarray(measP)
@@ -126,6 +153,27 @@ class hammersteinModel:
 		if isinstance(kernel,str):
 			if kernel.lower()[:4] == 'rect':
 				self.kernel = rectangular_kernel
+				if not kernelParam: kernelParam = lambda n: n**(-0.25)
+			elif kernel.lower()[:3] == 'tri':
+				self.kernel = triangular_kernel
+				if not kernelParam: kernelParam = lambda n: n**(-0.25)
+			elif kernel.lower()[:4] == 'para':
+				self.kernel = parabolic_kernel
+				if not kernelParam: kernelParam = lambda n: n**(-0.25)
+			elif kernel.lower()[:5] == 'gauss':
+				self.kernel = gaussian_kernel
+				if not kernelParam: kernelParam = lambda n: n**(-0.25)
+			elif kernel.lower()[:4] == 'pois':
+				self.kernel = poisson_kernel
+				if not kernelParam: kernelParam = lambda n: n**(-0.25)
+			elif kernel.lower()[:6] == 'sincsq':
+				self.kernel = sincsquare_kernel
+				if not kernelParam: kernelParam = lambda n: n**(-0.25)
+			elif kernel.lower()[:4] == 'sinc':
+				self.kernel = sinc_kernel
+				if not kernelParam: kernelParam = lambda n: n**(-0.25)
+			elif kernel.lower()[:4] == 'lebe':
+				self.kernel = lebesgue_kernel
 				if not kernelParam: kernelParam = lambda n: n**(-0.25)
 			elif kernel.lower()[:4] == 'lege':
 				self.kernel = legendre_kernel
