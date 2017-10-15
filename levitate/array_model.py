@@ -2,6 +2,9 @@ import numpy as np
 from numpy.linalg import norm
 from scipy.special import jn
 from scipy.optimize import minimize
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def rectangular_grid(shape, spread):
@@ -95,7 +98,6 @@ class transducer_array:
 
         dist = norm(source_position - receiver_position, axis=-1)
         sin = sin_angle(source_normal, receiver_position - source_position)
-
         directivity = jn(0, self.k * self.transducer_size / 2 * sin)  # Piston far field
         #directivity = 1  # Omnidirectional
         return directivity / dist * np.exp(1j * self.k * dist)
@@ -125,11 +127,20 @@ class gorkov_optimizer:
         self.pressure_coefficient = V / 2 * self.rho_air * ((self.rho_air * self.c_air)**-2 - (self.rho_sphere * self.c_sphere)**-2)
         c1 = 3 / 2 * V / (2 * np.pi * self.array.freq)**2 / self.rho_air
         self.gradient_coefficient = c1 * (self.rho_sphere - self.rho_air) / (2 * self.rho_sphere + self.rho_air)
-
+        self.called = 0
+        self.previous_phase = self.array.phases
         self.result = minimize(self.objective_function, self.array.phases, method='BFGS', jac=True)
+        self.array.phases = self.result.x
 
     def objective_function(self, phases):
+        self.called += 1
+        logger.debug('Obective function: called {} times'.format(self.called))
+        # Store the state of the array.
+        # The optimization rutine assumes that the phase values does not change internally.
+        current_phases = self.array.phases
+        logger.debug('\tRMS phase difference between this call and the previous is {}'.format(np.sqrt(np.mean((phases - self.previous_phase)**2))))
         self.array.phases = phases
+        self.previous_phases = phases
         self.calculate_pressure_matrix()
 
         pressure = self.total_pressure[self.finite_difference_coefficients[''][0]] * self.finite_difference_coefficients[''][1]
@@ -141,6 +152,11 @@ class gorkov_optimizer:
         wp = self.pressure_weight
         value = wp * np.abs(pressure)**2 - wx * uxx - wy * uyy - wz * uzz
 
+        logger.debug('\tPressure contribution: {}'.format(wp * np.abs(pressure)**2))
+        logger.debug('\tUxx contribution: {}'.format(-wx * uxx))
+        logger.debug('\tUyy contribution: {}'.format(-wy * uyy))
+        logger.debug('\tUzz contribution: {}'.format(-wz * uzz))
+
         derivatives = np.zeros(self.array.num_transducers)
         for idx in range(self.array.num_transducers):
             dp = self.single_derivative(idx, '', '')
@@ -150,6 +166,7 @@ class gorkov_optimizer:
 
             derivatives[idx] = wp * dp - wx * duxx - wy * duyy - wz * duzz
 
+        self.array.phases = current_phases
         return value, derivatives
 
     def complex_dot(self, z1, z2):
@@ -164,11 +181,13 @@ class gorkov_optimizer:
         Calculates the partial derivative of a part of the objective function w.r.t. a single phase
         'der_1' and 'der_2' are strings with the two derivatives from the objective function
         '''
-        p1 = np.sum(self.total_pressure[self.finite_difference_coefficients[der_1][0]] * self.finite_difference_coefficients[der_1][1])
-        p2 = np.sum(self.total_pressure[self.finite_difference_coefficients[der_2][0]] * self.finite_difference_coefficients[der_2][1])
+        hinv = 1 / self.diff_step
 
-        pi1 = np.sum(self.transducer_pressures[idx][self.finite_difference_coefficients[der_1][0]] * self.finite_difference_coefficients[der_1][1])
-        pi2 = np.sum(self.transducer_pressures[idx][self.finite_difference_coefficients[der_2][0]] * self.finite_difference_coefficients[der_2][1])
+        p1 = hinv**len(der_1) * np.sum(self.total_pressure[self.finite_difference_coefficients[der_1][0]] * self.finite_difference_coefficients[der_1][1])
+        p2 = hinv**len(der_2) * np.sum(self.total_pressure[self.finite_difference_coefficients[der_2][0]] * self.finite_difference_coefficients[der_2][1])
+
+        pi1 = hinv**len(der_1) * np.sum(self.transducer_pressures[idx][self.finite_difference_coefficients[der_1][0]] * self.finite_difference_coefficients[der_1][1])
+        pi2 = hinv**len(der_2) * np.sum(self.transducer_pressures[idx][self.finite_difference_coefficients[der_2][0]] * self.finite_difference_coefficients[der_2][1])
 
         return p1.imag * pi2.real + p2.imag * pi1.real - p1.real * pi2.imag - p2.real * pi1.imag
 
@@ -190,30 +209,38 @@ class gorkov_optimizer:
         'axis': a single character 'x', 'y', or 'z'
         '''
 
+        hinv = 1 / self.diff_step
         # TODO: 'pa' will be one of px, py, pz. 'paa' will be one of the pna variants
         # This can be optimized better
-        # TODO: Will the 'self.finite_difference_coefficients' be in scope like this here? Add 'self.'?
         p = np.sum(self.total_pressure[self.finite_difference_coefficients[''][0]] * self.finite_difference_coefficients[''][1])
-        pa = np.sum(self.total_pressure[self.finite_difference_coefficients[axis][0]] * self.finite_difference_coefficients[axis][1])
-        paa = np.sum(self.total_pressure[self.finite_difference_coefficients[2 * axis][0]] * self.finite_difference_coefficients[2 * axis][1])
+        pa = hinv * np.sum(self.total_pressure[self.finite_difference_coefficients[axis][0]] * self.finite_difference_coefficients[axis][1])
+        paa = hinv**2 * np.sum(self.total_pressure[self.finite_difference_coefficients[2 * axis][0]] * self.finite_difference_coefficients[2 * axis][1])
 
-        px = np.sum(self.total_pressure[self.finite_difference_coefficients['x'][0]] * self.finite_difference_coefficients['x'][1])
-        py = np.sum(self.total_pressure[self.finite_difference_coefficients['y'][0]] * self.finite_difference_coefficients['y'][1])
-        pz = np.sum(self.total_pressure[self.finite_difference_coefficients['z'][0]] * self.finite_difference_coefficients['z'][1])
+        px = hinv * np.sum(self.total_pressure[self.finite_difference_coefficients['x'][0]] * self.finite_difference_coefficients['x'][1])
+        py = hinv * np.sum(self.total_pressure[self.finite_difference_coefficients['y'][0]] * self.finite_difference_coefficients['y'][1])
+        pz = hinv * np.sum(self.total_pressure[self.finite_difference_coefficients['z'][0]] * self.finite_difference_coefficients['z'][1])
 
-        pax = np.sum(self.total_pressure[self.finite_difference_coefficients[axis + 'x'][0]] * self.finite_difference_coefficients[axis + 'x'][1])
-        pay = np.sum(self.total_pressure[self.finite_difference_coefficients[axis + 'y'][0]] * self.finite_difference_coefficients[axis + 'y'][1])
-        paz = np.sum(self.total_pressure[self.finite_difference_coefficients[axis + 'z'][0]] * self.finite_difference_coefficients[axis + 'z'][1])
+        pax = hinv**2 * np.sum(self.total_pressure[self.finite_difference_coefficients[axis + 'x'][0]] * self.finite_difference_coefficients[axis + 'x'][1])
+        pay = hinv**2 * np.sum(self.total_pressure[self.finite_difference_coefficients[axis + 'y'][0]] * self.finite_difference_coefficients[axis + 'y'][1])
+        paz = hinv**2 * np.sum(self.total_pressure[self.finite_difference_coefficients[axis + 'z'][0]] * self.finite_difference_coefficients[axis + 'z'][1])
 
-        paax = np.sum(self.total_pressure[self.finite_difference_coefficients[2 * axis + 'x'][0]] * self.finite_difference_coefficients[2 * axis + 'x'][1])
-        paay = np.sum(self.total_pressure[self.finite_difference_coefficients[2 * axis + 'y'][0]] * self.finite_difference_coefficients[2 * axis + 'y'][1])
-        paaz = np.sum(self.total_pressure[self.finite_difference_coefficients[2 * axis + 'z'][0]] * self.finite_difference_coefficients[2 * axis + 'z'][1])
+        paax = hinv**3 * np.sum(self.total_pressure[self.finite_difference_coefficients[2 * axis + 'x'][0]] * self.finite_difference_coefficients[2 * axis + 'x'][1])
+        paay = hinv**3 * np.sum(self.total_pressure[self.finite_difference_coefficients[2 * axis + 'y'][0]] * self.finite_difference_coefficients[2 * axis + 'y'][1])
+        paaz = hinv**3 * np.sum(self.total_pressure[self.finite_difference_coefficients[2 * axis + 'z'][0]] * self.finite_difference_coefficients[2 * axis + 'z'][1])
 
         # Calculate individual parts
         pressure_part = 2 * (self.complex_dot(paa, p) + self.complex_dot(pa, pa))
         x_part = 2 * (self.complex_dot(paax, pa) + self.complex_dot(pax, pax))
         y_part = 2 * (self.complex_dot(paay, pa) + self.complex_dot(pay, pay))
         z_part = 2 * (self.complex_dot(paaz, pa) + self.complex_dot(paz, paz))
+
+        logger.debug("\tGor'Kov Laplacian along {}-axis:".format(axis))
+        logger.debug('\t\tPressure part is : {}'.format(pressure_part))
+        logger.debug('\t\tx part is : {}'.format(x_part))
+        logger.debug('\t\ty part is : {}'.format(y_part))
+        logger.debug('\t\tz part is : {}'.format(z_part))
+        logger.debug('\t\tPressure contribution: {:.6e}'.format(self.pressure_coefficient * pressure_part))
+        logger.debug('\t\tGradient contribution: {:.6e}'.format(-self.gradient_coefficient * (x_part + y_part + z_part)))
 
         return self.pressure_coefficient * pressure_part - self.gradient_coefficient * (x_part + y_part + z_part)
 
