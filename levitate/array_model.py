@@ -48,12 +48,52 @@ class transducer_array:
         phase = np.empty(self.num_transducers)
         for idx in range(self.num_transducers):
             phase[idx] = -norm(self.transducer_positions[idx, :] - focus) * self.k
-        #phase -= phase.max()
+        phase = np.mod(phase + np.pi, 2 * np.pi) - np.pi  # Wrap phase to [-pi, pi]
         self.focus_phase = phase
         self.focus_point = focus
         # WARNING: Setting the initial condition for the phases to have an actual pressure focus point
         # at the desired levitation point will cause the optimization to fail!
         # self.phases = phase  # TODO: This is temporary until a proper optimisation scheme has been developed
+
+    def twin_signature(self, position=(0, 0), angle=0):
+        x = position[0]
+        y = position[1]
+        # TODO: Rotate, shift, and make sure that the calculateion below actually works
+        signature = np.empty(self.num_transducers)
+        for idx in range(self.num_transducers):
+            if self.transducer_positions[idx, 0] < x:
+                signature[idx] = -np.pi / 2
+            else:
+                signature[idx] = np.pi / 2
+        return signature
+
+    def vortex_signature(self, position=(0, 0), angle=0):
+        x = position[0]
+        y = position[1]
+        # TODO: Rotate, shift, and make sure that the calculateion below actually works
+        signature = np.empty(self.num_transducers)
+        for idx in range(self.num_transducers):
+            signature[idx] = np.arctan2(self.transducer_positions[idx, 1], self.transducer_positions[idx, 0])
+        return signature
+
+    def bottle_signature(self, position=(0, 0), radius=None):
+        x = position[0]
+        y = position[1]
+        # TODO: Rotate, shift, and make sure that the calculateion below actually works
+
+        if radius is None:
+            radius = np.max(self.transducer_positions[:, 0]) / 2
+
+        signature = np.empty(self.num_transducers)
+        for idx in range(self.num_transducers):
+            if norm(self.transducer_positions[idx, 0:2]) > radius:
+                signature[idx] = np.pi
+            else:
+                signature[idx] = 0
+        return signature
+
+    def current_signature(self):
+        return np.mod(self.phases - self.focus_phase + np.pi, 2 * np.pi) - np.pi
 
     def calculate_pressure(self, point, transducer=None):
         '''
