@@ -88,19 +88,31 @@ class transducer_array:
         else:
             return p
 
-    def greens_function(self, transducer_id, receiver_position):
-        def sin_angle(v1, v2):
-            cos = np.sum(v1 * v2, axis=-1) / norm(v1, axis=-1) / norm(v2, axis=-1)
-            return (1 - cos**2)**0.5
-
+    def directivity(self, transducer_id, receiver_position):
         source_position = self.transducer_positions[transducer_id]
         source_normal = self.transducer_normals[transducer_id]
+        difference = receiver_position - source_position
 
+        cos_angle = np.sum(source_normal * difference, axis=-1) / norm(source_normal, axis=-1) / norm(difference, axis=-1)
+        sin_angle = (1 - cos_angle**2)**0.5
+        k_a_sin = sin_angle * self.k * self.transducer_size / 2
+        # Circular postion in baffle?
+        #val = jn(0, k_a_sin)
+        # Circular piston in baffle, version 2
+        #  TODO: Check this formula!
+        #val = jn(1, k_a_sin) / k_a_sin
+        val = 1
+        return val
+
+    def spherical_spreading(self, transducer_id, receiver_position):
+        source_position = self.transducer_positions[transducer_id]
         dist = norm(source_position - receiver_position, axis=-1)
-        sin = sin_angle(source_normal, receiver_position - source_position)
-        directivity = jn(0, self.k * self.transducer_size / 2 * sin)  # Piston far field
-        #directivity = 1  # Omnidirectional
-        return directivity / dist * np.exp(1j * self.k * dist)
+        return 1 / dist * np.exp(1j * self.k * dist)
+
+    def greens_function(self, transducer_id, receiver_position):
+        directional_part = self.directivity(transducer_id, receiver_position)
+        spherical_part = self.spherical_spreading(transducer_id, receiver_position)
+        return directional_part * spherical_part
 
 
 class gorkov_optimizer:
