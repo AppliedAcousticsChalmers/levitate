@@ -82,7 +82,8 @@ class transducer_array:
         # TODO: Rotate, shift, and make sure that the calculateion below actually works
 
         if radius is None:
-            radius = np.max(self.transducer_positions[:, 0]) / 2
+            A = np.prod(self.shape)*self.transducer_size**2
+            radius = (A/2/np.pi)**0.5
 
         signature = np.empty(self.num_transducers)
         for idx in range(self.num_transducers):
@@ -179,6 +180,7 @@ class gorkov_optimizer:
         self.gradient_weights = (1, 1, 1)
 
     def run(self):
+        logger.info('\n======== Starting minimisation procedure =========\n')
         V = 4 / 3 * np.pi * self.radius_sphere**3
         self.pressure_coefficient = V / 2 * self.rho_air * (1/(self.rho_air * self.c_air**2) - 1/(self.rho_sphere * self.c_sphere**2))
         c1 = 3 / 2 * V / (2 * np.pi * self.array.freq)**2 / self.rho_air
@@ -187,8 +189,18 @@ class gorkov_optimizer:
         self.jacobian_evals = 0
         self.total_evals = 0
         self.previous_phase = self.array.phases
+        self.phase_list = []
         self.initialize_spatial_derivatives()
-        self.result = minimize(self.objective_function, self.array.phases, method='BFGS', jac=self.objective_jacobian, options={'return_all': True})
+
+        def callback(x):
+            #self.phase_list.append(x)
+            #tmp = np.mod(x + np.pi, 2 * np.pi)
+            #np.subtract(tmp, np.pi, out=x)
+            logger.debug('{}'.format(x))
+            #x = np.mod(x + np.pi, 2 * np.pi) - np.pi
+        self.result = minimize(self.objective_function, self.array.phases, jac=self.objective_jacobian, callback=None,
+            #method='L-BFGS-B', bounds=[(-3*np.pi, 3*np.pi)]*self.array.num_transducers, options={'gtol': 1e-9, 'ftol': 1e-15})
+            method='BFGS', options={'return_all': True})
         self.array.phases = self.result.x
 
     def initialize_spatial_derivatives(self):
@@ -272,8 +284,7 @@ class gorkov_optimizer:
         # This results in a small optimizer class that 'owns/shares' instances connected to 'features' in the objective function.
         self.objective_evals += 1
         self.total_evals += 1
-        logger.debug('Obective function: called {} times'.format(self.objective_evals))
-        logger.debug('\tRMS phase difference between this call and the previous is {}'.format(np.sqrt(np.mean((phases - self.previous_phase)**2))))
+        logger.info('Objective function call {}:\tPhase difference: RMS = {:.4e}\t Max = {:.4e}'.format(self.objective_evals, np.sqrt(np.mean((phases - self.previous_phase)**2)), np.max(np.abs(phases - self.previous_phase))))
         self.previous_phase = phases
 
         phase_coeff = np.exp(1j * phases)
@@ -283,20 +294,20 @@ class gorkov_optimizer:
             #phased_derivatives[key] = phase_coeff * value
             total_derivatives[key] = np.sum(phase_coeff * value)
 
-        pressure = total_derivatives['']
-        uxx = self.gorkov_laplacian('x', total_derivatives)
-        uyy = self.gorkov_laplacian('y', total_derivatives)
-        uzz = self.gorkov_laplacian('z', total_derivatives)
+        p_part = total_derivatives['']
+        x_part = self.gorkov_laplacian('x', total_derivatives)
+        y_part = self.gorkov_laplacian('y', total_derivatives)
+        z_part = self.gorkov_laplacian('z', total_derivatives)
 
         wx, wy, wz = self.gradient_weights
         wp = self.pressure_weight
 
-        value = wp * np.abs(pressure)**2 - wx * uxx - wy * uyy - wz * uzz
+        value = wp * np.abs(p_part)**2 - wx * x_part - wy * y_part - wz * z_part
 
-        logger.debug('\tPressure contribution: {:.6e}'.format(wp * np.abs(pressure)**2))
-        logger.debug('\tUxx contribution: {:.6e}'.format(-wx * uxx))
-        logger.debug('\tUyy contribution: {:.6e}'.format(-wy * uyy))
-        logger.debug('\tUzz contribution: {:.6e}'.format(-wz * uzz))
+        logger.debug('\tPressure contribution: {:.6e}'.format(wp * np.abs(p_part)**2))
+        logger.debug('\tUxx contribution: {:.6e}'.format(-wx * x_part))
+        logger.debug('\tUyy contribution: {:.6e}'.format(-wy * y_part))
+        logger.debug('\tUzz contribution: {:.6e}'.format(-wz * z_part))
 
         # derivatives = np.zeros(self.array.num_transducers)
         # for idx in range(self.array.num_transducers):
@@ -350,8 +361,8 @@ class gorkov_optimizer:
     def objective_jacobian(self, phases):
         self.jacobian_evals += 1
         self.total_evals += 1
-        logger.debug('Jacoian function: called {} times'.format(self.jacobian_evals))
-        logger.debug('\tRMS phase difference between this call and the previous is {}'.format(np.sqrt(np.mean((phases - self.previous_phase)**2))))
+        logger.info('Jacobian function call {}:\tPhase difference: RMS = {:.4e}\t Max = {:.4e}'.format(self.jacobian_evals, np.sqrt(np.mean((phases - self.previous_phase)**2)), np.max(np.abs(phases - self.previous_phase))))
+        #logger.info('\tPhase difference: RMS = {:.4e}\t Max = {:.4e}'.format(np.sqrt(np.mean((phases - self.previous_phase)**2)), np.max(np.abs(phases - self.previous_phase)) ))
         self.previous_phase = phases
 
         phase_coeff = np.exp(1j * phases)
@@ -364,34 +375,34 @@ class gorkov_optimizer:
         wx, wy, wz = self.gradient_weights
         wp = self.pressure_weight
 
-        derivatives = np.zeros(self.array.num_transducers)
-        for idx in range(self.array.num_transducers):
-            dp = self.phase_derivative(idx, '', '', total_derivatives, phased_derivatives)
-            duxx = self.gorkov_laplacian_derivative('x', idx, total_derivatives, phased_derivatives)
-            duyy = self.gorkov_laplacian_derivative('y', idx, total_derivatives, phased_derivatives)
-            duzz = self.gorkov_laplacian_derivative('z', idx, total_derivatives, phased_derivatives)
+        #derivatives = np.zeros(self.array.num_transducers)
+        #for idx in range(self.array.num_transducers):
+        p_part = self.phase_derivative('', '', total_derivatives, phased_derivatives)
+        x_part = self.gorkov_laplacian_derivative('x', total_derivatives, phased_derivatives)
+        y_part = self.gorkov_laplacian_derivative('y', total_derivatives, phased_derivatives)
+        z_part = self.gorkov_laplacian_derivative('z', total_derivatives, phased_derivatives)
 
-            derivatives[idx] = wp * dp - wx * duxx - wy * duyy - wz * duzz
+        derivatives = wp * p_part - wx * x_part - wy * y_part - wz * z_part
 
         return derivatives
 
-    def gorkov_laplacian_derivative(self, axis, idx, total_derivatives, phased_derivitives):
+    def gorkov_laplacian_derivative(self, axis, total_derivatives, phased_derivitives):
         '''
         Calculates the derivative of the Gor'kov laplacian along an axis, w.r.t. the phase of a single transducer
         '''
         ysort = ''.join(sorted(axis + 'y'))  # ''.join(sorted(axis + 'y')) always give xy, yy, yz
-        p_part = 2 * (self.phase_derivative(idx, 2 * axis, '', total_derivatives, phased_derivitives) +
-                      self.phase_derivative(idx, axis, axis, total_derivatives, phased_derivitives))
-        x_part = 2 * (self.phase_derivative(idx, 2 * axis + 'x', 'x', total_derivatives, phased_derivitives) +
-                      self.phase_derivative(idx, 'x' + axis, 'x' + axis, total_derivatives, phased_derivitives))
-        y_part = 2 * (self.phase_derivative(idx, 2 * axis + 'y', 'y', total_derivatives, phased_derivitives) +
-                      self.phase_derivative(idx, ysort, ysort, total_derivatives, phased_derivitives))
-        z_part = 2 * (self.phase_derivative(idx, 2 * axis + 'z', 'z', total_derivatives, phased_derivitives) +
-                      self.phase_derivative(idx, axis + 'z', axis + 'z', total_derivatives, phased_derivitives))
+        p_part = 2 * (self.phase_derivative(2 * axis, '', total_derivatives, phased_derivitives) +
+                      self.phase_derivative(axis, axis, total_derivatives, phased_derivitives))
+        x_part = 2 * (self.phase_derivative(2 * axis + 'x', 'x', total_derivatives, phased_derivitives) +
+                      self.phase_derivative('x' + axis, 'x' + axis, total_derivatives, phased_derivitives))
+        y_part = 2 * (self.phase_derivative(2 * axis + 'y', 'y', total_derivatives, phased_derivitives) +
+                      self.phase_derivative(ysort, ysort, total_derivatives, phased_derivitives))
+        z_part = 2 * (self.phase_derivative(2 * axis + 'z', 'z', total_derivatives, phased_derivitives) +
+                      self.phase_derivative(axis + 'z', axis + 'z', total_derivatives, phased_derivitives))
 
         return self.pressure_coefficient * p_part - self.gradient_coefficient * (x_part + y_part + z_part)
 
-    def phase_derivative(self, idx, der_1, der_2, total_derivatives, phased_derivatives):
+    def phase_derivative(self, der_1, der_2, total_derivatives, phased_derivatives):
         '''
         Calculates the partial derivative of a part of the objective function w.r.t. a single phase
         'der_1' and 'der_2' are strings with the two derivatives from the objective function
@@ -400,10 +411,11 @@ class gorkov_optimizer:
         p1 = total_derivatives[der_1]
         p2 = total_derivatives[der_2]
 
-        pi1 = phased_derivatives[der_1][idx]
-        pi2 = phased_derivatives[der_2][idx]
+        pi1 = phased_derivatives[der_1]
+        pi2 = phased_derivatives[der_2]
 
-        return p1.imag * pi2.real + p2.imag * pi1.real - p1.real * pi2.imag - p2.real * pi1.imag
+        return (p1 * np.conj(pi2) + p2 * np.conj(pi1)).imag
+        #return p1.imag * pi2.real + p2.imag * pi1.real - p1.real * pi2.imag - p2.real * pi1.imag
 
     def complex_dot(self, z1, z2):
         '''
