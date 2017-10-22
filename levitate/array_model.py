@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.linalg import norm
 from scipy.special import jn
-from scipy.optimize import minimize
+from scipy.optimize import minimize, basinhopping
 import logging
 
 logger = logging.getLogger(__name__)
@@ -241,6 +241,7 @@ class optimizer:
         else:
             self.array = array
         self.objective_list = []
+        self.basinhopping = False
 
     def __call__(self):
         # Initialize all parts of the objective function
@@ -249,9 +250,15 @@ class optimizer:
         # Basin hopping? Check number of iterations?
         # Return phases?
         self.initialize()
-        self.result = minimize(self.function, self.array.phases, jac=self.jacobian, callback=None,
-            method='L-BFGS-B', bounds=[(-3*np.pi, 3*np.pi)]*self.array.num_transducers, options={'gtol': 1e-7, 'ftol': 1e-12})
-            # method='BFGS', options={'return_all': True, 'gtol': 1e-5})
+        args = {'jac': self.jacobian,
+            'method': 'BFGS', 'options': {'return_all': False, 'gtol': 5e-5, 'norm': 2}}
+        if self.basinhopping:
+            self.result = basinhopping(self.function, self.array.phases, T=1e-6, minimizer_kwargs=args, disp=True)
+        else:
+            #self.result = minimize(self.function, self.array.phases, jac=self.jacobian, callback=None,
+                # method='L-BFGS-B', bounds=[(-3*np.pi, 3*np.pi)]*self.array.num_transducers, options={'gtol': 1e-7, 'ftol': 1e-12})
+            #    method='BFGS', options={'return_all': True, 'gtol': 1e-5, 'norm': 2})
+            self.result = minimize(self.function, self.array.phases, callback=None, **args)
         self.phases = self.result.x
 
     def function(self, phases):
