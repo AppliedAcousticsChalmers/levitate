@@ -27,7 +27,8 @@ class transducer_array:
     c = 343  # Speed of sound, shared between all instances
     rho = 1.2
 
-    def __init__(self, grid=None, transducer_size=10e-3, shape=16, freq=40e3):
+    def __init__(self, focus_point=[0, 0, 0.2], grid=None, transducer_size=10e-3, shape=16, freq=40e3):
+        self.focus_point = focus_point
         self.transducer_size = transducer_size
         self.freq = freq
         self.k = 2 * np.pi * self.freq / self.c
@@ -44,13 +45,13 @@ class transducer_array:
         self.amplitudes = np.ones(self.num_transducers)
         self.phases = np.zeros(self.num_transducers)
 
-    def set_focus(self, focus):
+    def focus_phases(self, focus):
         phase = np.empty(self.num_transducers)
         for idx in range(self.num_transducers):
             phase[idx] = -norm(self.transducer_positions[idx, :] - focus) * self.k
         phase = np.mod(phase + np.pi, 2 * np.pi) - np.pi  # Wrap phase to [-pi, pi]
-        self.focus_phase = phase
         self.focus_point = focus
+        return phase
         # WARNING: Setting the initial condition for the phases to have an actual pressure focus point
         # at the desired levitation point will cause the optimization to fail!
         # self.phases = phase  # TODO: This is temporary until a proper optimisation scheme has been developed
@@ -93,8 +94,13 @@ class transducer_array:
                 signature[idx] = 0
         return signature
 
-    def current_signature(self):
-        return np.mod(self.phases - self.focus_phase + np.pi, 2 * np.pi) - np.pi
+    def signature(self, phases=None, focus=None):
+        if phases is None:
+            phases = self.phases
+        if focus is None:
+            focus = self.focus_point
+        focus_phases = self.focus_phases(focus)
+        return np.mod(phases - focus_phases + np.pi, 2 * np.pi) - np.pi
 
     def calculate_pressure(self, point, transducer=None):
         '''
@@ -155,18 +161,157 @@ class transducer_array:
         spherical_part = self.spherical_spreading(transducer_id, receiver_position)
         return directional_part * spherical_part
 
+    def spatial_derivatives(self, focus, h=None):
+        '''
+        Calculate and set the spatial derivatives for each transducer.
+        These are the same regardless of the amplitude and phase of the transducers,
+        and remains constant throughout the optimization.
+        '''
+        # Pre-initialize dictionary with arrays
+        # TODO: enable selective calculation of the derivatives actually needed
+        num_trans = self.num_transducers
+        spatial_derivatives = {
+            '': np.empty(num_trans, complex),
+            'x': np.empty(num_trans, complex),
+            'y': np.empty(num_trans, complex),
+            'z': np.empty(num_trans, complex),
+            'xx': np.empty(num_trans, complex),
+            'yy': np.empty(num_trans, complex),
+            'zz': np.empty(num_trans, complex),
+            'xy': np.empty(num_trans, complex),
+            'xz': np.empty(num_trans, complex),
+            'yz': np.empty(num_trans, complex),
+            'xxx': np.empty(num_trans, complex),
+            'yyy': np.empty(num_trans, complex),
+            'zzz': np.empty(num_trans, complex),
+            'xxy': np.empty(num_trans, complex),
+            'xxz': np.empty(num_trans, complex),
+            'yyx': np.empty(num_trans, complex),
+            'yyz': np.empty(num_trans, complex),
+            'zzx': np.empty(num_trans, complex),
+            'zzy': np.empty(num_trans, complex)
+        }
+        for idx in range(num_trans):
+            # Derivatives of the omnidirectional green's function
+            difference = focus - self.transducer_positions[idx]
+            r = norm(difference)
+            kr = self.k * r
+            jkr = 1j * kr
+            phase = np.exp(jkr)
 
-class gorkov_optimizer:
+            # Zero derivatives (Pressure)
+            spatial_derivatives[''][idx] = phase / r
 
-    def __init__(self, array, c_sphere=2350, rho_sphere=1040, radius_sphere=1e-3):
-        # Default values for the speed of sound are from https://spiremt.com/support/SoundSpeedTable
-        # Polystyrene, longitudinal waves. I have no idea if this is correct or not
-        # The density is from google. Be aware that the density of polystyrene and styrofoam are radically different,
-        # styrofoam is more like 30!
+            # First order derivatives
+            coeff = (jkr - 1) * phase / r**3
+            spatial_derivatives['x'][idx] = difference[0] * coeff
+            spatial_derivatives['y'][idx] = difference[1] * coeff
+            spatial_derivatives['z'][idx] = difference[2] * coeff
+
+            # Second order derivatives
+            coeff = (3 - kr**2 - 3 * jkr) * phase / r**5
+            constant = (jkr - 1) * phase / r**3
+            spatial_derivatives['xx'][idx] = difference[0]**2 * coeff + constant
+            spatial_derivatives['yy'][idx] = difference[1]**2 * coeff + constant
+            spatial_derivatives['zz'][idx] = difference[2]**2 * coeff + constant
+            spatial_derivatives['xy'][idx] = difference[0] * difference[1] * coeff
+            spatial_derivatives['xz'][idx] = difference[0] * difference[2] * coeff
+            spatial_derivatives['yz'][idx] = difference[1] * difference[2] * coeff
+
+            # Third order derivatives
+            constant = (3 - 3 * jkr - kr**2) * phase / r**5
+            coeff = ((jkr - 1) * (15 - kr**2) + 5 * kr**2) * phase / r**7
+            spatial_derivatives['xxx'][idx] = difference[0] * (3 * constant + difference[0]**2 * coeff)
+            spatial_derivatives['yyy'][idx] = difference[1] * (3 * constant + difference[1]**2 * coeff)
+            spatial_derivatives['zzz'][idx] = difference[2] * (3 * constant + difference[2]**2 * coeff)
+            spatial_derivatives['xxy'][idx] = difference[1] * (constant + difference[0]**2 * coeff)
+            spatial_derivatives['xxz'][idx] = difference[2] * (constant + difference[0]**2 * coeff)
+            spatial_derivatives['yyx'][idx] = difference[0] * (constant + difference[1]**2 * coeff)
+            spatial_derivatives['yyz'][idx] = difference[2] * (constant + difference[1]**2 * coeff)
+            spatial_derivatives['zzx'][idx] = difference[0] * (constant + difference[2]**2 * coeff)
+            spatial_derivatives['zzy'][idx] = difference[1] * (constant + difference[2]**2 * coeff)
+
+        return spatial_derivatives
+
+class optimizer:
+
+    def __init__(self, array=None):
+        if array is None:
+            self.array = transducer_array()
+        else:
+            self.array = array
+        self.objective_list = []
+
+    def __call__(self):
+        # Initialize all parts of the objective function
+        # Assemble objective function and jacobian function
+        # Start optimization
+        # Basin hopping? Check number of iterations?
+        # Return phases?
+        self.initialize()
+        self.result = minimize(self.function, self.array.phases, jac=self.jacobian, callback=None,
+            method='L-BFGS-B', bounds=[(-3*np.pi, 3*np.pi)]*self.array.num_transducers, options={'gtol': 1e-7, 'ftol': 1e-12})
+            # method='BFGS', options={'return_all': True, 'gtol': 1e-5})
+        self.phases = self.result.x
+
+    def function(self, phases):
+        value = 0
+        for objective, weight in self.objective_list:
+            value += objective.function(phases) * weight
+        return value
+
+    def jacobian(self, phases):
+        value = np.zeros(self.array.num_transducers)
+        for objective, weight in self.objective_list:
+            value += objective.jacobian(phases) * weight
+        return value
+
+    def add_objective(self, objective, weight):
+        # TODO: Check that the object has the required methods
+        if type(objective) is type:
+            # Handed a class, initialise an instance with default parameters
+            objective = objective(self.array)
+        self.objective_list.append((objective, weight))
+
+    def initialize(self):
+        for objective, weight in self.objective_list:
+            objective.initialize()
+
+
+class pressure_point:
+
+    def __init__(self, array, focus=None):
         self.array = array
-        self.focus = array.focus_point  # TODO: This should be configurable from start
-        # Rationale: If we want multiple focus points the array does not have a single defined focus point
-        # but the Gor'Kov optimizer still only has a single focus point. (For now)
+        if focus is None:
+            self.focus = array.focus_point
+        else:
+            self.focus = focus
+
+    def initialize(self):
+        self.spatial_derivatives = self.array.spatial_derivatives(self.focus)
+
+    def function(self, phases):
+        return np.abs((np.exp(1j * phases) * self.spatial_derivatives['']).sum())**2
+
+    def jacobian(self, phases):
+        phase_coeff = np.exp(1j * phases)
+        phased_derivatives = phase_coeff * self.spatial_derivatives['']
+        total_derivative = np.sum(phased_derivatives)
+        return 2 * (total_derivative * np.conj(phased_derivatives)).imag
+
+
+class gorkov_laplacian:
+
+    def __init__(self, array, focus=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
+        # Table at https://spiremt.com/support/SoundSpeedTable states longitudinal
+        # wavespeed of Polystyrene at 2350 (Asier: 2400)
+        # The density of Polystyrene is 1040 (Google), but styrofoam is ~30 (Asier: 25)
+        self.array = array
+        if focus is None:
+            self.focus = array.focus_point
+        else:
+            self.focus = focus
+        # TODO: raise error if the focus point is not set
 
         self.c_sphere = c_sphere
         self.rho_sphere = rho_sphere
@@ -179,8 +324,10 @@ class gorkov_optimizer:
         self.pressure_weight = 1
         self.gradient_weights = (1, 1, 1)
 
-    def run(self):
-        logger.info('\n======== Starting minimisation procedure =========\n')
+    def initialize(self):
+        '''
+        Prepare for running optimization
+        '''
         V = 4 / 3 * np.pi * self.radius_sphere**3
         self.pressure_coefficient = V / 2 * self.rho_air * (1/(self.rho_air * self.c_air**2) - 1/(self.rho_sphere * self.c_sphere**2))
         c1 = 3 / 2 * V / (2 * np.pi * self.array.freq)**2 / self.rho_air
@@ -190,18 +337,143 @@ class gorkov_optimizer:
         self.total_evals = 0
         self.previous_phase = self.array.phases
         self.phase_list = []
-        self.initialize_spatial_derivatives()
+        self.spatial_derivatives = self.array.spatial_derivatives(self.focus)
 
-        def callback(x):
-            #self.phase_list.append(x)
-            #tmp = np.mod(x + np.pi, 2 * np.pi)
-            #np.subtract(tmp, np.pi, out=x)
-            logger.debug('{}'.format(x))
-            #x = np.mod(x + np.pi, 2 * np.pi) - np.pi
-        self.result = minimize(self.objective_function, self.array.phases, jac=self.objective_jacobian, callback=None,
-            #method='L-BFGS-B', bounds=[(-3*np.pi, 3*np.pi)]*self.array.num_transducers, options={'gtol': 1e-9, 'ftol': 1e-15})
-            method='BFGS', options={'return_all': True})
-        self.array.phases = self.result.x
+    def function(self, phases):
+        # TODO: Move the addition of pressure - Gor'kov laplacian to a higher level optimizer
+        # The higher level optimizer is then only responsible for assebling an objective function and the derivatives
+        # Use sub-functions to calculate the different parts of the objective function, e.g. one function for the Gor'kov laplacian
+        # and its derivatives, an another function for a pressure focus point and its derivatives.
+        # This would result in higher flexibility since an objective function can be built by disjoint parts.
+        # This could be done using a separate class instance for every 'feature' in the objective function, e.g. one instance for
+        # maximising the Gor'kov laplacian, some more instances for minimizing/maximising the pressure at some locations.
+        # This results in a small optimizer class that 'owns/shares' instances connected to 'features' in the objective function.
+        self.objective_evals += 1
+        self.total_evals += 1
+        logger.info('Objective function call {}:\tPhase difference: RMS = {:.4e}\t Max = {:.4e}'.format(self.objective_evals, np.sqrt(np.mean((phases - self.previous_phase)**2)), np.max(np.abs(phases - self.previous_phase))))
+        self.previous_phase = phases
+
+        phase_coeff = np.exp(1j * phases)
+        total_derivatives = {}
+        for key, value in self.spatial_derivatives.items():
+            total_derivatives[key] = np.sum(phase_coeff * value)
+
+        p_part = total_derivatives['']
+        x_part = self.laplacian_axis('x', total_derivatives)
+        y_part = self.laplacian_axis('y', total_derivatives)
+        z_part = self.laplacian_axis('z', total_derivatives)
+
+        wx, wy, wz = self.gradient_weights
+        wp = self.pressure_weight
+
+        value = wp * np.abs(p_part)**2 - wx * x_part - wy * y_part - wz * z_part
+
+        logger.debug('\tPressure contribution: {:.6e}'.format(wp * np.abs(p_part)**2))
+        logger.debug('\tUxx contribution: {:.6e}'.format(-wx * x_part))
+        logger.debug('\tUyy contribution: {:.6e}'.format(-wy * y_part))
+        logger.debug('\tUzz contribution: {:.6e}'.format(-wz * z_part))
+
+        return value
+
+    def jacobian(self, phases):
+        self.jacobian_evals += 1
+        self.total_evals += 1
+        logger.info('Jacobian function call {}:\tPhase difference: RMS = {:.4e}\t Max = {:.4e}'.format(self.jacobian_evals, np.sqrt(np.mean((phases - self.previous_phase)**2)), np.max(np.abs(phases - self.previous_phase))))
+        self.previous_phase = phases
+
+        phase_coeff = np.exp(1j * phases)
+        phased_derivatives = {}
+        total_derivatives = {}
+        for key, value in self.spatial_derivatives.items():
+            phased_derivatives[key] = phase_coeff * value
+            total_derivatives[key] = np.sum(phased_derivatives[key])
+
+        wx, wy, wz = self.gradient_weights
+        wp = self.pressure_weight
+
+        p_part = self.phase_derivative('', '', total_derivatives, phased_derivatives)
+        x_part = self.laplacian_axis_derivative('x', total_derivatives, phased_derivatives)
+        y_part = self.laplacian_axis_derivative('y', total_derivatives, phased_derivatives)
+        z_part = self.laplacian_axis_derivative('z', total_derivatives, phased_derivatives)
+
+        derivatives = wp * p_part - wx * x_part - wy * y_part - wz * z_part
+
+        return derivatives
+
+    def laplacian_axis(self, axis, total_derivatives):
+        '''
+        Calculates a part of the Gor'kov Laplacian, along the specified axis
+
+        'axis': a single character 'x', 'y', or 'z'
+        '''
+
+        p = total_derivatives['']
+        pa = total_derivatives[axis]
+        paa = total_derivatives[2 * axis]
+
+        px = total_derivatives['x']
+        py = total_derivatives['y']
+        pz = total_derivatives['z']
+
+        pax = total_derivatives['x' + axis]
+        pay = total_derivatives[''.join(sorted(axis + 'y'))]  # ''.join(sorted(axis + 'y')) always give xy, yy, yz
+        paz = total_derivatives[axis + 'z']
+
+        paax = total_derivatives[2 * axis + 'x']
+        paay = total_derivatives[2 * axis + 'y']
+        paaz = total_derivatives[2 * axis + 'z']
+
+        # Calculate individual parts
+        p_part = 2 * (self.complex_dot(paa , p ) + self.complex_dot(pa , pa ))
+        x_part = 2 * (self.complex_dot(paax, px) + self.complex_dot(pax, pax))
+        y_part = 2 * (self.complex_dot(paay, py) + self.complex_dot(pay, pay))
+        z_part = 2 * (self.complex_dot(paaz, pz) + self.complex_dot(paz, paz))
+
+        logger.debug("\tGor'Kov Laplacian along {}-axis:".format(axis))
+        logger.debug('\t\tp contribution is: {:.6e}'.format(self.pressure_coefficient * p_part))
+        logger.debug('\t\tx contribution is: {:.6e}'.format(- self.gradient_coefficient * x_part))
+        logger.debug('\t\ty contribution is: {:.6e}'.format(- self.gradient_coefficient * y_part))
+        logger.debug('\t\tz contribution is: {:.6e}'.format(- self.gradient_coefficient * z_part))
+
+        return self.pressure_coefficient * p_part - self.gradient_coefficient * (x_part + y_part + z_part)
+
+    def laplacian_axis_derivative(self, axis, total_derivatives, phased_derivitives):
+        '''
+        Calculates the derivative of the Gor'kov laplacian along an axis, w.r.t. the phase of a single transducer
+        '''
+        ysort = ''.join(sorted(axis + 'y'))  # ''.join(sorted(axis + 'y')) always give xy, yy, yz
+        p_part = 2 * (self.phase_derivative(2 * axis, '', total_derivatives, phased_derivitives) +
+                      self.phase_derivative(axis, axis, total_derivatives, phased_derivitives))
+        x_part = 2 * (self.phase_derivative(2 * axis + 'x', 'x', total_derivatives, phased_derivitives) +
+                      self.phase_derivative('x' + axis, 'x' + axis, total_derivatives, phased_derivitives))
+        y_part = 2 * (self.phase_derivative(2 * axis + 'y', 'y', total_derivatives, phased_derivitives) +
+                      self.phase_derivative(ysort, ysort, total_derivatives, phased_derivitives))
+        z_part = 2 * (self.phase_derivative(2 * axis + 'z', 'z', total_derivatives, phased_derivitives) +
+                      self.phase_derivative(axis + 'z', axis + 'z', total_derivatives, phased_derivitives))
+
+        return self.pressure_coefficient * p_part - self.gradient_coefficient * (x_part + y_part + z_part)
+
+    def complex_dot(self, z1, z2):
+        '''
+        Calculate the "complex dot product" defined as
+            Re(z1) Re(z2) + Im(z1) Im(z2)
+        '''
+        return z1.real * z2.real + z1.imag * z2.imag
+
+    def phase_derivative(self, der_1, der_2, total_derivatives, phased_derivatives):
+        '''
+        Calculates the partial derivative of a part of the objective function w.r.t. a single phase
+        'der_1' and 'der_2' are strings with the two derivatives from the objective function
+        '''
+
+        p1 = total_derivatives[der_1]
+        p2 = total_derivatives[der_2]
+
+        pi1 = phased_derivatives[der_1]
+        pi2 = phased_derivatives[der_2]
+
+        return (p1 * np.conj(pi2) + p2 * np.conj(pi1)).imag
+        #return p1.imag * pi2.real + p2.imag * pi1.real - p1.real * pi2.imag - p2.real * pi1.imag
 
     def initialize_spatial_derivatives(self):
         '''
@@ -273,204 +545,55 @@ class gorkov_optimizer:
             self.spatial_derivatives['zzx'][idx] = difference[0] * (constant + difference[2]**2 * coeff)
             self.spatial_derivatives['zzy'][idx] = difference[1] * (constant + difference[2]**2 * coeff)
 
-    def objective_function(self, phases):
-        # TODO: Move the addition of pressure - Gor'kov laplacian to a higher level optimizer
-        # The higher level optimizer is then only responsible for assebling an objective function and the derivatives
-        # Use sub-functions to calculate the different parts of the objective function, e.g. one function for the Gor'kov laplacian
-        # and its derivatives, an another function for a pressure focus point and its derivatives.
-        # This would result in higher flexibility since an objective function can be built by disjoint parts.
-        # This could be done using a separate class instance for every 'feature' in the objective function, e.g. one instance for
-        # maximising the Gor'kov laplacian, some more instances for minimizing/maximising the pressure at some locations.
-        # This results in a small optimizer class that 'owns/shares' instances connected to 'features' in the objective function.
-        self.objective_evals += 1
-        self.total_evals += 1
-        logger.info('Objective function call {}:\tPhase difference: RMS = {:.4e}\t Max = {:.4e}'.format(self.objective_evals, np.sqrt(np.mean((phases - self.previous_phase)**2)), np.max(np.abs(phases - self.previous_phase))))
-        self.previous_phase = phases
 
-        phase_coeff = np.exp(1j * phases)
-        #phased_derivatives = {}
-        total_derivatives = {}
-        for key, value in self.spatial_derivatives.items():
-            #phased_derivatives[key] = phase_coeff * value
-            total_derivatives[key] = np.sum(phase_coeff * value)
 
-        p_part = total_derivatives['']
-        x_part = self.gorkov_laplacian('x', total_derivatives)
-        y_part = self.gorkov_laplacian('y', total_derivatives)
-        z_part = self.gorkov_laplacian('z', total_derivatives)
+    # def calculate_pressure_matrix(self):
+    #     '''
+    #     Calculates the pressure from all the individual transducers at the points required in the finite difference scheme
+    #     '''
+    #     mid_point = self.array.focus_point
 
-        wx, wy, wz = self.gradient_weights
-        wp = self.pressure_weight
+    #     x, y, z = np.mgrid[-1:2, -1:2, -1:2]
+    #     inner = np.stack((x.ravel(), y.ravel(), z.ravel()), axis=1)
+    #     outer = np.array([[-2, 0, 0], [2, 0, 0], [0, -2, 0], [0, 2, 0], [0, 0, -2], [0, 0, 2]])
 
-        value = wp * np.abs(p_part)**2 - wx * x_part - wy * y_part - wz * z_part
+    #     points = np.concatenate((inner, outer), axis=0) * self.diff_step + mid_point
 
-        logger.debug('\tPressure contribution: {:.6e}'.format(wp * np.abs(p_part)**2))
-        logger.debug('\tUxx contribution: {:.6e}'.format(-wx * x_part))
-        logger.debug('\tUyy contribution: {:.6e}'.format(-wy * y_part))
-        logger.debug('\tUzz contribution: {:.6e}'.format(-wz * z_part))
+    #     self.transducer_pressures = np.empty((self.array.num_transducers, 33), dtype='complex128')
+    #     for idx in range(self.array.num_transducers):
+    #         self.transducer_pressures[idx] = self.array.calculate_pressure(points, idx)
+    #     self.total_pressure = np.sum(self.transducer_pressures, axis=0)
 
-        # derivatives = np.zeros(self.array.num_transducers)
-        # for idx in range(self.array.num_transducers):
-        #     dp = self.phase_derivative(idx, '', '', total_derivatives, phased_derivatives)
-        #     duxx = self.gorkov_laplacian_derivative('x', idx, total_derivatives, phased_derivatives)
-        #     duyy = self.gorkov_laplacian_derivative('y', idx, total_derivatives, phased_derivatives)
-        #     duzz = self.gorkov_laplacian_derivative('z', idx, total_derivatives, phased_derivatives)
-
-        #     derivatives[idx] = wp * dp - wx * duxx - wy * duyy - wz * duzz
-
-        return value #, derivatives
-
-    def gorkov_laplacian(self, axis, total_derivatives):
-        '''
-        Calculates a part of the Gor'kov Laplacian, along the specified axis
-
-        'axis': a single character 'x', 'y', or 'z'
-        '''
-
-        p = total_derivatives['']
-        pa = total_derivatives[axis]
-        paa = total_derivatives[2 * axis]
-
-        px = total_derivatives['x']
-        py = total_derivatives['y']
-        pz = total_derivatives['z']
-
-        pax = total_derivatives['x' + axis]
-        pay = total_derivatives[''.join(sorted(axis + 'y'))]  # ''.join(sorted(axis + 'y')) always give xy, yy, yz
-        paz = total_derivatives[axis + 'z']
-
-        paax = total_derivatives[2 * axis + 'x']
-        paay = total_derivatives[2 * axis + 'y']
-        paaz = total_derivatives[2 * axis + 'z']
-
-        # Calculate individual parts
-        p_part = 2 * (self.complex_dot(paa , p ) + self.complex_dot(pa , pa ))
-        x_part = 2 * (self.complex_dot(paax, px) + self.complex_dot(pax, pax))
-        y_part = 2 * (self.complex_dot(paay, py) + self.complex_dot(pay, pay))
-        z_part = 2 * (self.complex_dot(paaz, pz) + self.complex_dot(paz, paz))
-
-        logger.debug("\tGor'Kov Laplacian along {}-axis:".format(axis))
-        logger.debug('\t\tp contribution is: {:.6e}'.format(self.pressure_coefficient * p_part))
-        logger.debug('\t\tx contribution is: {:.6e}'.format(- self.gradient_coefficient * x_part))
-        logger.debug('\t\ty contribution is: {:.6e}'.format(- self.gradient_coefficient * y_part))
-        logger.debug('\t\tz contribution is: {:.6e}'.format(- self.gradient_coefficient * z_part))
-
-        #set_trace()
-        return self.pressure_coefficient * p_part - self.gradient_coefficient * (x_part + y_part + z_part)
-
-    def objective_jacobian(self, phases):
-        self.jacobian_evals += 1
-        self.total_evals += 1
-        logger.info('Jacobian function call {}:\tPhase difference: RMS = {:.4e}\t Max = {:.4e}'.format(self.jacobian_evals, np.sqrt(np.mean((phases - self.previous_phase)**2)), np.max(np.abs(phases - self.previous_phase))))
-        #logger.info('\tPhase difference: RMS = {:.4e}\t Max = {:.4e}'.format(np.sqrt(np.mean((phases - self.previous_phase)**2)), np.max(np.abs(phases - self.previous_phase)) ))
-        self.previous_phase = phases
-
-        phase_coeff = np.exp(1j * phases)
-        phased_derivatives = {}
-        total_derivatives = {}
-        for key, value in self.spatial_derivatives.items():
-            phased_derivatives[key] = phase_coeff * value
-            total_derivatives[key] = np.sum(phased_derivatives[key])
-
-        wx, wy, wz = self.gradient_weights
-        wp = self.pressure_weight
-
-        #derivatives = np.zeros(self.array.num_transducers)
-        #for idx in range(self.array.num_transducers):
-        p_part = self.phase_derivative('', '', total_derivatives, phased_derivatives)
-        x_part = self.gorkov_laplacian_derivative('x', total_derivatives, phased_derivatives)
-        y_part = self.gorkov_laplacian_derivative('y', total_derivatives, phased_derivatives)
-        z_part = self.gorkov_laplacian_derivative('z', total_derivatives, phased_derivatives)
-
-        derivatives = wp * p_part - wx * x_part - wy * y_part - wz * z_part
-
-        return derivatives
-
-    def gorkov_laplacian_derivative(self, axis, total_derivatives, phased_derivitives):
-        '''
-        Calculates the derivative of the Gor'kov laplacian along an axis, w.r.t. the phase of a single transducer
-        '''
-        ysort = ''.join(sorted(axis + 'y'))  # ''.join(sorted(axis + 'y')) always give xy, yy, yz
-        p_part = 2 * (self.phase_derivative(2 * axis, '', total_derivatives, phased_derivitives) +
-                      self.phase_derivative(axis, axis, total_derivatives, phased_derivitives))
-        x_part = 2 * (self.phase_derivative(2 * axis + 'x', 'x', total_derivatives, phased_derivitives) +
-                      self.phase_derivative('x' + axis, 'x' + axis, total_derivatives, phased_derivitives))
-        y_part = 2 * (self.phase_derivative(2 * axis + 'y', 'y', total_derivatives, phased_derivitives) +
-                      self.phase_derivative(ysort, ysort, total_derivatives, phased_derivitives))
-        z_part = 2 * (self.phase_derivative(2 * axis + 'z', 'z', total_derivatives, phased_derivitives) +
-                      self.phase_derivative(axis + 'z', axis + 'z', total_derivatives, phased_derivitives))
-
-        return self.pressure_coefficient * p_part - self.gradient_coefficient * (x_part + y_part + z_part)
-
-    def phase_derivative(self, der_1, der_2, total_derivatives, phased_derivatives):
-        '''
-        Calculates the partial derivative of a part of the objective function w.r.t. a single phase
-        'der_1' and 'der_2' are strings with the two derivatives from the objective function
-        '''
-
-        p1 = total_derivatives[der_1]
-        p2 = total_derivatives[der_2]
-
-        pi1 = phased_derivatives[der_1]
-        pi2 = phased_derivatives[der_2]
-
-        return (p1 * np.conj(pi2) + p2 * np.conj(pi1)).imag
-        #return p1.imag * pi2.real + p2.imag * pi1.real - p1.real * pi2.imag - p2.real * pi1.imag
-
-    def complex_dot(self, z1, z2):
-        '''
-        Calculate the "complex dot product" defined as
-            Re(z1) Re(z2) + Im(z1) Im(z2)
-        '''
-        return z1.real * z2.real + z1.imag * z2.imag
-
-    def calculate_pressure_matrix(self):
-        '''
-        Calculates the pressure from all the individual transducers at the points required in the finite difference scheme
-        '''
-        mid_point = self.array.focus_point
-
-        x, y, z = np.mgrid[-1:2, -1:2, -1:2]
-        inner = np.stack((x.ravel(), y.ravel(), z.ravel()), axis=1)
-        outer = np.array([[-2, 0, 0], [2, 0, 0], [0, -2, 0], [0, 2, 0], [0, 0, -2], [0, 0, 2]])
-
-        points = np.concatenate((inner, outer), axis=0) * self.diff_step + mid_point
-
-        self.transducer_pressures = np.empty((self.array.num_transducers, 33), dtype='complex128')
-        for idx in range(self.array.num_transducers):
-            self.transducer_pressures[idx] = self.array.calculate_pressure(points, idx)
-        self.total_pressure = np.sum(self.transducer_pressures, axis=0)
-
-    zero_order_coefficients = {'': ([13], [1])}
-    first_order_coefficients = {
-        'x': ([22, 4], [0.5, -0.5]),
-        'y': ([16, 10], [0.5, -0.5]),
-        'z': ([14, 12], [0.5, -0.5])
-    }
-    second_order_coefficients = {  # Duplicates are needed since the key access varies
-        'xx': ([22, 13, 4], [1, -2, 1]),
-        'xy': ([25, 2, 19, 7], [0.25, 0.25, -0.25, -0.25]),
-        'xz': ([23, 3, 21, 5], [0.25, 0.25, -0.25, -0.25]),
-        'yx': ([25, 2, 19, 7], [0.25, 0.25, -0.25, -0.25]),
-        'yy': ([16, 13, 10], [1, -2, 1]),
-        'yz': ([17, 9, 15, 11], [0.25, 0.25, -0.25, -0.25]),
-        'zx': ([23, 3, 21, 5], [0.25, 0.25, -0.25, -0.25]),
-        'zy': ([17, 9, 15, 11], [0.25, 0.25, -0.25, -0.25]),
-        'zz': ([14, 13, 12], [1, -2, 1]),
-    }
-    third_order_coefficients = {
-        'xxx': ([28, 27, 22, 4], [0.5, -0.5, -1, 1]),
-        'xxy': ([25, 1, 19, 7, 16, 10], [0.5, -0.5, -0.5, 0.5, -1, 1]),
-        'xxz': ([23, 3, 21, 5, 14, 12], [0.5, -0.5, -0.5, 0.5, -1, 1]),
-        'yyx': ([25, 1, 7, 19, 22, 4], [0.5, -0.5, -0.5, 0.5, -1, 1]),
-        'yyy': ([30, 29, 16, 10], [0.5, -0.5, -1, 1]),
-        'yyz': ([17, 9, 15, 11, 14, 12], [0.5, -0.5, -0.5, 0.5, -1, 1]),
-        'zzx': ([23, 3, 5, 21, 22, 4], [0.5, -0.5, -0.5, 0.5, -1, 1]),
-        'zzy': ([17, 9, 11, 15, 16, 10], [0.5, -0.5, -0.5, 0.5, -1, 1]),
-        'zzz': ([32, 31, 14, 12], [0.25, -0.25, -1, 1])
-    }
-    finite_difference_coefficients = {**zero_order_coefficients, **first_order_coefficients,
-                                      **second_order_coefficients, **third_order_coefficients}
+    # zero_order_coefficients = {'': ([13], [1])}
+    # first_order_coefficients = {
+    #     'x': ([22, 4], [0.5, -0.5]),
+    #     'y': ([16, 10], [0.5, -0.5]),
+    #     'z': ([14, 12], [0.5, -0.5])
+    # }
+    # second_order_coefficients = {  # Duplicates are needed since the key access varies
+    #     'xx': ([22, 13, 4], [1, -2, 1]),
+    #     'xy': ([25, 2, 19, 7], [0.25, 0.25, -0.25, -0.25]),
+    #     'xz': ([23, 3, 21, 5], [0.25, 0.25, -0.25, -0.25]),
+    #     'yx': ([25, 2, 19, 7], [0.25, 0.25, -0.25, -0.25]),
+    #     'yy': ([16, 13, 10], [1, -2, 1]),
+    #     'yz': ([17, 9, 15, 11], [0.25, 0.25, -0.25, -0.25]),
+    #     'zx': ([23, 3, 21, 5], [0.25, 0.25, -0.25, -0.25]),
+    #     'zy': ([17, 9, 15, 11], [0.25, 0.25, -0.25, -0.25]),
+    #     'zz': ([14, 13, 12], [1, -2, 1]),
+    # }
+    # third_order_coefficients = {
+    #     'xxx': ([28, 27, 22, 4], [0.5, -0.5, -1, 1]),
+    #     'xxy': ([25, 1, 19, 7, 16, 10], [0.5, -0.5, -0.5, 0.5, -1, 1]),
+    #     'xxz': ([23, 3, 21, 5, 14, 12], [0.5, -0.5, -0.5, 0.5, -1, 1]),
+    #     'yyx': ([25, 1, 7, 19, 22, 4], [0.5, -0.5, -0.5, 0.5, -1, 1]),
+    #     'yyy': ([30, 29, 16, 10], [0.5, -0.5, -1, 1]),
+    #     'yyz': ([17, 9, 15, 11, 14, 12], [0.5, -0.5, -0.5, 0.5, -1, 1]),
+    #     'zzx': ([23, 3, 5, 21, 22, 4], [0.5, -0.5, -0.5, 0.5, -1, 1]),
+    #     'zzy': ([17, 9, 11, 15, 16, 10], [0.5, -0.5, -0.5, 0.5, -1, 1]),
+    #     'zzz': ([32, 31, 14, 12], [0.25, -0.25, -1, 1])
+    # }
+    # finite_difference_coefficients = {**zero_order_coefficients, **first_order_coefficients,
+    #                                   **second_order_coefficients, **third_order_coefficients}
 
     '''
     def zero_order_coefficients():
