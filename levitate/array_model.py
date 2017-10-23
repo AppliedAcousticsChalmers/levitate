@@ -400,9 +400,19 @@ class gorkov_laplacian:
         Prepare for running optimization
         '''
         V = 4 / 3 * np.pi * self.radius_sphere**3
-        self.pressure_coefficient = V / 2 * self.rho_air * (1/(self.rho_air * self.c_air**2) - 1/(self.rho_sphere * self.c_sphere**2))
-        c1 = 3 / 2 * V / (2 * np.pi * self.array.freq)**2 / self.rho_air
-        self.gradient_coefficient = c1 * (self.rho_sphere - self.rho_air) / (2 * self.rho_sphere + self.rho_air)
+        compressibility_air = 1 / (self.rho_air * self.c_air**2)
+        compressibility_sphere = 1 / (self.rho_sphere * self.c_sphere**2)
+        monopole_coefficient = 1 - compressibility_sphere / compressibility_air  # f_1 in H. Bruus 2012
+        dipole_coefficient = 2 * (self.rho_sphere / self.rho_air - 1) / (2 * self.rho_sphere / self.rho_air + 1)   # f_2 in H. Bruus 2012
+        preToVel = 1/(2*np.pi*self.array.freq * self.rho_air)  # Converting velocity to pressure gradient using equation of motion
+
+        self.pressure_coefficient = V / 2 * compressibility_air * monopole_coefficient
+        self.gradient_coefficient = V * 3 / 4 * dipole_coefficient * preToVel**2 * self.rho_air
+
+        # self.pressure_coefficient = V / 2 * (1/(self.rho_air * self.c_air**2) - 1/(self.rho_sphere * self.c_sphere**2))
+        # c1 = 3 / 2 * V / (2 * np.pi * self.array.freq)**2 / self.rho_air
+        # self.gradient_coefficient = c1 * (self.rho_sphere - self.rho_air) / (2 * self.rho_sphere + self.rho_air)
+
         self.objective_evals = 0
         self.jacobian_evals = 0
         self.total_evals = 0
