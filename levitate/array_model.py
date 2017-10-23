@@ -3,6 +3,7 @@ from numpy.linalg import norm
 from scipy.special import jn
 from scipy.optimize import minimize, basinhopping
 import logging
+from itertools import permutations
 
 logger = logging.getLogger(__name__)
 
@@ -251,9 +252,9 @@ class optimizer:
         # Return phases?
         self.initialize()
         args = {'jac': self.jacobian,
-            'method': 'BFGS', 'options': {'return_all': False, 'gtol': 5e-5, 'norm': 2}}
+            'method': 'BFGS', 'options': {'return_all': False, 'gtol': 5e-5, 'norm': 2, 'disp': True}}
         if self.basinhopping:
-            self.result = basinhopping(self.function, self.array.phases, T=1e-6, minimizer_kwargs=args, disp=True)
+            self.result = basinhopping(self.function, self.array.phases, T=1e-5, minimizer_kwargs=args, disp=True)
         else:
             #self.result = minimize(self.function, self.array.phases, jac=self.jacobian, callback=None,
                 # method='L-BFGS-B', bounds=[(-3*np.pi, 3*np.pi)]*self.array.num_transducers, options={'gtol': 1e-7, 'ftol': 1e-12})
@@ -286,25 +287,88 @@ class optimizer:
 
 
 class pressure_point:
+    '''
+    A class used to minimize pressure in a small region.
+    The objective funciton is to minimize both pressure and pressure gradient.
+    '''
 
-    def __init__(self, array, focus=None):
+    def __init__(self, array, focus=None, order=None, radius=0):
         self.array = array
         if focus is None:
             self.focus = array.focus_point
         else:
             self.focus = focus
+        self.order = order
+        self.radius = radius
+        self.gradient_weights = (1, 1, 1)
 
     def initialize(self):
         self.spatial_derivatives = self.array.spatial_derivatives(self.focus)
+        self.gradient_normalization = self.array.k * norm(self.focus - np.mean(self.array.transducer_positions, axis=0))
+        # TODO: Different radius of the different orders?
+        # TODO: Different weights for the different radius?
+        # TODO: Lebedev grids?
+        # TODO: Fibonacci spiral on sphere?
+        if self.order is not None and self.radius > 0:
+            extra_points = set()
+            if self.order >= 1:
+                extra_points = extra_points.union(set(permutations([1, 0, 0])))
+                extra_points = extra_points.union(set(permutations([-1, 0, 0])))
+            if self.order >= 2:
+                extra_points = extra_points.union(set(permutations([1, 1, 1])))
+                extra_points = extra_points.union(set(permutations([1, 1, -1])))
+                extra_points = extra_points.union(set(permutations([1, -1, -1])))
+                extra_points = extra_points.union(set(permutations([-1, -1, -1])))
+            self.extra_points = []
+            for point in extra_points:
+                diff = np.array(point)
+                focus = diff / norm(diff) * self.radius + self.focus
+                p_point = pressure_point(self.array, focus=focus, order=None)
+                p_point.gradient_weights = self.gradient_weights
+                self.extra_points.append(p_point)
+
+            # Loop through orders from 1 and up
+            # Add new grid points each order to the list of poins
+            # Scale with radius and shift with focus
+            # Create a bunch of new pressure_point and initialize them
+            # Add the new pressure_points along with weights to a list that
+            # should be evaluated in the function and jacobian.
 
     def function(self, phases):
-        return np.abs((np.exp(1j * phases) * self.spatial_derivatives['']).sum())**2
+        phase_coeff = np.exp(1j * phases)
+        p_part = np.abs((phase_coeff * self.spatial_derivatives['']).sum())**2
+        x_part = np.abs((phase_coeff * self.spatial_derivatives['x']).sum())**2
+        y_part = np.abs((phase_coeff * self.spatial_derivatives['y']).sum())**2
+        z_part = np.abs((phase_coeff * self.spatial_derivatives['z']).sum())**2
+
+        wx, wy, wz = self.gradient_weights
+        value = p_part + (wx * x_part + wy * y_part + wz * z_part)/self.gradient_normalization
+
+        if self.order is not None:
+            for p_point in self.extra_points:
+                value += p_point.function(phases)
+        return value
 
     def jacobian(self, phases):
         phase_coeff = np.exp(1j * phases)
-        phased_derivatives = phase_coeff * self.spatial_derivatives['']
-        total_derivative = np.sum(phased_derivatives)
-        return 2 * (total_derivative * np.conj(phased_derivatives)).imag
+        phased_derivatives = {}
+        total_derivatives = {}
+        for key, value in self.spatial_derivatives.items():
+            phased_derivatives[key] = phase_coeff * value
+            total_derivatives[key] = np.sum(phased_derivatives[key])
+        # TODO: Check that this actually works for the gradient parts
+        p_part = 2 * (total_derivatives[''] * np.conj(phased_derivatives[''])).imag
+        x_part = 2 * (total_derivatives['x'] * np.conj(phased_derivatives['x'])).imag
+        y_part = 2 * (total_derivatives['y'] * np.conj(phased_derivatives['y'])).imag
+        z_part = 2 * (total_derivatives['z'] * np.conj(phased_derivatives['z'])).imag
+
+        wx, wy, wz = self.gradient_weights
+        values = p_part + (wx * x_part + wy * y_part + wz * z_part) / self.gradient_normalization
+
+        if self.order is not None:
+            for p_point in self.extra_points:
+                values += p_point.jacobian(phases)
+        return values
 
 
 class gorkov_laplacian:
