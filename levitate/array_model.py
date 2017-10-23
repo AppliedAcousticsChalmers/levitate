@@ -476,6 +476,7 @@ class gorkov_laplacian:
         x_part = self.laplacian_axis_derivative('x', total_derivatives, phased_derivatives)
         y_part = self.laplacian_axis_derivative('y', total_derivatives, phased_derivatives)
         z_part = self.laplacian_axis_derivative('z', total_derivatives, phased_derivatives)
+        p_part = 2 * (total_derivatives[''] * np.conj(phased_derivatives[''])).imag
 
         derivatives = wp * p_part - wx * x_part - wy * y_part - wz * z_part
 
@@ -504,11 +505,17 @@ class gorkov_laplacian:
         paay = total_derivatives[2 * axis + 'y']
         paaz = total_derivatives[2 * axis + 'z']
 
-        # Calculate individual parts
-        p_part = 2 * (self.complex_dot(paa , p ) + self.complex_dot(pa , pa ))
-        x_part = 2 * (self.complex_dot(paax, px) + self.complex_dot(pax, pax))
-        y_part = 2 * (self.complex_dot(paay, py) + self.complex_dot(pay, pay))
-        z_part = 2 * (self.complex_dot(paaz, pz) + self.complex_dot(paz, paz))
+        # Calculate individual parts (old method)
+        # p_part = 2 * (self.complex_dot(paa , p ) + self.complex_dot(pa , pa ))
+        # x_part = 2 * (self.complex_dot(paax, px) + self.complex_dot(pax, pax))
+        # y_part = 2 * (self.complex_dot(paay, py) + self.complex_dot(pay, pay))
+        # z_part = 2 * (self.complex_dot(paaz, pz) + self.complex_dot(paz, paz))
+
+        # Calculate individual parts (new method)
+        p_part = 2 * (paa * np.conj(p) + pa * np.conj(pa)).real
+        x_part = 2 * (paax * np.conj(px) + pax * np.conj(pax)).real
+        y_part = 2 * (paay * np.conj(py) + pay * np.conj(pay)).real
+        z_part = 2 * (paaz * np.conj(pz) + paz * np.conj(paz)).real
 
         logger.debug("\tGor'Kov Laplacian along {}-axis:".format(axis))
         logger.debug('\t\tp contribution is: {:.6e}'.format(self.pressure_coefficient * p_part))
@@ -518,27 +525,71 @@ class gorkov_laplacian:
 
         return self.pressure_coefficient * p_part - self.gradient_coefficient * (x_part + y_part + z_part)
 
-    def laplacian_axis_derivative(self, axis, total_derivatives, phased_derivitives):
+    def laplacian_axis_derivative(self, axis, total_derivatives, phased_derivatives):
         '''
         Calculates the derivative of the Gor'kov laplacian along an axis, w.r.t. the phase of a single transducer
         '''
         ysort = ''.join(sorted(axis + 'y'))  # ''.join(sorted(axis + 'y')) always give xy, yy, yz
-        p_part = 2 * (self.phase_derivative(2 * axis, '', total_derivatives, phased_derivitives) +
-                      self.phase_derivative(axis, axis, total_derivatives, phased_derivitives))
-        x_part = 2 * (self.phase_derivative(2 * axis + 'x', 'x', total_derivatives, phased_derivitives) +
-                      self.phase_derivative('x' + axis, 'x' + axis, total_derivatives, phased_derivitives))
-        y_part = 2 * (self.phase_derivative(2 * axis + 'y', 'y', total_derivatives, phased_derivitives) +
-                      self.phase_derivative(ysort, ysort, total_derivatives, phased_derivitives))
-        z_part = 2 * (self.phase_derivative(2 * axis + 'z', 'z', total_derivatives, phased_derivitives) +
-                      self.phase_derivative(axis + 'z', axis + 'z', total_derivatives, phased_derivitives))
+        # p_part = 2 * (self.phase_derivative(2 * axis, '', total_derivatives, phased_derivatives) +
+        #               self.phase_derivative(axis, axis, total_derivatives, phased_derivatives))
+        # x_part = 2 * (self.phase_derivative(2 * axis + 'x', 'x', total_derivatives, phased_derivatives) +
+        #               self.phase_derivative('x' + axis, 'x' + axis, total_derivatives, phased_derivatives))
+        # y_part = 2 * (self.phase_derivative(2 * axis + 'y', 'y', total_derivatives, phased_derivatives) +
+        #               self.phase_derivative(ysort, ysort, total_derivatives, phased_derivatives))
+        # z_part = 2 * (self.phase_derivative(2 * axis + 'z', 'z', total_derivatives, phased_derivatives) +
+        #               self.phase_derivative(axis + 'z', axis + 'z', total_derivatives, phased_derivatives))
 
-        return self.pressure_coefficient * p_part - self.gradient_coefficient * (x_part + y_part + z_part)
+        # return self.pressure_coefficient * p_part - self.gradient_coefficient * (x_part + y_part + z_part)
+
+        # New method to remove dependance on 'phase_derivative'
+        # This will reuce the number of calculations needed when the amplitude jacobian is needed as well
+        p = total_derivatives['']
+        pa = total_derivatives[axis]
+        paa = total_derivatives[2 * axis]
+
+        px = total_derivatives['x']
+        py = total_derivatives['y']
+        pz = total_derivatives['z']
+
+        pax = total_derivatives['x' + axis]
+        pay = total_derivatives[ysort]  # ''.join(sorted(axis + 'y')) always give xy, yy, yz
+        paz = total_derivatives[axis + 'z']
+
+        paax = total_derivatives[2 * axis + 'x']
+        paay = total_derivatives[2 * axis + 'y']
+        paaz = total_derivatives[2 * axis + 'z']
+
+        p_i = phased_derivatives['']
+        pa_i = phased_derivatives[axis]
+        paa_i = phased_derivatives[2 * axis]
+
+        px_i = phased_derivatives['x']
+        py_i = phased_derivatives['y']
+        pz_i = phased_derivatives['z']
+
+        pax_i = phased_derivatives['x' + axis]
+        pay_i = phased_derivatives[ysort]  # ''.join(sorted(axis + 'y')) always give xy, yy, yz
+        paz_i = phased_derivatives[axis + 'z']
+
+        paax_i = phased_derivatives[2 * axis + 'x']
+        paay_i = phased_derivatives[2 * axis + 'y']
+        paaz_i = phased_derivatives[2 * axis + 'z']
+
+        p_part = 2 * (paa * np.conj(p_i) + p * np.conj(paa_i) + 2 * pa * np.conj(pa_i))
+        x_part = 2 * (paax * np.conj(px_i) + px * np.conj(paax_i) + 2 * pax * np.conj(pax_i))
+        y_part = 2 * (paay * np.conj(py_i) + py * np.conj(paay_i) + 2 * pay * np.conj(pay_i))
+        z_part = 2 * (paaz * np.conj(pz_i) + pz * np.conj(paaz_i) + 2 * paz * np.conj(paz_i))
+
+        total = self.pressure_coefficient * p_part - self.gradient_coefficient * (x_part + y_part + z_part)
+        return total.imag
+        # amplitude jacobian is total.real / amplitudes
 
     def complex_dot(self, z1, z2):
         '''
         Calculate the "complex dot product" defined as
             Re(z1) Re(z2) + Im(z1) Im(z2)
         '''
+        assert False
         return z1.real * z2.real + z1.imag * z2.imag
 
     def phase_derivative(self, der_1, der_2, total_derivatives, phased_derivatives):
@@ -546,7 +597,7 @@ class gorkov_laplacian:
         Calculates the partial derivative of a part of the objective function w.r.t. a single phase
         'der_1' and 'der_2' are strings with the two derivatives from the objective function
         '''
-
+        assert False
         p1 = total_derivatives[der_1]
         p2 = total_derivatives[der_2]
 
@@ -563,7 +614,7 @@ class gorkov_laplacian:
         and remains constant throughout the optimization.
         '''
         # Pre-initialize dictionary with arrays
-
+        assert False
         num_trans = self.array.num_transducers
         self.spatial_derivatives = {
             '': np.empty(num_trans, complex),
