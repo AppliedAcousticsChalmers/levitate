@@ -346,16 +346,16 @@ class optimizer:
             self.result = minimize(self.function, self.array.phases, callback=None, **args)
         self.phases = self.result.x
 
-    def function(self, phases):
+    def function(self, phases_amplitudes):
         value = 0
         for objective, weight in self.objective_list:
-            value += objective.function(phases) * weight
+            value += objective.function(phases_amplitudes) * weight
         return value
 
-    def jacobian(self, phases):
-        value = np.zeros(self.array.num_transducers)
+    def jacobian(self, phases_amplitudes):
+        value = np.zeros(phases_amplitudes.size)
         for objective, weight in self.objective_list:
-            value += objective.jacobian(phases) * weight
+            value += objective.jacobian(phases_amplitudes) * weight
         return value
 
     def add_objective(self, objective, weight):
@@ -388,7 +388,7 @@ class pressure_point:
 
     def initialize(self):
         self.spatial_derivatives = self.array.spatial_derivatives(self.focus)
-        self.gradient_normalization = self.array.k * norm(self.focus - np.mean(self.array.transducer_positions, axis=0))
+        self.gradient_normalization = (self.array.k * norm(self.focus - np.mean(self.array.transducer_positions, axis=0)))**2
         # TODO: Different radius of the different orders?
         # TODO: Different weights for the different radius?
         # TODO: Lebedev grids?
@@ -429,7 +429,10 @@ class pressure_point:
                 If the length is twice the number of transducers the first half is used as phases, and the second half as amplitudes.
 
         '''
-        if phases_amplitudes.size == self.array.num_transducers:
+        if np.iscomplexobj(phases_amplitudes):
+            phases = np.angle(phases_amplitudes)
+            amplitudes = np.abs(phases_amplitudes)
+        elif phases_amplitudes.size == self.array.num_transducers:
             phases = phases_amplitudes
             amplitudes = self.array.amplitudes
         elif phases_amplitudes.size == 2 * self.array.num_transducers:
@@ -443,11 +446,11 @@ class pressure_point:
         z_part = np.abs((complex_coeff * self.spatial_derivatives['z']).sum())**2
 
         wx, wy, wz = self.gradient_weights
-        value = p_part + (wx * x_part + wy * y_part + wz * z_part)/self.gradient_normalization
+        value = p_part + (wx * x_part + wy * y_part + wz * z_part) / self.gradient_normalization
 
         if self.order is not None:
             for p_point in self.extra_points:
-                value += p_point.function(phases)
+                value += 0.1 * p_point.function(phases_amplitudes)
         return value
 
     def jacobian(self, phases_amplitudes):
@@ -460,7 +463,12 @@ class pressure_point:
                 If the length is twice the number of transducers the first half is used as phases, and the second half as amplitudes.
 
         '''
-        if phases_amplitudes.size == self.array.num_transducers:
+        if np.iscomplexobj(phases_amplitudes):
+            raise NotImplementedError('Jacobian not implemented for complex inputs!')
+            # Not sure that is is possible at all since the values in the jacobian needs to correspond to the values in the input.
+            # Therefore it is not possible to just return the separate phase and amplitude jacobian.
+            # Seen as a function of a single complex variable, the objective function is not analytic, and the derivative does not exist
+        elif phases_amplitudes.size == self.array.num_transducers:
             phases = phases_amplitudes
             amplitudes = self.array.amplitudes
             return_amplitudes = False
@@ -490,7 +498,7 @@ class pressure_point:
 
         if self.order is not None:
             for p_point in self.extra_points:
-                derivatives += p_point.jacobian(phases_amplitudes)
+                derivatives += 0.1 * p_point.jacobian(phases_amplitudes)
         return derivatives
 
 
@@ -514,7 +522,6 @@ class gorkov_laplacian:
         self.rho_air = array.rho
         self.c_air = array.c
 
-        self.diff_step = 1 / self.array.k
         self.pressure_weight = 1
         self.gradient_weights = (1, 1, 1)
 
@@ -553,7 +560,10 @@ class gorkov_laplacian:
                 If the length is twice the number of transducers the first half is used as phases, and the second half as amplitudes.
 
         '''
-        if phases_amplitudes.size == self.array.num_transducers:
+        if np.iscomplexobj(phases_amplitudes):
+            phases = np.angle(phases_amplitudes)
+            amplitudes = np.abs(phases_amplitudes)
+        elif phases_amplitudes.size == self.array.num_transducers:
             phases = phases_amplitudes
             amplitudes = self.array.amplitudes
         elif phases_amplitudes.size == 2 * self.array.num_transducers:
@@ -596,7 +606,12 @@ class gorkov_laplacian:
                 If the length is twice the number of transducers the first half is used as phases, and the second half as amplitudes.
 
         '''
-        if phases_amplitudes.size == self.array.num_transducers:
+        if np.iscomplexobj(phases_amplitudes):
+            raise NotImplementedError('Jacobian not implemented for complex inputs!')
+            # Not sure that is is possible at all since the values in the jacobian needs to correspond to the values in the input.
+            # Therefore it is not possible to just return the separate phase and amplitude jacobian.
+            # Seen as a function of a single complex variable, the objective function is not analytic, and the derivative does not exist
+        elif phases_amplitudes.size == self.array.num_transducers:
             phases = phases_amplitudes
             amplitudes = self.array.amplitudes
             return_amplitudes = False
@@ -620,12 +635,13 @@ class gorkov_laplacian:
         wp = self.pressure_weight
 
         p_part = 2 * total_derivatives[''] * np.conj(phased_derivatives[''])
+        # p_part = self.phase_derivative('', '', total_derivatives, phased_derivatives)
         x_part = self.laplacian_axis_derivative('x', total_derivatives, phased_derivatives)
         y_part = self.laplacian_axis_derivative('y', total_derivatives, phased_derivatives)
         z_part = self.laplacian_axis_derivative('z', total_derivatives, phased_derivatives)
 
         derivatives = wp * p_part - wx * x_part - wy * y_part - wz * z_part
-
+        # return derivatives
         if return_amplitudes:
             return np.concatenate((derivatives.imag, derivatives.real / amplitudes))
         else:
