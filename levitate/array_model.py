@@ -318,6 +318,23 @@ class transducer_array:
         return spatial_derivatives
 
 
+class RadndomDisplacer:
+    def __init__(self, num_transducers, variable_amplitude=False, stepsize=0.01):
+        self.stepsize = stepsize
+        self.num_transducers = num_transducers
+        self.variable_amplitude = variable_amplitude
+
+    def __call__(self, x):
+        if self.variable_amplitude:
+            x[:self.num_transducers] += np.random.uniform(-np.pi * self.stepsize, np.pi * self.stepsize, self.num_transducers)
+            x[:self.num_transducers] = np.mod(x[:self.num_transducers] + np.pi, 2 * np.pi) - np.pi  # Don't step out of bounds, instead wrap the phase
+            x[self.num_transducers:] += np.random.uniform(-self.stepsize, self.stepsize, self.num_transducers)
+            x[self.num_transducers:] = np.clip(x[self.num_transducers:], 1e-3, 1)  # Don't step out of bounds!
+        else:
+            x += np.random.uniform(-np.pi * self.stepsize, np.pi * self.stepsize, self.num_transducers)
+        return x
+
+
 class optimizer:
 
     def __init__(self, array=None):
@@ -327,6 +344,7 @@ class optimizer:
             self.array = array
         self.objective_list = []
         self.basinhopping = False
+        self.variable_amplitudes = False
 
     def __call__(self):
         # Initialize all parts of the objective function
@@ -335,16 +353,37 @@ class optimizer:
         # Basin hopping? Check number of iterations?
         # Return phases?
         self.initialize()
-        args = {'jac': self.jacobian,
-            'method': 'BFGS', 'options': {'return_all': False, 'gtol': 5e-5, 'norm': 2, 'disp': True}}
-        if self.basinhopping:
-            self.result = basinhopping(self.function, self.array.phases, T=1e-2, stepsize=np.pi/10, minimizer_kwargs=args, disp=True)
+
+        # Set starting points 
+        if self.variable_amplitudes:
+            start = np.concatenate((self.array.phases, self.array.amplitudes))
         else:
-            #self.result = minimize(self.function, self.array.phases, jac=self.jacobian, callback=None,
-                # method='L-BFGS-B', bounds=[(-3*np.pi, 3*np.pi)]*self.array.num_transducers, options={'gtol': 1e-7, 'ftol': 1e-12})
-            #    method='BFGS', options={'return_all': True, 'gtol': 1e-5, 'norm': 2})
-            self.result = minimize(self.function, self.array.phases, callback=None, **args)
-        self.phases = self.result.x
+            start = self.array.phases
+
+        # Set bounds for L-BFGS-B
+        bounds = [(None, None)] * self.array.num_transducers
+        if self.variable_amplitudes:
+            bounds += [(1e-3, 1)] * self.array.num_transducers
+        # TODO: The method selection should be configureable
+        args = {'jac': self.jacobian,
+            # 'method': 'BFGS', 'options': {'return_all': False, 'gtol': 5e-5, 'norm': 2, 'disp': True}}
+            'method': 'L-BFGS-B', 'bounds': bounds, 'options': {'gtol': 1e-7, 'ftol': 1e-12}}
+        if self.basinhopping:
+            take_step = RadndomDisplacer(self.array.num_transducers, self.variable_amplitudes, stepsize=0.01)
+            self.result = basinhopping(self.function, start, T=1e-2, take_step=take_step, minimizer_kwargs=args, disp=True)
+        else:
+            self.result = minimize(self.function, start, callback=None, **args)
+
+        if self.variable_amplitudes:
+            self.phases = self.result.x[:self.array.num_transducers]
+            self.amplitudes = self.result.x[self.array.num_transducers:]
+        else:
+            self.phases = self.result.x
+            self.amplitudes = self.array.amplitudes
+
+        # self.result = minimize(self.function, self.array.phases, jac=self.jacobian, callback=None,
+        # method='L-BFGS-B', bounds=[(-3*np.pi, 3*np.pi)]*self.array.num_transducers, options={'gtol': 1e-7, 'ftol': 1e-12})
+        # method='BFGS', options={'return_all': True, 'gtol': 1e-5, 'norm': 2})
 
     def function(self, phases_amplitudes):
         value = 0
