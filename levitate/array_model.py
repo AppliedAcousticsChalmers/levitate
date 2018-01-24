@@ -319,7 +319,7 @@ class transducer_array:
 
 
 class RadndomDisplacer:
-    def __init__(self, num_transducers, variable_amplitude=False, stepsize=0.01):
+    def __init__(self, num_transducers, variable_amplitude=False, stepsize=0.05):
         self.stepsize = stepsize
         self.num_transducers = num_transducers
         self.variable_amplitude = variable_amplitude
@@ -367,10 +367,10 @@ class optimizer:
         # TODO: The method selection should be configureable
         args = {'jac': self.jacobian,
             # 'method': 'BFGS', 'options': {'return_all': False, 'gtol': 5e-5, 'norm': 2, 'disp': True}}
-            'method': 'L-BFGS-B', 'bounds': bounds, 'options': {'gtol': 1e-7, 'ftol': 1e-12}}
+            'method': 'L-BFGS-B', 'bounds': bounds, 'options': {'gtol': 1e-9, 'ftol': 1e-15}}
         if self.basinhopping:
-            take_step = RadndomDisplacer(self.array.num_transducers, self.variable_amplitudes, stepsize=0.01)
-            self.result = basinhopping(self.function, start, T=1e-2, take_step=take_step, minimizer_kwargs=args, disp=True)
+            take_step = RadndomDisplacer(self.array.num_transducers, self.variable_amplitudes, stepsize=0.1)
+            self.result = basinhopping(self.function, start, T=1e-7, take_step=None, minimizer_kwargs=args, disp=True)
         else:
             self.result = minimize(self.function, start, callback=None, **args)
 
@@ -409,6 +409,60 @@ class optimizer:
             objective.initialize()
 
 
+class AmplitudeLimiting:
+
+    def __init__(self, array, bounds=(1e-2, 0.99)):
+        self.array = array
+        self.lower_bound = np.asarray(bounds).min()
+        self.upper_bound = np.asarray(bounds).max()
+        self.coefficient = 10
+        self.order = 4
+
+    def initialize(self):
+        pass
+
+    def function(self, phases_amplitudes):
+        if np.iscomplexobj(phases_amplitudes):
+            amplitudes = np.abs(phases_amplitudes)
+        elif phases_amplitudes.size == self.array.num_transducers:
+            return 0
+            # TODO: Warn that this class is not ment to be used without variable amplitudes
+        elif phases_amplitudes.size == 2 * self.array.num_transducers:
+            amplitudes = phases_amplitudes.ravel()[self.array.num_transducers:]
+
+        under_idx = amplitudes < self.lower_bound
+        over_idx = amplitudes > self.upper_bound
+        under = self.coefficient * (self.lower_bound - amplitudes[under_idx])
+        over = self.coefficient * (amplitudes[over_idx] - self.upper_bound)
+
+        under = under**self.order
+        over = over**self.order
+        # assert over.sum() < 256e3
+        return under.sum() + over.sum()
+
+    def jacobian(self, phases_amplitudes):
+        if np.iscomplexobj(phases_amplitudes):
+            raise NotImplementedError('Jacobian not implemented for complex inputs!')
+        elif phases_amplitudes.size == self.array.num_transducers:
+            return np.zeros(self.array.num_transducers)
+            # TODO: Warn that this class is not ment to be used without variable amplitudes
+        elif phases_amplitudes.size == 2 * self.array.num_transducers:
+            amplitudes = phases_amplitudes.ravel()[self.array.num_transducers:]
+
+        derivatives = np.zeros(self.array.num_transducers)
+        under_idx = amplitudes < self.lower_bound
+        over_idx = amplitudes > self.upper_bound
+        under = self.coefficient * (self.lower_bound - amplitudes[under_idx])
+        over = self.coefficient * (amplitudes[over_idx] - self.upper_bound)
+
+        under = under**(self.order - 1) * self.order
+        over = over**(self.order - 1) * self.order
+        derivatives[under_idx] = under
+        derivatives[over_idx] = over
+
+        return np.concatenate((np.zeros(self.array.num_transducers), derivatives))
+
+
 class pressure_point:
     '''
     A class used to minimize pressure in a small region.
@@ -427,7 +481,8 @@ class pressure_point:
 
     def initialize(self):
         self.spatial_derivatives = self.array.spatial_derivatives(self.focus)
-        self.gradient_normalization = (self.array.k * norm(self.focus - np.mean(self.array.transducer_positions, axis=0)))**2
+        # self.gradient_normalization = (self.array.k * norm(self.focus - np.mean(self.array.transducer_positions, axis=0)))**2
+        self.gradient_normalization = self.array.k**2
         # TODO: Different radius of the different orders?
         # TODO: Different weights for the different radius?
         # TODO: Lebedev grids?
