@@ -1,0 +1,9 @@
+name: levivate_dev
+dependencies:
+  - numpy
+  - scipy
+  - matplotlib
+  - jupyter
+  - snakeviz
+  - pip:
+    - -e .
