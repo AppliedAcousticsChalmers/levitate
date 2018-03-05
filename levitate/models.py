@@ -66,6 +66,10 @@ class TransducerArray:
         self.amplitudes = np.ones(self.num_transducers)
         self.phases = np.zeros(self.num_transducers)
 
+        self.p0 = 6  # Pa @ 1 m distance on-axis. 
+        # The murata transducers are measured to 85 dB SPL at 1 V at 1 m, which corresponds to ~6 Pa at 20 V
+        # The datasheet specifies 120 dB SPL @ 0.3 m, which corresponds to ~6 Pa @ 1 m
+
     def focus_phases(self, focus):
         # TODO: Is this method really useful?
         phase = np.empty(self.num_transducers)
@@ -157,9 +161,9 @@ class TransducerArray:
             p = self.greens_function(transducer, point) * self.amplitudes[transducer] * np.exp(1j * self.phases[transducer])
 
         if reshape:
-            return p.reshape(shape)
+            return self.p0 * p.reshape(shape)
         else:
-            return p
+            return self.p0 * p
 
     def directivity(self, transducer_id, receiver_position):
         if self.use_directivity is None:
