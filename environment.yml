@@ -1,4 +1,4 @@
-name: levivate_dev
+name: levitate_dev
 dependencies:
   - numpy
   - scipy
