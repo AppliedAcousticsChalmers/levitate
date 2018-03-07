@@ -363,7 +363,7 @@ class GorkovLaplacian(CostFunction):
             amplitudes = phases_amplitudes.ravel()[self.array.num_transducers:]
         self.objective_evals += 1
         self.total_evals += 1
-        logger.info('Objective function call {}:\tPhase difference: RMS = {:.4e}\t Max = {:.4e}'.format(self.objective_evals, np.sqrt(np.mean((phases - self.previous_phase)**2)), np.max(np.abs(phases - self.previous_phase))))
+        # logger.info('Objective function call {}:\tPhase difference: RMS = {:.4e}\t Max = {:.4e}'.format(self.objective_evals, np.sqrt(np.mean((phases - self.previous_phase)**2)), np.max(np.abs(phases - self.previous_phase))))
         self.previous_phase = phases
 
         complex_coeff = amplitudes * np.exp(1j * phases)
@@ -381,10 +381,10 @@ class GorkovLaplacian(CostFunction):
 
         value = wp * np.abs(p_part)**2 - wx * x_part - wy * y_part - wz * z_part
 
-        logger.debug('\tPressure contribution: {:.6e}'.format(wp * np.abs(p_part)**2))
-        logger.debug('\tUxx contribution: {:.6e}'.format(-wx * x_part))
-        logger.debug('\tUyy contribution: {:.6e}'.format(-wy * y_part))
-        logger.debug('\tUzz contribution: {:.6e}'.format(-wz * z_part))
+        # logger.debug('\tPressure contribution: {:.6e}'.format(wp * np.abs(p_part)**2))
+        # logger.debug('\tUxx contribution: {:.6e}'.format(-wx * x_part))
+        # logger.debug('\tUyy contribution: {:.6e}'.format(-wy * y_part))
+        # logger.debug('\tUzz contribution: {:.6e}'.format(-wz * z_part))
 
         return value
 
@@ -413,7 +413,7 @@ class GorkovLaplacian(CostFunction):
             return_amplitudes = True
         self.jacobian_evals += 1
         self.total_evals += 1
-        logger.info('Jacobian function call {}:\tPhase difference: RMS = {:.4e}\t Max = {:.4e}'.format(self.jacobian_evals, np.sqrt(np.mean((phases - self.previous_phase)**2)), np.max(np.abs(phases - self.previous_phase))))
+        # logger.info('Jacobian function call {}:\tPhase difference: RMS = {:.4e}\t Max = {:.4e}'.format(self.jacobian_evals, np.sqrt(np.mean((phases - self.previous_phase)**2)), np.max(np.abs(phases - self.previous_phase))))
         self.previous_phase = phases
 
         complex_coeff = amplitudes * np.exp(1j * phases)
@@ -474,11 +474,11 @@ class GorkovLaplacian(CostFunction):
         y_part = 2 * (paay * np.conj(py) + pay * np.conj(pay)).real
         z_part = 2 * (paaz * np.conj(pz) + paz * np.conj(paz)).real
 
-        logger.debug("\tGor'Kov Laplacian along {}-axis:".format(axis))
-        logger.debug('\t\tp contribution is: {:.6e}'.format(self.pressure_coefficient * p_part))
-        logger.debug('\t\tx contribution is: {:.6e}'.format(- self.gradient_coefficient * x_part))
-        logger.debug('\t\ty contribution is: {:.6e}'.format(- self.gradient_coefficient * y_part))
-        logger.debug('\t\tz contribution is: {:.6e}'.format(- self.gradient_coefficient * z_part))
+        # logger.debug("\tGor'Kov Laplacian along {}-axis:".format(axis))
+        # logger.debug('\t\tp contribution is: {:.6e}'.format(self.pressure_coefficient * p_part))
+        # logger.debug('\t\tx contribution is: {:.6e}'.format(- self.gradient_coefficient * x_part))
+        # logger.debug('\t\ty contribution is: {:.6e}'.format(- self.gradient_coefficient * y_part))
+        # logger.debug('\t\tz contribution is: {:.6e}'.format(- self.gradient_coefficient * z_part))
 
         return self.pressure_coefficient * p_part - self.gradient_coefficient * (x_part + y_part + z_part)
 
