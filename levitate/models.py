@@ -1,6 +1,6 @@
 import numpy as np
 import logging
-from scipy.special import jn
+from scipy.special import j0, j1
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +186,7 @@ class TransducerArray:
 
         if self.use_directivity.lower() == 'j0':
             # Circular postion in baffle?
-            return jn(0, ka * sin_angle)
+            return j0(ka * sin_angle)
         if self.use_directivity.lower() == 'j1':
             # Circular piston in baffle, version 2
             #  TODO: Check this formula!
@@ -194,7 +194,10 @@ class TransducerArray:
             # vals = 2 * jn(1, k_a_sin) / k_a_sin
             # vals[np.isnan(vals)] = 1
             with np.errstate(invalid='ignore'):
-                return np.where(sin_angle == 0, 1, 2 * jn(1, ka * sin_angle) / (ka * sin_angle))
+                denom = ka * sin_angle
+                numer = j1(denom)
+                return np.where(denom == 0, 1, 2 * numer / denom)
+                # return np.where(sin_angle == 0, 1, 2 * jn(1, ka * sin_angle) / (ka * sin_angle))
 
         # If no match in the implemented directivities, use omnidirectional
         # TODO: Add a warning?
