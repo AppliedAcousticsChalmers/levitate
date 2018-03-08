@@ -1,6 +1,5 @@
 import numpy as np
 import logging
-from numpy.linalg import norm
 from scipy.special import jn
 
 logger = logging.getLogger(__name__)
@@ -74,7 +73,7 @@ class TransducerArray:
         # TODO: Is this method really useful?
         phase = np.empty(self.num_transducers)
         for idx in range(self.num_transducers):
-            phase[idx] = -norm(self.transducer_positions[idx, :] - focus) * self.k
+            phase[idx] = -np.sum((self.transducer_positions[idx, :] - focus)**2)**0.5 * self.k
         phase = np.mod(phase + np.pi, 2 * np.pi) - np.pi  # Wrap phase to [-pi, pi]
         self.focus_point = focus
         return phase
@@ -117,7 +116,7 @@ class TransducerArray:
 
         signature = np.empty(self.num_transducers)
         for idx in range(self.num_transducers):
-            if norm(self.transducer_positions[idx, 0:2]) > radius:
+            if np.sum((self.transducer_positions[idx, 0:2])**2)**0.5 > radius:
                 signature[idx] = np.pi
             else:
                 signature[idx] = 0
@@ -176,7 +175,12 @@ class TransducerArray:
         source_normal = self.transducer_normals[transducer_id]
         difference = receiver_position - source_position
 
-        cos_angle = np.sum(source_normal * difference, axis=-1) / norm(source_normal, axis=-1) / norm(difference, axis=-1)
+        # These three lines are benchmarked with 20100 receiver positions
+        # einsum is twice as fast for large matrices e.g. difference, but slower for small e.g. source_normal
+        dots = difference.dot(source_normal)
+        norm1 = np.sum(source_normal**2)**0.5
+        norm2 = np.einsum('...i,...i', difference, difference)**0.5
+        cos_angle = dots / norm2 / norm1
         sin_angle = (1 - cos_angle**2)**0.5
         ka = self.k * self.transducer_size / 2
 
@@ -200,7 +204,8 @@ class TransducerArray:
 
     def spherical_spreading(self, transducer_id, receiver_position):
         source_position = self.transducer_positions[transducer_id]
-        dist = norm(source_position - receiver_position, axis=-1)
+        diff = source_position - receiver_position
+        dist = np.einsum('...i,...i', diff, diff)**0.5
         return 1 / dist * np.exp(1j * self.k * dist)
 
     def greens_function(self, transducer_id, receiver_position):
@@ -245,7 +250,7 @@ class TransducerArray:
         for idx in range(num_trans):
             # Derivatives of the omnidirectional green's function
             difference = focus - self.transducer_positions[idx]
-            r = norm(difference)
+            r = np.sum(difference**2)**0.5
             kr = self.k * r
             jkr = 1j * kr
             phase = np.exp(jkr)
