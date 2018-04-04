@@ -128,31 +128,31 @@ def gorkov_laplacian(array, location, weights=(1, 1, 1, 1), c_sphere=2350, rho_s
             tot_der[key] = np.sum(ind_der[key])
 
         p = tot_der['']
-        Uxx = (pressure_coefficient * (tot_der['xx'] * np.conj(tot_der['']) + tot_der['x'] * np.conj(tot_der['x'])).real +
-               gradient_coefficient * (tot_der['xxx'] * np.conj(tot_der['x']) + tot_der['xx'] * np.conj(tot_der['xx'])).real +
-               gradient_coefficient * (tot_der['xxy'] * np.conj(tot_der['y']) + tot_der['xy'] * np.conj(tot_der['xy'])).real +
+        Uxx = (pressure_coefficient * (tot_der['xx'] * np.conj(tot_der['']) + tot_der['x'] * np.conj(tot_der['x'])).real -
+               gradient_coefficient * (tot_der['xxx'] * np.conj(tot_der['x']) + tot_der['xx'] * np.conj(tot_der['xx'])).real -
+               gradient_coefficient * (tot_der['xxy'] * np.conj(tot_der['y']) + tot_der['xy'] * np.conj(tot_der['xy'])).real -
                gradient_coefficient * (tot_der['xxz'] * np.conj(tot_der['z']) + tot_der['xz'] * np.conj(tot_der['xz'])).real) * 2
-        Uyy = (pressure_coefficient * (tot_der['yy'] * np.conj(tot_der['']) + tot_der['y'] * np.conj(tot_der['y'])).real +
-               gradient_coefficient * (tot_der['yyx'] * np.conj(tot_der['x']) + tot_der['xy'] * np.conj(tot_der['xy'])).real +
-               gradient_coefficient * (tot_der['yyy'] * np.conj(tot_der['y']) + tot_der['yy'] * np.conj(tot_der['yy'])).real +
+        Uyy = (pressure_coefficient * (tot_der['yy'] * np.conj(tot_der['']) + tot_der['y'] * np.conj(tot_der['y'])).real -
+               gradient_coefficient * (tot_der['yyx'] * np.conj(tot_der['x']) + tot_der['xy'] * np.conj(tot_der['xy'])).real -
+               gradient_coefficient * (tot_der['yyy'] * np.conj(tot_der['y']) + tot_der['yy'] * np.conj(tot_der['yy'])).real -
                gradient_coefficient * (tot_der['yyz'] * np.conj(tot_der['z']) + tot_der['yz'] * np.conj(tot_der['yz'])).real) * 2
-        Uzz = (pressure_coefficient * (tot_der['zz'] * np.conj(tot_der['']) + tot_der['z'] * np.conj(tot_der['z'])).real +
-               gradient_coefficient * (tot_der['zzx'] * np.conj(tot_der['x']) + tot_der['xz'] * np.conj(tot_der['xz'])).real +
-               gradient_coefficient * (tot_der['zzy'] * np.conj(tot_der['y']) + tot_der['yz'] * np.conj(tot_der['yz'])).real +
+        Uzz = (pressure_coefficient * (tot_der['zz'] * np.conj(tot_der['']) + tot_der['z'] * np.conj(tot_der['z'])).real -
+               gradient_coefficient * (tot_der['zzx'] * np.conj(tot_der['x']) + tot_der['xz'] * np.conj(tot_der['xz'])).real -
+               gradient_coefficient * (tot_der['zzy'] * np.conj(tot_der['y']) + tot_der['yz'] * np.conj(tot_der['yz'])).real -
                gradient_coefficient * (tot_der['zzz'] * np.conj(tot_der['z']) + tot_der['zz'] * np.conj(tot_der['zz'])).real) * 2
 
         dp = 2 * tot_der[''] * np.conj(ind_der[''])
-        dUxx = (pressure_coefficient * (tot_der['xx'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['xx']) + 2 * tot_der['x'] * np.conj(ind_der['x'])) +
-                gradient_coefficient * (tot_der['xxx'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['xxx']) + 2 * tot_der['xx'] * np.conj(ind_der['xx'])) +
-                gradient_coefficient * (tot_der['xxy'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['xxy']) + 2 * tot_der['xy'] * np.conj(ind_der['xy'])) +
+        dUxx = (pressure_coefficient * (tot_der['xx'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['xx']) + 2 * tot_der['x'] * np.conj(ind_der['x'])) -
+                gradient_coefficient * (tot_der['xxx'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['xxx']) + 2 * tot_der['xx'] * np.conj(ind_der['xx'])) -
+                gradient_coefficient * (tot_der['xxy'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['xxy']) + 2 * tot_der['xy'] * np.conj(ind_der['xy'])) -
                 gradient_coefficient * (tot_der['xxz'] * np.conj(ind_der['z']) + tot_der['z'] * np.conj(ind_der['xxz']) + 2 * tot_der['xz'] * np.conj(ind_der['xz']))) * 2
-        dUyy = (pressure_coefficient * (tot_der['yy'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['yy']) + 2 * tot_der['y'] * np.conj(ind_der['y'])) +
-                gradient_coefficient * (tot_der['yyx'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['yyx']) + 2 * tot_der['xy'] * np.conj(ind_der['xy'])) +
-                gradient_coefficient * (tot_der['yyy'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['yyy']) + 2 * tot_der['yy'] * np.conj(ind_der['yy'])) +
+        dUyy = (pressure_coefficient * (tot_der['yy'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['yy']) + 2 * tot_der['y'] * np.conj(ind_der['y'])) -
+                gradient_coefficient * (tot_der['yyx'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['yyx']) + 2 * tot_der['xy'] * np.conj(ind_der['xy'])) -
+                gradient_coefficient * (tot_der['yyy'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['yyy']) + 2 * tot_der['yy'] * np.conj(ind_der['yy'])) -
                 gradient_coefficient * (tot_der['yyz'] * np.conj(ind_der['z']) + tot_der['z'] * np.conj(ind_der['yyz']) + 2 * tot_der['yz'] * np.conj(ind_der['yz']))) * 2
-        dUzz = (pressure_coefficient * (tot_der['zz'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['zz']) + 2 * tot_der['z'] * np.conj(ind_der['z'])) +
-                gradient_coefficient * (tot_der['zzx'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['zzx']) + 2 * tot_der['xz'] * np.conj(ind_der['xz'])) +
-                gradient_coefficient * (tot_der['zzy'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['zzy']) + 2 * tot_der['yz'] * np.conj(ind_der['yz'])) +
+        dUzz = (pressure_coefficient * (tot_der['zz'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['zz']) + 2 * tot_der['z'] * np.conj(ind_der['z'])) -
+                gradient_coefficient * (tot_der['zzx'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['zzx']) + 2 * tot_der['xz'] * np.conj(ind_der['xz'])) -
+                gradient_coefficient * (tot_der['zzy'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['zzy']) + 2 * tot_der['yz'] * np.conj(ind_der['yz'])) -
                 gradient_coefficient * (tot_der['zzz'] * np.conj(ind_der['z']) + tot_der['z'] * np.conj(ind_der['zzz']) + 2 * tot_der['zz'] * np.conj(ind_der['zz']))) * 2
         value = wp * np.abs(p)**2 - wx * Uxx - wy * Uyy - wz * Uzz
         derivatives = wp * dp - wx * dUxx - wy * dUyy - wz * dUzz
