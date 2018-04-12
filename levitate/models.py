@@ -23,6 +23,46 @@ def rectangular_grid(shape, spread):
     return positions, normals
 
 
+class TransducerModel:
+
+    def __init__(self, freq=40e3):
+        self.freq = freq
+
+    @property
+    def k(self):
+        return self._k
+
+    @k.setter
+    def k(self, value):
+        self._k = value
+        self._omega = value * c_air
+
+    @property
+    def omega(self):
+        return self._omega
+
+    @omega.setter
+    def omega(self, value):
+        self._omega = value
+        self._k = value / c_air
+
+    @property
+    def freq(self):
+        return self.omega / 2 / np.pi
+
+    @freq.setter
+    def freq(self, value):
+        self.omega = value * 2 * np.pi
+
+    @property
+    def wavelength(self):
+        return 2 * np.pi / self.k
+
+    @wavelength.setter
+    def wavelength(self, value):
+        self.k = 2 * np.pi / value
+
+
 class TransducerArray:
 
     finite_difference_coefficients = {'': (np.array([0, 0, 0]), 1),
