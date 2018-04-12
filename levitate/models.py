@@ -62,6 +62,19 @@ class TransducerModel:
     def wavelength(self, value):
         self.k = 2 * np.pi / value
 
+    def greens_function(self, source_position, source_normal, receiver_position, derivative_order=None):
+        return self.spherical_spreading(source_position, receiver_position) * self.directivity(source_position, source_normal, receiver_position)
+
+    def spherical_spreading(self, source_position, receiver_position):
+        diff = source_position - receiver_position
+        distance = np.einsum('...i,...i', diff, diff)**0.5
+        return np.exp(1j * self.k * distance) / distance
+
+    def directivity(self, source_position, source_normal, receiver_position, derivative_order=None):
+        if receiver_position.ndim == 1:
+            return 1
+        else:
+            return np.ones(receiver_position.shape[:-1])
 
 class TransducerArray:
 
