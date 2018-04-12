@@ -4,6 +4,8 @@ from scipy.special import j0, j1
 
 logger = logging.getLogger(__name__)
 
+c_air = 343
+rho_air = 1.2
 
 def rectangular_grid(shape, spread):
     x = np.linspace(-(shape[0] - 1) / 2, (shape[0] - 1) / 2, shape[0]) * spread
