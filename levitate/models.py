@@ -87,7 +87,7 @@ class TransducerModel:
         return self.spherical_spreading(source_position, receiver_position) * self.directivity(source_position, source_normal, receiver_position)
 
     def spherical_spreading(self, source_position, receiver_position):
-        diff = source_position - receiver_position
+        diff = receiver_position - source_position
         distance = np.einsum('...i,...i', diff, diff)**0.5
         return np.exp(1j * self.k * distance) / distance
 
@@ -130,7 +130,7 @@ class TransducerModel:
         return derivatives
 
     def spherical_derivatives(self, source_position, receiver_position, orders=3):
-        diff = source_position - receiver_position
+        diff = receiver_position - source_position
         r = np.einsum('...i,...i', diff, diff)**0.5
         kr = self.k * r
         jkr = 1j * kr
