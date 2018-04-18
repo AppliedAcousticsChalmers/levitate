@@ -370,9 +370,11 @@ class TransducerArray:
             # Calculate for the sum of all transducers
             p = 0
             for idx in range(self.num_transducers):
-                p += self.greens_function(idx, point) * self.amplitudes[idx] * np.exp(1j * self.phases[idx])
+                p += self.amplitudes[idx] * np.exp(1j * self.phases[idx]) * self.transducer_model.greens_function(
+                    self.transducer_positions[idx], self.transducer_normals[idx], point)
         else:
-            p = self.greens_function(transducer, point) * self.amplitudes[transducer] * np.exp(1j * self.phases[transducer])
+            p = self.amplitudes[transducer] * np.exp(1j * self.phases[transducer]) * self.transducer_model.greens_function(
+                    self.transducer_positions[transducer], self.transducer_normals[transducer], point)
 
         if reshape:
             return self.p0 * p.reshape(shape)
@@ -380,6 +382,7 @@ class TransducerArray:
             return self.p0 * p
 
     def directivity(self, transducer_id, receiver_position):
+        return self.transducer_model.directivity(self.transducer_positions[transducer_id], self.transducer_normals[transducer_id], receiver_position)
         if self.use_directivity is None:
             if receiver_position.ndim == 1:
                 return 1
@@ -421,12 +424,17 @@ class TransducerArray:
         return self.directivity(transducer_id, receiver_position)
 
     def spherical_spreading(self, transducer_id, receiver_position):
+        return self.transducer_model.spherical_spreading(self.transducer_positions[transducer_id], receiver_position)
         source_position = self.transducer_positions[transducer_id]
         diff = source_position - receiver_position
         dist = np.einsum('...i,...i', diff, diff)**0.5
         return 1 / dist * np.exp(1j * self.k * dist)
 
     def greens_function(self, transducer_id, receiver_position):
+        return self.transducer_model.greens_function(
+            self.transducer_positions[transducer_id],
+            self.transducer_normals[transducer_id],
+            receiver_position)
         directional_part = self.directivity(transducer_id, receiver_position)
         spherical_part = self.spherical_spreading(transducer_id, receiver_position)
         return directional_part * spherical_part
