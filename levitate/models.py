@@ -1,6 +1,8 @@
 import numpy as np
 import logging
 from scipy.special import j0, j1
+import warnings
+warnings.filterwarnings('default', category=DeprecationWarning, module='levitate.models')
 
 logger = logging.getLogger(__name__)
 
@@ -382,6 +384,8 @@ class TransducerArray:
             return self.p0 * p
 
     def directivity(self, transducer_id, receiver_position):
+        warnings.warn(('`directivity` of TransducerArray is not recommended. '
+            'Use the corresponding method of a transducer model instead.'), DeprecationWarning, stacklevel=2)
         return self.transducer_model.directivity(self.transducer_positions[transducer_id], self.transducer_normals[transducer_id], receiver_position)
         if self.use_directivity is None:
             if receiver_position.ndim == 1:
@@ -424,6 +428,8 @@ class TransducerArray:
         return self.directivity(transducer_id, receiver_position)
 
     def spherical_spreading(self, transducer_id, receiver_position):
+        warnings.warn(('`spherical_spreading` of TransducerArray is not recommended. '
+            'Use the corresponding method of a transducer model instead.'), DeprecationWarning, stacklevel=2)
         return self.transducer_model.spherical_spreading(self.transducer_positions[transducer_id], receiver_position)
         source_position = self.transducer_positions[transducer_id]
         diff = source_position - receiver_position
@@ -431,6 +437,8 @@ class TransducerArray:
         return 1 / dist * np.exp(1j * self.k * dist)
 
     def greens_function(self, transducer_id, receiver_position):
+        warnings.warn(('`greens_function` of TransducerArray is not recommended. '
+            'Use the corresponding method of a transducer model instead.'), DeprecationWarning, stacklevel=2)
         return self.transducer_model.greens_function(
             self.transducer_positions[transducer_id],
             self.transducer_normals[transducer_id],
@@ -479,6 +487,8 @@ class TransducerArray:
         '''
         # Pre-initialize dictionary with arrays
         # TODO: enable selective calculation of the derivatives actually needed
+        warnings.warn(('`old_spatial_derivatives` is an old implementation to caculate spatial derivatives. '
+            'Use the new method to avoid issues.'), DeprecationWarning, stacklevel=2)
         num_trans = self.num_transducers
 
         spherical_derivatives = {'': np.empty(num_trans, complex)}
