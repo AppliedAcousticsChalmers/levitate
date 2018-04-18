@@ -472,7 +472,9 @@ class TransducerArray:
             spherical_derivatives['zzx'] = np.empty(num_trans, complex)
             spherical_derivatives['zzy'] = np.empty(num_trans, complex)
 
-        spatial_derivatives = spherical_derivatives.copy()
+        spatial_derivatives = {}
+        for key in spherical_derivatives.keys():
+            spatial_derivatives[key] = np.empty(num_trans, complex)
         for idx in range(num_trans):
             # Derivatives of the omnidirectional green's function
             difference = focus - self.transducer_positions[idx]
