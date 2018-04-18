@@ -242,6 +242,7 @@ class TransducerArray:
 
     def __init__(self, focus_point=[0, 0, 0.2], grid=None, transducer_size=10e-3, shape=16, freq=40e3, directivity=None):
         self.focus_point = focus_point
+        self.transducer_model = TransducerModel(freq=freq)
         self.transducer_size = transducer_size
         self.freq = freq
         self.k = 2 * np.pi * self.freq / self.c
@@ -262,6 +263,26 @@ class TransducerArray:
         self.p0 = 6  # Pa @ 1 m distance on-axis. 
         # The murata transducers are measured to 85 dB SPL at 1 V at 1 m, which corresponds to ~6 Pa at 20 V
         # The datasheet specifies 120 dB SPL @ 0.3 m, which corresponds to ~6 Pa @ 1 m
+
+    # TODO: Temporaty glue to change directivities
+    @property
+    def use_directivity(self):
+        return self._use_directivity
+
+    @use_directivity.setter
+    def use_directivity(self, value):
+        if value is None:
+            self.transducer_model = TransducerModel(freq=self.freq)
+            self._use_directivity = None
+        elif value == 'j0':
+            self.transducer_model = CircularRing(effective_radius=self.transducer_size/2, freq=self.freq)
+            self._use_directivity = 'j0'
+        elif value == 'j1':
+            self.transducer_model = CircularPiston(effective_radius=self.transducer_size/2, freq=self.freq)
+            self._use_directivity = 'j1'
+        else:
+            raise ValueError("Unknown dirictivity '{}'".format(value))
+
 
     def focus_phases(self, focus):
         # TODO: Is this method really useful?
