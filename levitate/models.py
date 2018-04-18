@@ -179,6 +179,42 @@ class TransducerModel:
         return derivatives
 
 
+class CircularPiston(TransducerModel):
+    def __init__(self, effective_radius, freq=40e3):
+        self.effective_radius = effective_radius
+        self.freq = freq
+
+    def directivity(self, source_position, source_normal, receiver_position):
+        diff = receiver_position - source_position
+        dots = diff.dot(source_normal)
+        norm1 = np.sum(source_normal**2)**0.5
+        norm2 = np.einsum('...i,...i', diff, diff)**0.5
+        cos_angle = dots / norm2 / norm1
+        sin_angle = (1 - cos_angle**2)**0.5
+        ka = self.k * self.effective_radius
+
+        denom = ka * sin_angle
+        numer = j1(denom)
+        with np.errstate(invalid='ignore'):
+            return np.where(denom==0, 1, 2 * numer / denom)
+
+
+class CircularRing(TransducerModel):
+    def __init__(self, effective_radius, freq=40e3):
+        self.effective_radius = effective_radius
+        self.freq = freq
+
+    def directivity(self, source_position, source_normal, receiver_position):
+        diff = receiver_position - source_position
+        dots = diff.dot(source_normal)
+        norm1 = np.sum(source_normal**2)**0.5
+        norm2 = np.einsum('...i,...i', diff, diff)**0.5
+        cos_angle = dots / norm2 / norm1
+        sin_angle = (1 - cos_angle**2)**0.5
+        ka = self.k * self.effective_radius
+        return j0(ka * sin_angle)
+
+
 class TransducerArray:
 
     finite_difference_coefficients = {'': (np.array([0, 0, 0]), 1),
