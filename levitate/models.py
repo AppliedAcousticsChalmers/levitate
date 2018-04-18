@@ -440,6 +440,38 @@ class TransducerArray:
         return directional_part * spherical_part
 
     def spatial_derivatives(self, focus, h=None, orders=3):
+        num_trans = self.num_transducers
+
+        derivatives = {'': np.empty(num_trans, complex)}
+        if orders > 0:
+            derivatives['x'] = np.empty(num_trans, complex)
+            derivatives['y'] = np.empty(num_trans, complex)
+            derivatives['z'] = np.empty(num_trans, complex)
+        if orders > 1:
+            derivatives['xx'] = np.empty(num_trans, complex)
+            derivatives['yy'] = np.empty(num_trans, complex)
+            derivatives['zz'] = np.empty(num_trans, complex)
+            derivatives['xy'] = np.empty(num_trans, complex)
+            derivatives['xz'] = np.empty(num_trans, complex)
+            derivatives['yz'] = np.empty(num_trans, complex)
+        if orders > 2:
+            derivatives['xxx'] = np.empty(num_trans, complex)
+            derivatives['yyy'] = np.empty(num_trans, complex)
+            derivatives['zzz'] = np.empty(num_trans, complex)
+            derivatives['xxy'] = np.empty(num_trans, complex)
+            derivatives['xxz'] = np.empty(num_trans, complex)
+            derivatives['yyx'] = np.empty(num_trans, complex)
+            derivatives['yyz'] = np.empty(num_trans, complex)
+            derivatives['zzx'] = np.empty(num_trans, complex)
+            derivatives['zzy'] = np.empty(num_trans, complex)
+
+        for idx in range(num_trans):
+            transducer_derivatives = self.transducer_model.spatial_derivatives(self.transducer_positions[idx], self.transducer_normals[idx], focus, orders)
+            for key in derivatives:
+                derivatives[key][idx] = transducer_derivatives[key]
+        return derivatives
+
+    def old_spatial_derivatives(self, focus, h=None, orders=3):
         '''
         Calculate and set the spatial derivatives for each transducer.
         These are the same regardless of the amplitude and phase of the transducers,
