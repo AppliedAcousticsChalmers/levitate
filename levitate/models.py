@@ -450,35 +450,40 @@ class TransducerArray:
         return directional_part * spherical_part
 
     def spatial_derivatives(self, focus, h=None, orders=3):
-        num_trans = self.num_transducers
+        if np.ndim(focus) == 1:
+            # Single point
+            shape = self.num_transducers
+        elif np.ndim(focus) == 2:
+            # Array/list of points
+            shape = (np.shape(focus)[0], self.num_transducers)
 
-        derivatives = {'': np.empty(num_trans, complex)}
+        derivatives = {'': np.empty(shape, complex)}
         if orders > 0:
-            derivatives['x'] = np.empty(num_trans, complex)
-            derivatives['y'] = np.empty(num_trans, complex)
-            derivatives['z'] = np.empty(num_trans, complex)
+            derivatives['x'] = np.empty(shape, complex)
+            derivatives['y'] = np.empty(shape, complex)
+            derivatives['z'] = np.empty(shape, complex)
         if orders > 1:
-            derivatives['xx'] = np.empty(num_trans, complex)
-            derivatives['yy'] = np.empty(num_trans, complex)
-            derivatives['zz'] = np.empty(num_trans, complex)
-            derivatives['xy'] = np.empty(num_trans, complex)
-            derivatives['xz'] = np.empty(num_trans, complex)
-            derivatives['yz'] = np.empty(num_trans, complex)
+            derivatives['xx'] = np.empty(shape, complex)
+            derivatives['yy'] = np.empty(shape, complex)
+            derivatives['zz'] = np.empty(shape, complex)
+            derivatives['xy'] = np.empty(shape, complex)
+            derivatives['xz'] = np.empty(shape, complex)
+            derivatives['yz'] = np.empty(shape, complex)
         if orders > 2:
-            derivatives['xxx'] = np.empty(num_trans, complex)
-            derivatives['yyy'] = np.empty(num_trans, complex)
-            derivatives['zzz'] = np.empty(num_trans, complex)
-            derivatives['xxy'] = np.empty(num_trans, complex)
-            derivatives['xxz'] = np.empty(num_trans, complex)
-            derivatives['yyx'] = np.empty(num_trans, complex)
-            derivatives['yyz'] = np.empty(num_trans, complex)
-            derivatives['zzx'] = np.empty(num_trans, complex)
-            derivatives['zzy'] = np.empty(num_trans, complex)
+            derivatives['xxx'] = np.empty(shape, complex)
+            derivatives['yyy'] = np.empty(shape, complex)
+            derivatives['zzz'] = np.empty(shape, complex)
+            derivatives['xxy'] = np.empty(shape, complex)
+            derivatives['xxz'] = np.empty(shape, complex)
+            derivatives['yyx'] = np.empty(shape, complex)
+            derivatives['yyz'] = np.empty(shape, complex)
+            derivatives['zzx'] = np.empty(shape, complex)
+            derivatives['zzy'] = np.empty(shape, complex)
 
-        for idx in range(num_trans):
+        for idx in range(self.num_transducers):
             transducer_derivatives = self.transducer_model.spatial_derivatives(self.transducer_positions[idx], self.transducer_normals[idx], focus, orders)
             for key in derivatives:
-                derivatives[key][idx] = transducer_derivatives[key]
+                derivatives[key][..., idx] = transducer_derivatives[key]
         return derivatives
 
     def old_spatial_derivatives(self, focus, h=None, orders=3):
