@@ -238,8 +238,9 @@ class CircularRing(TransducerModel):
             cos_dx = (r2 * n[0] - diff[...,0] * dot) / r3 / norm
             cos_dy = (r2 * n[1] - diff[...,1] * dot) / r3 / norm
             cos_dz = (r2 * n[2] - diff[...,2] * dot) / r3 / norm
-
-            J1_xi = np.where(sin == 0, 0.5, j1(ka_sin) / ka_sin)
+            
+            with np.errstate(invalid='ignore'):
+                J1_xi = np.where(sin == 0, 0.5, j1(ka_sin) / ka_sin)
             first_order_const = J1_xi * ka**2 * cos
             derivatives['x'] = first_order_const * cos_dx
             derivatives['y'] = first_order_const * cos_dy
@@ -254,7 +255,8 @@ class CircularRing(TransducerModel):
             cos_dxdz = (3 * diff[...,0] * diff[...,2] * dot - r2 * (n[0] * diff[...,2] + n[2] * diff[...,0])) / r5 / norm
             cos_dydz = (3 * diff[...,1] * diff[...,2] * dot - r2 * (n[1] * diff[...,2] + n[2] * diff[...,1])) / r5 / norm
 
-            J2_xi2 = np.where(sin == 0, 0.125, (2 * J1_xi - J0) / ka_sin**2)
+            with np.errstate(invalid='ignore'):
+                J2_xi2 = np.where(sin == 0, 0.125, (2 * J1_xi - J0) / ka_sin**2)
             second_order_const = J2_xi2 * ka**4 * cos**2 + J1_xi * ka**2
             derivatives['xx'] = second_order_const * cos_dx**2 + first_order_const * cos_dx2
             derivatives['yy'] = second_order_const * cos_dy**2 + first_order_const * cos_dy2
@@ -276,7 +278,8 @@ class CircularRing(TransducerModel):
             cos_dz2dx = (-15 * diff[...,2]**2 * diff[...,0] * dot + 3 * r2 * (diff[...,2]**2 * n[0] + 2 * diff[...,2] * diff[...,0] * n[2] + diff[...,0] * dot) -r4 * n[0]) / r7 / norm
             cos_dz2dy = (-15 * diff[...,2]**2 * diff[...,1] * dot + 3 * r2 * (diff[...,2]**2 * n[1] + 2 * diff[...,2] * diff[...,1] * n[2] + diff[...,1] * dot) -r4 * n[1]) / r7 / norm
 
-            J3_xi3 = np.where(sin == 0, 1/48, (4 * J2_xi2 - J1_xi) / ka_sin**2)
+            with np.errstate(invalid='ignore'):
+                J3_xi3 = np.where(sin == 0, 1/48, (4 * J2_xi2 - J1_xi) / ka_sin**2)
             third_order_const = J3_xi3 * ka**6 * cos**3 + 3 * J2_xi2 * ka**4 * cos
             derivatives['xxx'] = third_order_const * cos_dx**3 + 3 * second_order_const * cos_dx2 * cos_dx + first_order_const * cos_dx3
             derivatives['yyy'] = third_order_const * cos_dy**3 + 3 * second_order_const * cos_dy2 * cos_dy + first_order_const * cos_dy3
