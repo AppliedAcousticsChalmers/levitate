@@ -218,6 +218,78 @@ class CircularRing(TransducerModel):
         ka = self.k * self.effective_radius
         return j0(ka * sin_angle)
 
+    def directivity_derivatives(self, source_position, source_normal, receiver_position, orders=3):
+        diff = receiver_position - source_position
+        dot = diff.dot(source_normal)
+        # r = np.einsum('...i,...i', diff, diff)**0.5
+        r = np.sum(diff**2, axis=-1)**0.5
+        n = source_normal
+        norm = np.sum(n**2)**0.5
+        cos = dot / r / norm
+        sin = (1 - cos**2)**0.5
+        ka = self.k * self.effective_radius
+        ka_sin = ka * sin
+
+        J0 = j0(ka_sin)
+        derivatives = {'': J0}
+        if orders > 0:
+            r2 = r**2
+            r3 = r**3
+            cos_dx = (r2 * n[0] - diff[...,0] * dot) / r3 / norm
+            cos_dy = (r2 * n[1] - diff[...,1] * dot) / r3 / norm
+            cos_dz = (r2 * n[2] - diff[...,2] * dot) / r3 / norm
+
+            J1_xi = np.where(sin == 0, 0.5, j1(ka_sin) / ka_sin)
+            first_order_const = J1_xi * ka**2 * cos
+            derivatives['x'] = first_order_const * cos_dx
+            derivatives['y'] = first_order_const * cos_dy
+            derivatives['z'] = first_order_const * cos_dz
+
+        if orders > 1:
+            r5 = r2 * r3
+            cos_dx2 = (3 * diff[...,0]**2 * dot - 2 * diff[...,0] * n[0] * r2 - dot * r2 ) / r5 / norm
+            cos_dy2 = (3 * diff[...,1]**2 * dot - 2 * diff[...,1] * n[1] * r2 - dot * r2 ) / r5 / norm
+            cos_dz2 = (3 * diff[...,2]**2 * dot - 2 * diff[...,2] * n[2] * r2 - dot * r2 ) / r5 / norm
+            cos_dxdy = (3 * diff[...,0] * diff[...,1] * dot - r2 * (n[0] * diff[...,1] + n[1] * diff[...,0])) / r5 / norm
+            cos_dxdz = (3 * diff[...,0] * diff[...,2] * dot - r2 * (n[0] * diff[...,2] + n[2] * diff[...,0])) / r5 / norm
+            cos_dydz = (3 * diff[...,1] * diff[...,2] * dot - r2 * (n[1] * diff[...,2] + n[2] * diff[...,1])) / r5 / norm
+
+            J2_xi2 = np.where(sin == 0, 0.125, (2 * J1_xi - J0) / ka_sin**2)
+            second_order_const = J2_xi2 * ka**4 * cos**2 + J1_xi * ka**2
+            derivatives['xx'] = second_order_const * cos_dx**2 + first_order_const * cos_dx2
+            derivatives['yy'] = second_order_const * cos_dy**2 + first_order_const * cos_dy2
+            derivatives['zz'] = second_order_const * cos_dz**2 + first_order_const * cos_dz2
+            derivatives['xy'] = second_order_const * cos_dx * cos_dy + first_order_const * cos_dxdy
+            derivatives['xz'] = second_order_const * cos_dx * cos_dz + first_order_const * cos_dxdz
+            derivatives['yz'] = second_order_const * cos_dy * cos_dz + first_order_const * cos_dydz
+
+        if orders > 2:
+            r4 = r2**2
+            r7 = r5 * r2
+            cos_dx3 = (-15 * diff[...,0]**3 * dot + 9 * r2 * (diff[...,0]**2 * n[0] + diff[...,0] * dot) - 3 * r4 * n[0]) / r7 / norm
+            cos_dy3 = (-15 * diff[...,1]**3 * dot + 9 * r2 * (diff[...,1]**2 * n[1] + diff[...,1] * dot) - 3 * r4 * n[1]) / r7 / norm
+            cos_dz3 = (-15 * diff[...,2]**3 * dot + 9 * r2 * (diff[...,2]**2 * n[2] + diff[...,2] * dot) - 3 * r4 * n[2]) / r7 / norm
+            cos_dx2dy = (-15 * diff[...,0]**2 * diff[...,1] * dot + 3 * r2 * (diff[...,0]**2 * n[1] + 2 * diff[...,0] * diff[...,1] * n[0] + diff[...,1] * dot) -r4 * n[1]) / r7 / norm
+            cos_dx2dz = (-15 * diff[...,0]**2 * diff[...,2] * dot + 3 * r2 * (diff[...,0]**2 * n[2] + 2 * diff[...,0] * diff[...,2] * n[0] + diff[...,2] * dot) -r4 * n[2]) / r7 / norm
+            cos_dy2dx = (-15 * diff[...,1]**2 * diff[...,0] * dot + 3 * r2 * (diff[...,1]**2 * n[0] + 2 * diff[...,1] * diff[...,0] * n[1] + diff[...,0] * dot) -r4 * n[0]) / r7 / norm
+            cos_dy2dz = (-15 * diff[...,1]**2 * diff[...,2] * dot + 3 * r2 * (diff[...,1]**2 * n[2] + 2 * diff[...,1] * diff[...,2] * n[1] + diff[...,2] * dot) -r4 * n[2]) / r7 / norm
+            cos_dz2dx = (-15 * diff[...,2]**2 * diff[...,0] * dot + 3 * r2 * (diff[...,2]**2 * n[0] + 2 * diff[...,2] * diff[...,0] * n[2] + diff[...,0] * dot) -r4 * n[0]) / r7 / norm
+            cos_dz2dy = (-15 * diff[...,2]**2 * diff[...,1] * dot + 3 * r2 * (diff[...,2]**2 * n[1] + 2 * diff[...,2] * diff[...,1] * n[2] + diff[...,1] * dot) -r4 * n[1]) / r7 / norm
+
+            J3_xi3 = np.where(sin == 0, 1/48, (4 * J2_xi2 - J1_xi) / ka_sin**2)
+            third_order_const = J3_xi3 * ka**6 * cos**3 + 3 * J2_xi2 * ka**4 * cos
+            derivatives['xxx'] = third_order_const * cos_dx**3 + 3 * second_order_const * cos_dx2 * cos_dx + first_order_const * cos_dx3
+            derivatives['yyy'] = third_order_const * cos_dy**3 + 3 * second_order_const * cos_dy2 * cos_dy + first_order_const * cos_dy3
+            derivatives['zzz'] = third_order_const * cos_dz**3 + 3 * second_order_const * cos_dz2 * cos_dz + first_order_const * cos_dz3
+            derivatives['xxy'] = third_order_const * cos_dx**2 * cos_dy + second_order_const * (cos_dx2 * cos_dy + 2 * cos_dxdy * cos_dx) + first_order_const * cos_dx2dy
+            derivatives['xxz'] = third_order_const * cos_dx**2 * cos_dz + second_order_const * (cos_dx2 * cos_dz + 2 * cos_dxdz * cos_dx) + first_order_const * cos_dx2dz
+            derivatives['yyx'] = third_order_const * cos_dy**2 * cos_dx + second_order_const * (cos_dy2 * cos_dx + 2 * cos_dxdy * cos_dy) + first_order_const * cos_dy2dx
+            derivatives['yyz'] = third_order_const * cos_dy**2 * cos_dz + second_order_const * (cos_dy2 * cos_dz + 2 * cos_dydz * cos_dy) + first_order_const * cos_dy2dz
+            derivatives['zzx'] = third_order_const * cos_dz**2 * cos_dx + second_order_const * (cos_dz2 * cos_dx + 2 * cos_dxdz * cos_dz) + first_order_const * cos_dz2dx
+            derivatives['zzy'] = third_order_const * cos_dz**2 * cos_dy + second_order_const * (cos_dz2 * cos_dy + 2 * cos_dydz * cos_dz) + first_order_const * cos_dz2dy
+
+        return derivatives
+
 
 class TransducerArray:
 
