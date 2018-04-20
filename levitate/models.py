@@ -80,7 +80,7 @@ class TransducerModel:
 
     def spatial_derivatives(self, source_position, source_normal, receiver_position, orders=3):
         spherical_derivatives = self.spherical_derivatives(source_position, receiver_position, orders)
-        directivity_derivatives = self.directivity_derivates(source_position, source_normal, receiver_position, orders)
+        directivity_derivatives = self.directivity_derivatives(source_position, source_normal, receiver_position, orders)
 
         derivatives = {'': spherical_derivatives[''] * directivity_derivatives['']}
 
@@ -112,7 +112,8 @@ class TransducerModel:
 
     def spherical_derivatives(self, source_position, receiver_position, orders=3):
         diff = receiver_position - source_position
-        r = np.einsum('...i,...i', diff, diff)**0.5
+        # r = np.einsum('...i,...i', diff, diff)**0.5
+        r = np.sum(diff**2, axis=-1)**0.5
         kr = self.k * r
         jkr = 1j * kr
         phase = np.exp(jkr)
@@ -150,7 +151,7 @@ class TransducerModel:
 
         return derivatives
 
-    def directivity_derivates(self, source_position, source_normal, receiver_position, orders=3):
+    def directivity_derivatives(self, source_position, source_normal, receiver_position, orders=3):
         finite_difference_coefficients = {'': (np.array([0, 0, 0]), 1)}
         if orders > 0:
             finite_difference_coefficients['x'] = (np.array([[1, 0, 0], [-1, 0, 0]]), [0.5, -0.5])
@@ -190,7 +191,8 @@ class CircularPiston(TransducerModel):
         diff = receiver_position - source_position
         dots = diff.dot(source_normal)
         norm1 = np.sum(source_normal**2)**0.5
-        norm2 = np.einsum('...i,...i', diff, diff)**0.5
+        # norm2 = np.einsum('...i,...i', diff, diff)**0.5
+        r = np.sum(diff**2, axis=-1)**0.5
         cos_angle = dots / norm2 / norm1
         sin_angle = (1 - cos_angle**2)**0.5
         ka = self.k * self.effective_radius
