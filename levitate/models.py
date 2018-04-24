@@ -9,7 +9,8 @@ logger = logging.getLogger(__name__)
 c_air = 343
 rho_air = 1.2
 
-def rectangular_grid(shape, spread, offset=(0,0,0), normal=(0,0,1), rotation=0):
+
+def rectangular_grid(shape, spread, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0):
     """ Creates a grid with positions and normals
 
     Defines the locations and normals of elements (transducers) in an array.
@@ -27,7 +28,7 @@ def rectangular_grid(shape, spread, offset=(0,0,0), normal=(0,0,1), rotation=0):
     spread : float
         The separation between grid points, in meters.
     offset : 3 element array_like, optional, default (0,0,0).
-        The location of the middle of the array, in meters. 
+        The location of the middle of the array, in meters.
     normal : 3 element array_like, optional, default (0,0,1).
         The normal direction of the resulting array.
     rotation : float, optional, default 0.
@@ -39,42 +40,41 @@ def rectangular_grid(shape, spread, offset=(0,0,0), normal=(0,0,1), rotation=0):
         nx3 array with the positions of the elements.
     normals : ndarray
         nx3 array with normals of tge elements.
-    
     """
     normal = np.asarray(normal, dtype='float64')
     normal /= (normal**2).sum()**0.5
     x = np.linspace(-(shape[0] - 1) / 2, (shape[0] - 1) / 2, shape[0]) * spread
     y = np.linspace(-(shape[1] - 1) / 2, (shape[1] - 1) / 2, shape[1]) * spread
 
-    X,Y,Z = np.meshgrid(x,y,0)
+    X, Y, Z = np.meshgrid(x, y, 0)
     positions = np.stack((X.flatten(), Y.flatten(), Z.flatten()), axis=1)
     normals = np.tile(normal, (positions.shape[0], 1))
 
-    
     if normal[0] != 0 or normal[1] != 0:
         # We need to rotate the grid to get the correct normal
-        rotation_vector = np.cross(normal, (0,0,1))
+        rotation_vector = np.cross(normal, (0, 0, 1))
         rotation_vector /= (rotation_vector**2).sum()**0.5
-        cross_product_matrix = np.array([[0, -rotation_vector[2], rotation_vector[1]], 
-                                         [rotation_vector[2], 0, -rotation_vector[0]], 
+        cross_product_matrix = np.array([[0, -rotation_vector[2], rotation_vector[1]],
+                                         [rotation_vector[2], 0, -rotation_vector[0]],
                                          [-rotation_vector[1], rotation_vector[0], 0]])
         cos = normal[2]
-        sin = (1-cos**2)**0.5
-        rotation_matrix = (cos * np.eye(3) + sin * cross_product_matrix + (1-cos) * np.outer(rotation_vector, rotation_vector))
+        sin = (1 - cos**2)**0.5
+        rotation_matrix = (cos * np.eye(3) + sin * cross_product_matrix + (1 - cos) * np.outer(rotation_vector, rotation_vector))
     else:
-        rotation_matrix = np.eye(3)    
+        rotation_matrix = np.eye(3)
     if rotation != 0:
-        cross_product_matrix = np.array([[0, -normal[2], normal[1]], 
-                                         [normal[2], 0, -normal[0]], 
+        cross_product_matrix = np.array([[0, -normal[2], normal[1]],
+                                         [normal[2], 0, -normal[0]],
                                          [-normal[1], normal[0], 0]])
         cos = np.cos(-rotation)
         sin = np.sin(-rotation)
-        rotation_matrix = rotation_matrix.dot(cos * np.eye(3) + sin * cross_product_matrix + (1-cos) * np.outer(normal, normal))
+        rotation_matrix = rotation_matrix.dot(cos * np.eye(3) + sin * cross_product_matrix + (1 - cos) * np.outer(normal, normal))
 
     positions = positions.dot(rotation_matrix) + offset
     return positions, normals
 
-def double_sided_grid(shape, spread, separation, offset=(0,0,0), normal=(0,0,1), rotation=0, grid_generator=rectangular_grid, **kwargs):
+
+def double_sided_grid(shape, spread, separation, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, grid_generator=rectangular_grid, **kwargs):
     normal = np.asarray(normal, dtype='float64')
     normal /= (normal**2).sum()**0.5
 
@@ -83,8 +83,7 @@ def double_sided_grid(shape, spread, separation, offset=(0,0,0), normal=(0,0,1),
     return np.concatenate([pos_1, pos_2], axis=0), np.concatenate([norm_1, norm_2], axis=0)
 
 
-
-class TransducerModel:  
+class TransducerModel:
 
     def __init__(self, freq=40e3, effective_radius=None):
         self.freq = freq
@@ -251,8 +250,7 @@ class CircularPiston(TransducerModel):
         diff = receiver_position - source_position
         dots = diff.dot(source_normal)
         norm1 = np.sum(source_normal**2)**0.5
-        # norm2 = np.einsum('...i,...i', diff, diff)**0.5
-        r = np.sum(diff**2, axis=-1)**0.5
+        norm2 = np.einsum('...i,...i', diff, diff)**0.5
         cos_angle = dots / norm2 / norm1
         sin_angle = (1 - cos_angle**2)**0.5
         ka = self.k * self.effective_radius
@@ -260,7 +258,7 @@ class CircularPiston(TransducerModel):
         denom = ka * sin_angle
         numer = j1(denom)
         with np.errstate(invalid='ignore'):
-            return np.where(denom==0, 1, 2 * numer / denom)
+            return np.where(denom == 0, 1, 2 * numer / denom)
 
 
 class CircularRing(TransducerModel):
@@ -295,10 +293,10 @@ class CircularRing(TransducerModel):
         if orders > 0:
             r2 = r**2
             r3 = r**3
-            cos_dx = (r2 * n[0] - diff[...,0] * dot) / r3 / norm
-            cos_dy = (r2 * n[1] - diff[...,1] * dot) / r3 / norm
-            cos_dz = (r2 * n[2] - diff[...,2] * dot) / r3 / norm
-            
+            cos_dx = (r2 * n[0] - diff[..., 0] * dot) / r3 / norm
+            cos_dy = (r2 * n[1] - diff[..., 1] * dot) / r3 / norm
+            cos_dz = (r2 * n[2] - diff[..., 2] * dot) / r3 / norm
+
             with np.errstate(invalid='ignore'):
                 J1_xi = np.where(sin == 0, 0.5, j1(ka_sin) / ka_sin)
             first_order_const = J1_xi * ka**2 * cos
@@ -308,12 +306,12 @@ class CircularRing(TransducerModel):
 
         if orders > 1:
             r5 = r2 * r3
-            cos_dx2 = (3 * diff[...,0]**2 * dot - 2 * diff[...,0] * n[0] * r2 - dot * r2 ) / r5 / norm
-            cos_dy2 = (3 * diff[...,1]**2 * dot - 2 * diff[...,1] * n[1] * r2 - dot * r2 ) / r5 / norm
-            cos_dz2 = (3 * diff[...,2]**2 * dot - 2 * diff[...,2] * n[2] * r2 - dot * r2 ) / r5 / norm
-            cos_dxdy = (3 * diff[...,0] * diff[...,1] * dot - r2 * (n[0] * diff[...,1] + n[1] * diff[...,0])) / r5 / norm
-            cos_dxdz = (3 * diff[...,0] * diff[...,2] * dot - r2 * (n[0] * diff[...,2] + n[2] * diff[...,0])) / r5 / norm
-            cos_dydz = (3 * diff[...,1] * diff[...,2] * dot - r2 * (n[1] * diff[...,2] + n[2] * diff[...,1])) / r5 / norm
+            cos_dx2 = (3 * diff[..., 0]**2 * dot - 2 * diff[..., 0] * n[0] * r2 - dot * r2) / r5 / norm
+            cos_dy2 = (3 * diff[..., 1]**2 * dot - 2 * diff[..., 1] * n[1] * r2 - dot * r2) / r5 / norm
+            cos_dz2 = (3 * diff[..., 2]**2 * dot - 2 * diff[..., 2] * n[2] * r2 - dot * r2) / r5 / norm
+            cos_dxdy = (3 * diff[..., 0] * diff[..., 1] * dot - r2 * (n[0] * diff[..., 1] + n[1] * diff[..., 0])) / r5 / norm
+            cos_dxdz = (3 * diff[..., 0] * diff[..., 2] * dot - r2 * (n[0] * diff[..., 2] + n[2] * diff[..., 0])) / r5 / norm
+            cos_dydz = (3 * diff[..., 1] * diff[..., 2] * dot - r2 * (n[1] * diff[..., 2] + n[2] * diff[..., 1])) / r5 / norm
 
             with np.errstate(invalid='ignore'):
                 J2_xi2 = np.where(sin == 0, 0.125, (2 * J1_xi - J0) / ka_sin**2)
@@ -328,18 +326,18 @@ class CircularRing(TransducerModel):
         if orders > 2:
             r4 = r2**2
             r7 = r5 * r2
-            cos_dx3 = (-15 * diff[...,0]**3 * dot + 9 * r2 * (diff[...,0]**2 * n[0] + diff[...,0] * dot) - 3 * r4 * n[0]) / r7 / norm
-            cos_dy3 = (-15 * diff[...,1]**3 * dot + 9 * r2 * (diff[...,1]**2 * n[1] + diff[...,1] * dot) - 3 * r4 * n[1]) / r7 / norm
-            cos_dz3 = (-15 * diff[...,2]**3 * dot + 9 * r2 * (diff[...,2]**2 * n[2] + diff[...,2] * dot) - 3 * r4 * n[2]) / r7 / norm
-            cos_dx2dy = (-15 * diff[...,0]**2 * diff[...,1] * dot + 3 * r2 * (diff[...,0]**2 * n[1] + 2 * diff[...,0] * diff[...,1] * n[0] + diff[...,1] * dot) -r4 * n[1]) / r7 / norm
-            cos_dx2dz = (-15 * diff[...,0]**2 * diff[...,2] * dot + 3 * r2 * (diff[...,0]**2 * n[2] + 2 * diff[...,0] * diff[...,2] * n[0] + diff[...,2] * dot) -r4 * n[2]) / r7 / norm
-            cos_dy2dx = (-15 * diff[...,1]**2 * diff[...,0] * dot + 3 * r2 * (diff[...,1]**2 * n[0] + 2 * diff[...,1] * diff[...,0] * n[1] + diff[...,0] * dot) -r4 * n[0]) / r7 / norm
-            cos_dy2dz = (-15 * diff[...,1]**2 * diff[...,2] * dot + 3 * r2 * (diff[...,1]**2 * n[2] + 2 * diff[...,1] * diff[...,2] * n[1] + diff[...,2] * dot) -r4 * n[2]) / r7 / norm
-            cos_dz2dx = (-15 * diff[...,2]**2 * diff[...,0] * dot + 3 * r2 * (diff[...,2]**2 * n[0] + 2 * diff[...,2] * diff[...,0] * n[2] + diff[...,0] * dot) -r4 * n[0]) / r7 / norm
-            cos_dz2dy = (-15 * diff[...,2]**2 * diff[...,1] * dot + 3 * r2 * (diff[...,2]**2 * n[1] + 2 * diff[...,2] * diff[...,1] * n[2] + diff[...,1] * dot) -r4 * n[1]) / r7 / norm
+            cos_dx3 = (-15 * diff[..., 0]**3 * dot + 9 * r2 * (diff[..., 0]**2 * n[0] + diff[..., 0] * dot) - 3 * r4 * n[0]) / r7 / norm
+            cos_dy3 = (-15 * diff[..., 1]**3 * dot + 9 * r2 * (diff[..., 1]**2 * n[1] + diff[..., 1] * dot) - 3 * r4 * n[1]) / r7 / norm
+            cos_dz3 = (-15 * diff[..., 2]**3 * dot + 9 * r2 * (diff[..., 2]**2 * n[2] + diff[..., 2] * dot) - 3 * r4 * n[2]) / r7 / norm
+            cos_dx2dy = (-15 * diff[..., 0]**2 * diff[..., 1] * dot + 3 * r2 * (diff[..., 0]**2 * n[1] + 2 * diff[..., 0] * diff[..., 1] * n[0] + diff[..., 1] * dot) - r4 * n[1]) / r7 / norm
+            cos_dx2dz = (-15 * diff[..., 0]**2 * diff[..., 2] * dot + 3 * r2 * (diff[..., 0]**2 * n[2] + 2 * diff[..., 0] * diff[..., 2] * n[0] + diff[..., 2] * dot) - r4 * n[2]) / r7 / norm
+            cos_dy2dx = (-15 * diff[..., 1]**2 * diff[..., 0] * dot + 3 * r2 * (diff[..., 1]**2 * n[0] + 2 * diff[..., 1] * diff[..., 0] * n[1] + diff[..., 0] * dot) - r4 * n[0]) / r7 / norm
+            cos_dy2dz = (-15 * diff[..., 1]**2 * diff[..., 2] * dot + 3 * r2 * (diff[..., 1]**2 * n[2] + 2 * diff[..., 1] * diff[..., 2] * n[1] + diff[..., 2] * dot) - r4 * n[2]) / r7 / norm
+            cos_dz2dx = (-15 * diff[..., 2]**2 * diff[..., 0] * dot + 3 * r2 * (diff[..., 2]**2 * n[0] + 2 * diff[..., 2] * diff[..., 0] * n[2] + diff[..., 0] * dot) - r4 * n[0]) / r7 / norm
+            cos_dz2dy = (-15 * diff[..., 2]**2 * diff[..., 1] * dot + 3 * r2 * (diff[..., 2]**2 * n[1] + 2 * diff[..., 2] * diff[..., 1] * n[2] + diff[..., 1] * dot) - r4 * n[1]) / r7 / norm
 
             with np.errstate(invalid='ignore'):
-                J3_xi3 = np.where(sin == 0, 1/48, (4 * J2_xi2 - J1_xi) / ka_sin**2)
+                J3_xi3 = np.where(sin == 0, 1 / 48, (4 * J2_xi2 - J1_xi) / ka_sin**2)
             third_order_const = J3_xi3 * ka**6 * cos**3 + 3 * J2_xi2 * ka**4 * cos
             derivatives['xxx'] = third_order_const * cos_dx**3 + 3 * second_order_const * cos_dx2 * cos_dx + first_order_const * cos_dx3
             derivatives['yyy'] = third_order_const * cos_dy**3 + 3 * second_order_const * cos_dy2 * cos_dy + first_order_const * cos_dy3
@@ -357,7 +355,7 @@ class CircularRing(TransducerModel):
 class TransducerArray:
 
     def __init__(self, focus_point=[0, 0, 0.2], freq=40e3,
-                 grid=None, transducer_size=10e-3, shape=16, 
+                 grid=None, transducer_size=10e-3, shape=16,
                  transducer_model=None, directivity=None):
         self.focus_point = focus_point
         self.transducer_size = transducer_size
@@ -366,10 +364,11 @@ class TransducerArray:
             self.transducer_model = TransducerModel(freq=freq)
             if directivity is not None:
                 warnings.warn(('Paramater `directivity` of TransducerArray is not recommended. '
-                    'Create and set a transducer model directly instead.'), DeprecationWarning, stacklevel=2)
+                               'Create and set a transducer model directly instead.'),
+                              DeprecationWarning, stacklevel=2)
                 self.use_directivity = directivity
         elif type(transducer_model) is type:
-            self.transducer_model = transducer_model(freq=freq, effective_radius=transducer_size/2)
+            self.transducer_model = transducer_model(freq=freq, effective_radius=transducer_size / 2)
         else:
             self.transducer_model = transducer_model
 
@@ -385,30 +384,38 @@ class TransducerArray:
         self.amplitudes = np.ones(self.num_transducers)
         self.phases = np.zeros(self.num_transducers)
 
-        self.p0 = 6  # Pa @ 1 m distance on-axis. 
+        self.p0 = 6  # Pa @ 1 m distance on-axis.
         # The murata transducers are measured to 85 dB SPL at 1 V at 1 m, which corresponds to ~6 Pa at 20 V
         # The datasheet specifies 120 dB SPL @ 0.3 m, which corresponds to ~6 Pa @ 1 m
+
     @property
     def k(self):
         return self.transducer_model.k
+
     @k.setter
     def k(self, value):
         self.transducer_model.k = value
+
     @property
     def omega(self):
         return self.transducer_model.omega
+
     @omega.setter
     def omega(self, value):
         self.transducer_model.omega = value
+
     @property
     def freq(self):
         return self.transducer_model.freq
+
     @freq.setter
     def freq(self, value):
         self.transducer_model.freq = value
+
     @property
     def wavelength(self):
         return self.transducer_model.wavelength
+
     @wavelength.setter
     def wavelength(self, value):
         self.transducer_model.wavelength = value
@@ -417,7 +424,8 @@ class TransducerArray:
     @property
     def use_directivity(self):
         warnings.warn(('`use_directivity` of TransducerArray is not recommended. '
-            'Interact with `transducer_model` directly instead.'), DeprecationWarning, stacklevel=2)
+                       'Interact with `transducer_model` directly instead.'),
+                      DeprecationWarning, stacklevel=2)
         if type(self.transducer_model) == CircularRing:
             return 'j0'
         if type(self.transducer_model) == CircularPiston:
@@ -430,20 +438,20 @@ class TransducerArray:
     @use_directivity.setter
     def use_directivity(self, value):
         warnings.warn(('`use_directivity` of TransducerArray is not recommended. '
-            'Create and set a transducer model directly instead.'), DeprecationWarning, stacklevel=2)
+                       'Create and set a transducer model directly instead.'),
+                      DeprecationWarning, stacklevel=2)
         freq = self.freq
         if value is None:
             self.transducer_model = TransducerModel(freq=freq)
             self._use_directivity = None
         elif value == 'j0':
-            self.transducer_model = CircularRing(effective_radius=self.transducer_size/2, freq=freq)
+            self.transducer_model = CircularRing(effective_radius=self.transducer_size / 2, freq=freq)
             self._use_directivity = 'j0'
         elif value == 'j1':
-            self.transducer_model = CircularPiston(effective_radius=self.transducer_size/2, freq=freq)
+            self.transducer_model = CircularPiston(effective_radius=self.transducer_size / 2, freq=freq)
             self._use_directivity = 'j1'
         else:
             raise ValueError("Unknown dirictivity '{}'".format(value))
-
 
     def focus_phases(self, focus):
         # TODO: Is this method really useful?
@@ -487,8 +495,8 @@ class TransducerArray:
         # TODO: Rotate, shift, and make sure that the calculateion below actually works
 
         if radius is None:
-            A = np.prod(self.shape)*self.transducer_size**2
-            radius = (A/2/np.pi)**0.5
+            A = np.prod(self.shape) * self.transducer_size**2
+            radius = (A / 2 / np.pi)**0.5
 
         signature = np.empty(self.num_transducers)
         for idx in range(self.num_transducers):
@@ -544,7 +552,8 @@ class TransducerArray:
 
     def directivity(self, transducer_id, receiver_position):
         warnings.warn(('`directivity` of TransducerArray is not recommended. '
-            'Use the corresponding method of a transducer model instead.'), DeprecationWarning, stacklevel=2)
+                       'Use the corresponding method of a transducer model instead.'),
+                      DeprecationWarning, stacklevel=2)
         return self.transducer_model.directivity(self.transducer_positions[transducer_id], self.transducer_normals[transducer_id], receiver_position)
         if self.use_directivity is None:
             if receiver_position.ndim == 1:
@@ -588,7 +597,8 @@ class TransducerArray:
 
     def spherical_spreading(self, transducer_id, receiver_position):
         warnings.warn(('`spherical_spreading` of TransducerArray is not recommended. '
-            'Use the corresponding method of a transducer model instead.'), DeprecationWarning, stacklevel=2)
+                       'Use the corresponding method of a transducer model instead.'),
+                      DeprecationWarning, stacklevel=2)
         return self.transducer_model.spherical_spreading(self.transducer_positions[transducer_id], receiver_position)
         source_position = self.transducer_positions[transducer_id]
         diff = source_position - receiver_position
@@ -597,7 +607,8 @@ class TransducerArray:
 
     def greens_function(self, transducer_id, receiver_position):
         warnings.warn(('`greens_function` of TransducerArray is not recommended. '
-            'Use the corresponding method of a transducer model instead.'), DeprecationWarning, stacklevel=2)
+                       'Use the corresponding method of a transducer model instead.'),
+                      DeprecationWarning, stacklevel=2)
         return self.transducer_model.greens_function(
             self.transducer_positions[transducer_id],
             self.transducer_normals[transducer_id],
@@ -652,7 +663,8 @@ class TransducerArray:
         # Pre-initialize dictionary with arrays
         # TODO: enable selective calculation of the derivatives actually needed
         warnings.warn(('`old_spatial_derivatives` is an old implementation to caculate spatial derivatives. '
-            'Use the new method to avoid issues.'), DeprecationWarning, stacklevel=2)
+                       'Use the new method to avoid issues.'),
+                      DeprecationWarning, stacklevel=2)
         num_trans = self.num_transducers
 
         spherical_derivatives = {'': np.empty(num_trans, complex)}
