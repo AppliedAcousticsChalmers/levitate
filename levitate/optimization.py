@@ -145,10 +145,10 @@ def gorkov_laplacian(array, location, weights=(1, 1, 1, 1), c_sphere=2350, rho_s
     num_transducers = array.num_transducers
     spatial_derivatives = array.spatial_derivatives(location)
     wp, wx, wy, wz = weights
+    c_air = models.c_air
+    rho_air = models.rho_air
 
     V = 4 / 3 * np.pi * radius_sphere**3
-    rho_air = array.rho
-    c_air = array.c
     compressibility_air = 1 / (rho_air * c_air**2)
     compressibility_sphere = 1 / (rho_sphere * c_sphere**2)
     monopole_coefficient = 1 - compressibility_sphere / compressibility_air  # f_1 in H. Bruus 2012
