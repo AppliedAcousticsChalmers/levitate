@@ -101,6 +101,45 @@ def _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex
     return phases, amplitudes, variable_amplitudes
 
 
+def gorkov_force(array, location, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
+    num_transducers = array.num_transducers
+    spatial_derivatives = array.spatial_derivatives(location, orders=2)
+
+    V = 4 / 3 * np.pi * radius_sphere**3
+    rho_air = array.rho
+    c_air = array.c
+    compressibility_air = 1 / (rho_air * c_air**2)
+    compressibility_sphere = 1 / (rho_sphere * c_sphere**2)
+    monopole_coefficient = 1 - compressibility_sphere / compressibility_air  # f_1 in H. Bruus 2012
+    dipole_coefficient = 2 * (rho_sphere / rho_air - 1) / (2 * rho_sphere / rho_air + 1)   # f_2 in H. Bruus 2012
+    preToVel = 1 / (1j* 2 * np.pi * array.freq * rho_air)  # Converting velocity to pressure gradient using equation of motion
+    pressure_coefficient = V / 2 * compressibility_air * monopole_coefficient
+    gradient_coefficient = (V * 3 / 4 * dipole_coefficient * preToVel**2 * rho_air).real
+
+    def gorkov_force(phases_amplitudes):
+        phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers)
+        complex_coeff = amplitudes * np.exp(1j * phases)
+        ind_der = {}
+        tot_der = {}
+        for key, value in spatial_derivatives.items():
+            ind_der[key] = complex_coeff * value
+            tot_der[key] = np.sum(ind_der[key])
+        Ux = (pressure_coefficient * (tot_der['x'] * np.conj(tot_der[''])).real -
+              gradient_coefficient * (tot_der['xx'] * np.conj(tot_der['x'])).real -
+              gradient_coefficient * (tot_der['xy'] * np.conj(tot_der['y'])).real -
+              gradient_coefficient * (tot_der['xz'] * np.conj(tot_der['z'])).real) * 2
+        Uy = (pressure_coefficient * (tot_der['y'] * np.conj(tot_der[''])).real -
+              gradient_coefficient * (tot_der['xy'] * np.conj(tot_der['x'])).real -
+              gradient_coefficient * (tot_der['yy'] * np.conj(tot_der['y'])).real -
+              gradient_coefficient * (tot_der['yz'] * np.conj(tot_der['z'])).real) * 2
+        Uz = (pressure_coefficient * (tot_der['z'] * np.conj(tot_der[''])).real -
+              gradient_coefficient * (tot_der['xz'] * np.conj(tot_der['x'])).real -
+              gradient_coefficient * (tot_der['yz'] * np.conj(tot_der['y'])).real -
+              gradient_coefficient * (tot_der['zz'] * np.conj(tot_der['z'])).real) * 2
+        return -Ux, -Uy, -Uz
+    return gorkov_force
+
+
 def gorkov_laplacian(array, location, weights=(1, 1, 1, 1), c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
     # Before defining the cost function and the jacobian, we need to initialize the following variables:
     num_transducers = array.num_transducers
