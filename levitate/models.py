@@ -27,8 +27,9 @@ def rectangular_grid(shape, spread):
 
 class TransducerModel:  
 
-    def __init__(self, freq=40e3):
+    def __init__(self, freq=40e3, effective_radius=None):
         self.freq = freq
+        self.effective_radius = effective_radius
 
     @property
     def k(self):
@@ -296,11 +297,22 @@ class CircularRing(TransducerModel):
 
 class TransducerArray:
 
-    def __init__(self, focus_point=[0, 0, 0.2], grid=None, transducer_size=10e-3, shape=16, freq=40e3, directivity=None):
+    def __init__(self, focus_point=[0, 0, 0.2], freq=40e3,
+                 grid=None, transducer_size=10e-3, shape=16, 
+                 transducer_model=None, directivity=None):
         self.focus_point = focus_point
-        self.transducer_model = TransducerModel(freq=freq)
         self.transducer_size = transducer_size
-        self.use_directivity = directivity
+
+        if transducer_model is None:
+            self.transducer_model = TransducerModel(freq=freq)
+            if directivity is not None:
+                warnings.warn(('Paramater `directivity` of TransducerArray is not recommended. '
+                    'Create and set a transducer model directly instead.'), DeprecationWarning, stacklevel=2)
+                self.use_directivity = directivity
+        elif type(transducer_model) is type:
+            self.transducer_model = transducer_model(freq=freq, effective_radius=transducer_size/2)
+        else:
+            self.transducer_model = transducer_model
 
         if not hasattr(shape, '__len__') or len(shape) == 1:
             self.shape = (shape, shape)
@@ -342,9 +354,11 @@ class TransducerArray:
     def wavelength(self, value):
         self.transducer_model.wavelength = value
 
-    # TODO: Temporaty glue to change directivities
+    # TODO: Legacy glue to change directivities
     @property
     def use_directivity(self):
+        warnings.warn(('`use_directivity` of TransducerArray is not recommended. '
+            'Interact with `transducer_model` directly instead.'), DeprecationWarning, stacklevel=2)
         if type(self.transducer_model) == CircularRing:
             return 'j0'
         if type(self.transducer_model) == CircularPiston:
@@ -356,6 +370,8 @@ class TransducerArray:
 
     @use_directivity.setter
     def use_directivity(self, value):
+        warnings.warn(('`use_directivity` of TransducerArray is not recommended. '
+            'Create and set a transducer model directly instead.'), DeprecationWarning, stacklevel=2)
         freq = self.freq
         if value is None:
             self.transducer_model = TransducerModel(freq=freq)
