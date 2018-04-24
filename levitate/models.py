@@ -316,15 +316,11 @@ class TransducerArray:
         'zzx': (np.array([[1, 0, 1], [-1, 0, -1], [-1, 0, 1], [1, 0, -1], [1, 0, 0], [-1, 0, 0]]), [0.5, -0.5, -0.5, 0.5, -1, 1]),  # Alt: (np.array([[1, 0, 2], [-1, 0, -2], [-1, 0, 2], [1, 0, -2], [1, 0, 0], [-1, 0, 0]]), [0.125, -0.125, -0.125, 0.125, -0.25, 0.25])
         'zzy': (np.array([[0, 1, 1], [0, -1, -1], [0, -1, 1], [0, 1, -1], [0, 1, 0], [0, -1, 0]]), [0.5, -0.5, -0.5, 0.5, -1, 1])  # Alt: (np.array([[0, 1, 2], [0, -1, -2], [0, -1, 2], [0, 1, -2], [0, 1, 0], [0, -1, 0]]), [0.125, -0.125, -0.125, 0.125, -0.25, 0.25])
     }
-    c = 343  # Speed of sound, shared between all instances
-    rho = 1.2
 
     def __init__(self, focus_point=[0, 0, 0.2], grid=None, transducer_size=10e-3, shape=16, freq=40e3, directivity=None):
         self.focus_point = focus_point
         self.transducer_model = TransducerModel(freq=freq)
         self.transducer_size = transducer_size
-        self.freq = freq
-        self.k = 2 * np.pi * self.freq / self.c
         self.use_directivity = directivity
 
         if not hasattr(shape, '__len__') or len(shape) == 1:
@@ -342,22 +338,54 @@ class TransducerArray:
         self.p0 = 6  # Pa @ 1 m distance on-axis. 
         # The murata transducers are measured to 85 dB SPL at 1 V at 1 m, which corresponds to ~6 Pa at 20 V
         # The datasheet specifies 120 dB SPL @ 0.3 m, which corresponds to ~6 Pa @ 1 m
+    @property
+    def k(self):
+        return self.transducer_model.k
+    @k.setter
+    def k(self, value):
+        self.transducer_model.k = value
+    @property
+    def omega(self):
+        return self.transducer_model.omega
+    @omega.setter
+    def omega(self, value):
+        self.transducer_model.omega = value
+    @property
+    def freq(self):
+        return self.transducer_model.freq
+    @freq.setter
+    def freq(self, value):
+        self.transducer_model.freq = value
+    @property
+    def wavelength(self):
+        return self.transducer_model.wavelength
+    @wavelength.setter
+    def wavelength(self, value):
+        self.transducer_model.wavelength = value
 
     # TODO: Temporaty glue to change directivities
     @property
     def use_directivity(self):
-        return self._use_directivity
+        if type(self.transducer_model) == CircularRing:
+            return 'j0'
+        if type(self.transducer_model) == CircularPiston:
+            return 'j1'
+        if type(self.transducer_model) == TransducerModel:
+            return None
+        else:
+            return 'Unknown transducer model `{}`'.format(type(self.transducer_model))
 
     @use_directivity.setter
     def use_directivity(self, value):
+        freq = self.freq
         if value is None:
-            self.transducer_model = TransducerModel(freq=self.freq)
+            self.transducer_model = TransducerModel(freq=freq)
             self._use_directivity = None
         elif value == 'j0':
-            self.transducer_model = CircularRing(effective_radius=self.transducer_size/2, freq=self.freq)
+            self.transducer_model = CircularRing(effective_radius=self.transducer_size/2, freq=freq)
             self._use_directivity = 'j0'
         elif value == 'j1':
-            self.transducer_model = CircularPiston(effective_radius=self.transducer_size/2, freq=self.freq)
+            self.transducer_model = CircularPiston(effective_radius=self.transducer_size/2, freq=freq)
             self._use_directivity = 'j1'
         else:
             raise ValueError("Unknown dirictivity '{}'".format(value))
