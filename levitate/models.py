@@ -9,20 +9,79 @@ logger = logging.getLogger(__name__)
 c_air = 343
 rho_air = 1.2
 
-def rectangular_grid(shape, spread):
+def rectangular_grid(shape, spread, offset=(0,0,0), normal=(0,0,1), rotation=0):
+    """ Creates a grid with positions and normals
+
+    Defines the locations and normals of elements (transducers) in an array.
+    For rotated arrays, the rotations is a follows:
+        1) A grid of the correct layout is crated in the xy-plane
+        2) The grid is rotated to the disired plane, as defined by the normal.
+        3) The grid is rotated around the normal.
+    The rotation to the disired plane is arount the line where the desired
+    plane intersects with the xy-plane.
+
+    Parameters
+    ----------
+    shape : (int, int)
+        The number of grid points in each dimention.
+    spread : float
+        The separation between grid points, in meters.
+    offset : 3 element array_like, optional, default (0,0,0).
+        The location of the middle of the array, in meters. 
+    normal : 3 element array_like, optional, default (0,0,1).
+        The normal direction of the resulting array.
+    rotation : float, optional, default 0.
+        The in-plane rotation of the array.
+
+    Returns
+    -------
+    positions : ndarray
+        nx3 array with the positions of the elements.
+    normals : ndarray
+        nx3 array with normals of tge elements.
+    
+    """
+    normal = np.asarray(normal, dtype='float64')
+    normal /= (normal**2).sum()**0.5
     x = np.linspace(-(shape[0] - 1) / 2, (shape[0] - 1) / 2, shape[0]) * spread
     y = np.linspace(-(shape[1] - 1) / 2, (shape[1] - 1) / 2, shape[1]) * spread
 
-    numel = np.prod(shape)
-    positions = np.empty((numel, 3))
-    normals = np.empty((numel, 3))
-    counter = 0
-    for ix in range(shape[0]):
-        for iy in range(shape[1]):
-            positions[counter, :] = np.r_[x[ix], y[iy], 0]
-            normals[counter, :] = np.r_[0, 0, 1]
-            counter += 1
+    X,Y,Z = np.meshgrid(x,y,0)
+    positions = np.stack((X.flatten(), Y.flatten(), Z.flatten()), axis=1)
+    normals = np.tile(normal, (positions.shape[0], 1))
+
+    
+    if normal[0] != 0 or normal[1] != 0:
+        # We need to rotate the grid to get the correct normal
+        rotation_vector = np.cross(normal, (0,0,1))
+        rotation_vector /= (rotation_vector**2).sum()**0.5
+        cross_product_matrix = np.array([[0, -rotation_vector[2], rotation_vector[1]], 
+                                         [rotation_vector[2], 0, -rotation_vector[0]], 
+                                         [-rotation_vector[1], rotation_vector[0], 0]])
+        cos = normal[2]
+        sin = (1-cos**2)**0.5
+        rotation_matrix = (cos * np.eye(3) + sin * cross_product_matrix + (1-cos) * np.outer(rotation_vector, rotation_vector))
+    else:
+        rotation_matrix = np.eye(3)    
+    if rotation != 0:
+        cross_product_matrix = np.array([[0, -normal[2], normal[1]], 
+                                         [normal[2], 0, -normal[0]], 
+                                         [-normal[1], normal[0], 0]])
+        cos = np.cos(-rotation)
+        sin = np.sin(-rotation)
+        rotation_matrix = rotation_matrix.dot(cos * np.eye(3) + sin * cross_product_matrix + (1-cos) * np.outer(normal, normal))
+
+    positions = positions.dot(rotation_matrix) + offset
     return positions, normals
+
+def double_sided_grid(shape, spread, separation, offset=(0,0,0), normal=(0,0,1), rotation=0, grid_generator=rectangular_grid, **kwargs):
+    normal = np.asarray(normal, dtype='float64')
+    normal /= (normal**2).sum()**0.5
+
+    pos_1, norm_1 = grid_generator(shape=shape, spread=spread, offset=offset, normal=normal, rotation=rotation, **kwargs)
+    pos_2, norm_2 = grid_generator(shape=shape, spread=spread, offset=offset + separation * normal, normal=-normal, rotation=-rotation, **kwargs)
+    return np.concatenate([pos_1, pos_2], axis=0), np.concatenate([norm_1, norm_2], axis=0)
+
 
 
 class TransducerModel:  
