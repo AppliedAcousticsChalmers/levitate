@@ -85,9 +85,12 @@ def double_sided_grid(shape, spread, separation, offset=(0, 0, 0), normal=(0, 0,
 
 class TransducerModel:
 
-    def __init__(self, freq=40e3, effective_radius=None):
+    def __init__(self, freq=40e3, effective_radius=None, p0=6, **kwargs):
         self.freq = freq
         self.effective_radius = effective_radius
+        self.p0 = p0
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     @property
     def k(self):
@@ -124,7 +127,7 @@ class TransducerModel:
         self.k = 2 * np.pi / value
 
     def greens_function(self, source_position, source_normal, receiver_position):
-        return self.spherical_spreading(source_position, receiver_position) * self.directivity(source_position, source_normal, receiver_position)
+        return self.p0 * self.spherical_spreading(source_position, receiver_position) * self.directivity(source_position, source_normal, receiver_position)
 
     def spherical_spreading(self, source_position, receiver_position):
         diff = receiver_position - source_position
@@ -166,6 +169,9 @@ class TransducerModel:
             derivatives['yyz'] = spherical_derivatives[''] * directivity_derivatives['yyz'] + directivity_derivatives[''] * spherical_derivatives['yyz'] + spherical_derivatives['z'] * directivity_derivatives['yy'] + directivity_derivatives['z'] * spherical_derivatives['yy'] + 2 * (spherical_derivatives['y'] * directivity_derivatives['yz'] + directivity_derivatives['y'] * spherical_derivatives['yz'])
             derivatives['zzx'] = spherical_derivatives[''] * directivity_derivatives['zzx'] + directivity_derivatives[''] * spherical_derivatives['zzx'] + spherical_derivatives['x'] * directivity_derivatives['zz'] + directivity_derivatives['x'] * spherical_derivatives['zz'] + 2 * (spherical_derivatives['z'] * directivity_derivatives['xz'] + directivity_derivatives['z'] * spherical_derivatives['xz'])
             derivatives['zzy'] = spherical_derivatives[''] * directivity_derivatives['zzy'] + directivity_derivatives[''] * spherical_derivatives['zzy'] + spherical_derivatives['y'] * directivity_derivatives['zz'] + directivity_derivatives['y'] * spherical_derivatives['zz'] + 2 * (spherical_derivatives['z'] * directivity_derivatives['yz'] + directivity_derivatives['z'] * spherical_derivatives['yz'])
+
+        for key in derivatives.keys():
+            derivatives[key] *= self.p0
 
         return derivatives
 
@@ -242,9 +248,6 @@ class TransducerModel:
 
 
 class CircularPiston(TransducerModel):
-    def __init__(self, effective_radius, freq=40e3):
-        self.effective_radius = effective_radius
-        self.freq = freq
 
     def directivity(self, source_position, source_normal, receiver_position):
         diff = receiver_position - source_position
@@ -262,9 +265,6 @@ class CircularPiston(TransducerModel):
 
 
 class CircularRing(TransducerModel):
-    def __init__(self, effective_radius, freq=40e3):
-        self.effective_radius = effective_radius
-        self.freq = freq
 
     def directivity(self, source_position, source_normal, receiver_position):
         diff = receiver_position - source_position
@@ -384,7 +384,7 @@ class TransducerArray:
         self.amplitudes = np.ones(self.num_transducers)
         self.phases = np.zeros(self.num_transducers)
 
-        self.p0 = 6  # Pa @ 1 m distance on-axis.
+        # self.p0 = 6  # Pa @ 1 m distance on-axis.
         # The murata transducers are measured to 85 dB SPL at 1 V at 1 m, which corresponds to ~6 Pa at 20 V
         # The datasheet specifies 120 dB SPL @ 0.3 m, which corresponds to ~6 Pa @ 1 m
 
@@ -546,9 +546,9 @@ class TransducerArray:
                     self.transducer_positions[transducer], self.transducer_normals[transducer], point)
 
         if reshape:
-            return self.p0 * p.reshape(shape)
+            return p.reshape(shape)
         else:
-            return self.p0 * p
+            return p
 
     def directivity(self, transducer_id, receiver_position):
         warnings.warn(('`directivity` of TransducerArray is not recommended. '
