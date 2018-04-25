@@ -106,13 +106,13 @@ def gorkov_force(array, location, c_sphere=2350, rho_sphere=25, radius_sphere=1e
     spatial_derivatives = array.spatial_derivatives(location, orders=2)
 
     V = 4 / 3 * np.pi * radius_sphere**3
-    rho_air = array.rho
-    c_air = array.c
+    rho_air = models.rho_air
+    c_air = models.c_air
     compressibility_air = 1 / (rho_air * c_air**2)
     compressibility_sphere = 1 / (rho_sphere * c_sphere**2)
     monopole_coefficient = 1 - compressibility_sphere / compressibility_air  # f_1 in H. Bruus 2012
     dipole_coefficient = 2 * (rho_sphere / rho_air - 1) / (2 * rho_sphere / rho_air + 1)   # f_2 in H. Bruus 2012
-    preToVel = 1 / (1j* 2 * np.pi * array.freq * rho_air)  # Converting velocity to pressure gradient using equation of motion
+    preToVel = 1 / (1j * 2 * np.pi * array.freq * rho_air)  # Converting velocity to pressure gradient using equation of motion
     pressure_coefficient = V / 2 * compressibility_air * monopole_coefficient
     gradient_coefficient = (V * 3 / 4 * dipole_coefficient * preToVel**2 * rho_air).real
 
