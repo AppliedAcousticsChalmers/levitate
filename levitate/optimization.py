@@ -112,9 +112,9 @@ def gorkov_force(array, location, c_sphere=2350, rho_sphere=25, radius_sphere=1e
     compressibility_sphere = 1 / (rho_sphere * c_sphere**2)
     monopole_coefficient = 1 - compressibility_sphere / compressibility_air  # f_1 in H. Bruus 2012
     dipole_coefficient = 2 * (rho_sphere / rho_air - 1) / (2 * rho_sphere / rho_air + 1)   # f_2 in H. Bruus 2012
-    preToVel = 1 / (1j * 2 * np.pi * array.freq * rho_air)  # Converting velocity to pressure gradient using equation of motion
+    preToVel = 1 / (array.omega * rho_air)  # Converting velocity to pressure gradient using equation of motion
     pressure_coefficient = V / 2 * compressibility_air * monopole_coefficient
-    gradient_coefficient = (V * 3 / 4 * dipole_coefficient * preToVel**2 * rho_air).real
+    gradient_coefficient = V * 3 / 4 * dipole_coefficient * preToVel**2 * rho_air
 
     def gorkov_force(phases_amplitudes):
         phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers)
@@ -153,10 +153,9 @@ def gorkov_laplacian(array, location, weights=(1, 1, 1, 1), c_sphere=2350, rho_s
     compressibility_sphere = 1 / (rho_sphere * c_sphere**2)
     monopole_coefficient = 1 - compressibility_sphere / compressibility_air  # f_1 in H. Bruus 2012
     dipole_coefficient = 2 * (rho_sphere / rho_air - 1) / (2 * rho_sphere / rho_air + 1)   # f_2 in H. Bruus 2012
-    preToVel = 1 / (1j * 2 * np.pi * array.freq * rho_air)  # Converting velocity to pressure gradient using equation of motion
-    # Technically we get a sign difference in the preToVel conversion, but the square removes the sign
+    preToVel = 1 / (array.omega * rho_air)  # Converting velocity to pressure gradient using equation of motion
     pressure_coefficient = V / 2 * compressibility_air * monopole_coefficient
-    gradient_coefficient = (V * 3 / 4 * dipole_coefficient * preToVel**2 * rho_air).real  # .real to remove unnessessary zero imaginary part
+    gradient_coefficient = V * 3 / 4 * dipole_coefficient * preToVel**2 * rho_air
 
     def gorkov_laplacian(phases_amplitudes):
         phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers)
