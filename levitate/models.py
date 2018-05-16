@@ -256,6 +256,38 @@ class TransducerModel:
         return derivatives
 
 
+class ReflectingTransducer:
+    def __new__(cls, ctype, *args, **kwargs):
+        obj = ctype.__new__(ctype)
+        obj.__class__ = type('Reflecting{}'.format(ctype.__name__), (ReflectingTransducer, ctype), {})
+        return obj
+
+    def __init__(self, ctype, plane_distance, plane_normal=(0, 0, 1), reflection_coefficient=1, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.plane_distance = plane_distance
+        self.plane_normal = np.asarray(plane_normal, dtype='float64')
+        self.plane_normal /= (self.plane_normal**2).sum()**0.5
+        self.reflection_coefficient = reflection_coefficient
+
+    def greens_function(self, source_position, source_normal, receiver_position):
+        direct = super().greens_function(source_position, source_normal, receiver_position)
+        mirror_position = source_position - 2 * self.plane_normal * ((source_position * self.plane_normal).sum(axis=-1) - self.plane_distance)
+        mirror_normal = source_normal - 2 * self.plane_normal * (source_normal * self.plane_normal).sum(axis=-1)
+        reflected = super().greens_function(mirror_position, mirror_normal, receiver_position)
+        return direct + self.reflection_coefficient * reflected
+
+    def spatial_derivatives(self, source_position, source_normal, receiver_position, orders=3):
+        direct = super().spatial_derivatives(source_position, source_normal, receiver_position, orders)
+        mirror_position = source_position - 2 * self.plane_normal * ((source_position * self.plane_normal).sum(axis=-1) - self.plane_distance)
+        mirror_normal = source_normal - 2 * self.plane_normal * (source_normal * self.plane_normal).sum(axis=-1)
+        reflected = super().spatial_derivatives(mirror_position, mirror_normal, receiver_position, orders)
+        derivatives = {}
+
+        for key in direct:
+            derivatives[key] = direct[key] + self.reflection_coefficient * reflected[key]
+        return derivatives
+
+
 class CircularPiston(TransducerModel):
 
     def directivity(self, source_position, source_normal, receiver_position):
