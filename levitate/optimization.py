@@ -19,6 +19,15 @@ class Optimizer:
         self.basinhopping = False
         self.variable_amplitudes = False
 
+    @property
+    def complex_amplitudes(self):
+        return self.amplitudes * np.exp(1j * self.phases)
+
+    @complex_amplitudes.setter
+    def complex_amplitudes(self, value):
+        self.amplitudes = np.abs(value)
+        self.phases = np.angle(value)
+
     def func_and_jac(self, phases_amplitudes):
             results = [f(phases_amplitudes) for f in self.objective_list]
             value = np.sum(weight * result[0] for weight, result in zip(self.weights, results))

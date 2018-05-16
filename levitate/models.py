@@ -453,6 +453,15 @@ class TransducerArray:
         else:
             raise ValueError("Unknown dirictivity '{}'".format(value))
 
+    @property
+    def complex_amplitudes(self):
+        return self.amplitudes * np.exp(1j * self.phases)
+
+    @complex_amplitudes.setter
+    def complex_amplitudes(self, value):
+        self.amplitudes = np.abs(value)
+        self.phases = np.angle(value)
+
     def focus_phases(self, focus):
         # TODO: Is this method really useful?
         phase = np.empty(self.num_transducers)
