@@ -10,6 +10,15 @@ c_air = 343
 rho_air = 1.2
 
 
+def update_air_properties(temperature=None, pressure=None):
+    R_spec = 287.058
+    gamma = 1.4
+    if temperature is not None:
+        globals()['c_air'] = (gamma * R_spec * (temperature + 273.15))**0.5
+    if pressure is not None:
+        globals()['rho_air'] = pressure / R_spec / (temperature + 273.15)
+
+
 def rectangular_grid(shape, spread, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0):
     """ Creates a grid with positions and normals
 
