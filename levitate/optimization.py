@@ -14,8 +14,7 @@ class Optimizer:
             self.array = models.TransducerArray()
         else:
             self.array = array
-        self.objective_list = []
-        self.weights = []
+        self.objectives = []
         self.basinhopping = False
         self.variable_amplitudes = False
 
@@ -29,9 +28,9 @@ class Optimizer:
         self.phases = np.angle(value)
 
     def func_and_jac(self, phases_amplitudes):
-            results = [f(phases_amplitudes) for f in self.objective_list]
-            value = np.sum(weight * result[0] for weight, result in zip(self.weights, results))
-            jac = np.sum(weight * result[1] for weight, result in zip(self.weights, results))
+            results = [f(phases_amplitudes) for f in self.objectives]
+            value = np.sum(result[0] for result in results)
+            jac = np.sum(result[1] for result in results)
             return value, jac
 
     def __call__(self):
@@ -70,10 +69,6 @@ class Optimizer:
         # self.result = minimize(self.function, self.array.phases, jac=self.jacobian, callback=None,
         # method='L-BFGS-B', bounds=[(-3*np.pi, 3*np.pi)]*self.array.num_transducers, options={'gtol': 1e-7, 'ftol': 1e-12})
         # method='BFGS', options={'return_all': True, 'gtol': 1e-5, 'norm': 2})
-
-    def add_objective(self, objective, weight):
-        self.objective_list.append(objective)
-        self.weights.append(weight)
 
 
 class RadndomDisplacer:
