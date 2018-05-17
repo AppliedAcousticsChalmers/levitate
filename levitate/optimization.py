@@ -105,9 +105,10 @@ def _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex
     return phases, amplitudes, variable_amplitudes
 
 
-def gorkov_force(array, location, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
+def gorkov_force(array, location, spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
     num_transducers = array.num_transducers
-    spatial_derivatives = array.spatial_derivatives(location, orders=2)
+    if spatial_derivatives is None:
+        spatial_derivatives = array.spatial_derivatives(location, orders=2)
 
     V = 4 / 3 * np.pi * radius_sphere**3
     rho_air = models.rho_air
@@ -144,10 +145,11 @@ def gorkov_force(array, location, c_sphere=2350, rho_sphere=25, radius_sphere=1e
     return gorkov_force
 
 
-def gorkov_laplacian(array, location, weights=(1, 1, 1, 1), c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
+def gorkov_laplacian(array, location, weights=(1, 1, 1, 1), spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
     # Before defining the cost function and the jacobian, we need to initialize the following variables:
     num_transducers = array.num_transducers
-    spatial_derivatives = array.spatial_derivatives(location)
+    if spatial_derivatives is None:
+        spatial_derivatives = array.spatial_derivatives(location)
     wp, wx, wy, wz = weights
     c_air = models.c_air
     rho_air = models.rho_air
@@ -230,9 +232,10 @@ def amplitude_limiting(array, bounds=(1e-3, 1 - 1e-3), order=4, scaling=10):
     return amplitude_limiting
 
 
-def pressure_null(array, location, weights=(1, 1, 1, 1)):
+def pressure_null(array, location, weights=(1, 1, 1, 1), spatial_derivatives=None):
     num_transducers = array.num_transducers
-    spatial_derivatives = array.spatial_derivatives(location, orders=1)
+    if spatial_derivatives is None:
+        spatial_derivatives = array.spatial_derivatives(location, orders=1)
     gradient_scale = 1 / array.k**2
     wp, wx, wy, wz = weights
 
