@@ -105,7 +105,7 @@ def _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex
     return phases, amplitudes, variable_amplitudes
 
 
-def gorkov_force(array, location, spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
+def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
     num_transducers = array.num_transducers
     if spatial_derivatives is None:
         spatial_derivatives = array.spatial_derivatives(location, orders=2)
@@ -121,14 +121,8 @@ def gorkov_force(array, location, spatial_derivatives=None, c_sphere=2350, rho_s
     pressure_coefficient = V / 2 * compressibility_air * monopole_coefficient
     gradient_coefficient = V * 3 / 4 * dipole_coefficient * preToVel**2 * rho_air
 
-    def gorkov_force(phases_amplitudes):
-        phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers)
-        complex_coeff = amplitudes * np.exp(1j * phases)
-        ind_der = {}
-        tot_der = {}
-        for key, value in spatial_derivatives.items():
-            ind_der[key] = complex_coeff * value
-            tot_der[key] = np.sum(ind_der[key])
+    def calc_values(tot_der):
+        p_squared = np.abs(tot_der[''])**2
         Ux = (pressure_coefficient * (tot_der['x'] * np.conj(tot_der[''])).real -
               gradient_coefficient * (tot_der['xx'] * np.conj(tot_der['x'])).real -
               gradient_coefficient * (tot_der['xy'] * np.conj(tot_der['y'])).real -
@@ -141,19 +135,72 @@ def gorkov_force(array, location, spatial_derivatives=None, c_sphere=2350, rho_s
               gradient_coefficient * (tot_der['xz'] * np.conj(tot_der['x'])).real -
               gradient_coefficient * (tot_der['yz'] * np.conj(tot_der['y'])).real -
               gradient_coefficient * (tot_der['zz'] * np.conj(tot_der['z'])).real) * 2
-        return -Ux, -Uy, -Uz
-    return gorkov_force
+
+        return p_squared, Ux, Uy, Uz
+
+    def calc_jacobian(tot_der, ind_der):
+        dp = 2 * tot_der[''] * np.conj(ind_der[''])
+        dUx = (pressure_coefficient * (tot_der['x'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['x'])) -
+               gradient_coefficient * (tot_der['xx'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['xx'])) -
+               gradient_coefficient * (tot_der['xy'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['xy'])) -
+               gradient_coefficient * (tot_der['xz'] * np.conj(ind_der['z']) + tot_der['z'] * np.conj(ind_der['xz']))) * 2
+        dUy = (pressure_coefficient * (tot_der['y'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['y'])) -
+               gradient_coefficient * (tot_der['xy'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['xy'])) -
+               gradient_coefficient * (tot_der['yy'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['yy'])) -
+               gradient_coefficient * (tot_der['yz'] * np.conj(ind_der['z']) + tot_der['z'] * np.conj(ind_der['yz']))) * 2
+        dUz = (pressure_coefficient * (tot_der['z'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['z'])) -
+               gradient_coefficient * (tot_der['xz'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['xz'])) -
+               gradient_coefficient * (tot_der['yz'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['yz'])) -
+               gradient_coefficient * (tot_der['zz'] * np.conj(ind_der['z']) + tot_der['z'] * np.conj(ind_der['zz']))) * 2
+
+        return dp, dUx, dUy, dUz
+
+    if weights is None:
+        def gorkov_divergence(phases_amplitudes):
+            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
+            complex_coeff = amplitudes * np.exp(1j * phases)
+            tot_der = {}
+            for key, value in spatial_derivatives.items():
+                tot_der[key] = np.sum(complex_coeff * value)
+            _, Ux, Uy, Uz = calc_values(tot_der)
+            return Ux, Uy, Uz
+    else:
+        if len(weights) == 4:
+            wp, wx, wy, wz = weights
+        elif len(weights) == 3:
+            wx, wy, wz = weights
+            wp = 0
+
+        def gorkov_divergence(phases_amplitudes):
+            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
+            complex_coeff = amplitudes * np.exp(1j * phases)
+            ind_der = {}
+            tot_der = {}
+            for key, value in spatial_derivatives.items():
+                ind_der[key] = complex_coeff * value
+                tot_der[key] = np.sum(ind_der[key])
+
+            p_squared, Ux, Uy, Uz = calc_values(tot_der)
+            dp, dUx, dUy, dUz = calc_jacobian(tot_der, ind_der)
+            value = wp * p_squared + wx * Ux + wy * Uy + wz * Uz
+            jacobian = wp * dp + wx * dUx + wy * dUy + wz * dUz
+
+            if variable_amplitudes:
+                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
+            else:
+                return value, jacobian.imag
+
+    return gorkov_divergence
 
 
-def gorkov_laplacian(array, location, weights=(1, 1, 1, 1), spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
+def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
     # Before defining the cost function and the jacobian, we need to initialize the following variables:
     num_transducers = array.num_transducers
     if spatial_derivatives is None:
         spatial_derivatives = array.spatial_derivatives(location)
-    wp, wx, wy, wz = weights
+
     c_air = models.c_air
     rho_air = models.rho_air
-
     V = 4 / 3 * np.pi * radius_sphere**3
     compressibility_air = 1 / (rho_air * c_air**2)
     compressibility_sphere = 1 / (rho_sphere * c_sphere**2)
@@ -163,16 +210,8 @@ def gorkov_laplacian(array, location, weights=(1, 1, 1, 1), spatial_derivatives=
     pressure_coefficient = V / 2 * compressibility_air * monopole_coefficient
     gradient_coefficient = V * 3 / 4 * dipole_coefficient * preToVel**2 * rho_air
 
-    def gorkov_laplacian(phases_amplitudes):
-        phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers)
-        complex_coeff = amplitudes * np.exp(1j * phases)
-        ind_der = {}
-        tot_der = {}
-        for key, value in spatial_derivatives.items():
-            ind_der[key] = complex_coeff * value
-            tot_der[key] = np.sum(ind_der[key])
-
-        p = tot_der['']
+    def calc_values(tot_der):
+        p_squared = np.abs(tot_der[''])**2
         Uxx = (pressure_coefficient * (tot_der['xx'] * np.conj(tot_der['']) + tot_der['x'] * np.conj(tot_der['x'])).real -
                gradient_coefficient * (tot_der['xxx'] * np.conj(tot_der['x']) + tot_der['xx'] * np.conj(tot_der['xx'])).real -
                gradient_coefficient * (tot_der['xxy'] * np.conj(tot_der['y']) + tot_der['xy'] * np.conj(tot_der['xy'])).real -
@@ -185,7 +224,9 @@ def gorkov_laplacian(array, location, weights=(1, 1, 1, 1), spatial_derivatives=
                gradient_coefficient * (tot_der['zzx'] * np.conj(tot_der['x']) + tot_der['xz'] * np.conj(tot_der['xz'])).real -
                gradient_coefficient * (tot_der['zzy'] * np.conj(tot_der['y']) + tot_der['yz'] * np.conj(tot_der['yz'])).real -
                gradient_coefficient * (tot_der['zzz'] * np.conj(tot_der['z']) + tot_der['zz'] * np.conj(tot_der['zz'])).real) * 2
+        return p_squared, Uxx, Uyy, Uzz
 
+    def calc_jacobian(tot_der, ind_der):
         dp = 2 * tot_der[''] * np.conj(ind_der[''])
         dUxx = (pressure_coefficient * (tot_der['xx'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['xx']) + 2 * tot_der['x'] * np.conj(ind_der['x'])) -
                 gradient_coefficient * (tot_der['xxx'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['xxx']) + 2 * tot_der['xx'] * np.conj(ind_der['xx'])) -
@@ -199,12 +240,44 @@ def gorkov_laplacian(array, location, weights=(1, 1, 1, 1), spatial_derivatives=
                 gradient_coefficient * (tot_der['zzx'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['zzx']) + 2 * tot_der['xz'] * np.conj(ind_der['xz'])) -
                 gradient_coefficient * (tot_der['zzy'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['zzy']) + 2 * tot_der['yz'] * np.conj(ind_der['yz'])) -
                 gradient_coefficient * (tot_der['zzz'] * np.conj(ind_der['z']) + tot_der['z'] * np.conj(ind_der['zzz']) + 2 * tot_der['zz'] * np.conj(ind_der['zz']))) * 2
-        value = wp * np.abs(p)**2 - wx * Uxx - wy * Uyy - wz * Uzz
-        derivatives = wp * dp - wx * dUxx - wy * dUyy - wz * dUzz
-        if variable_amplitudes:
-            return value, np.concatenate((derivatives.imag, derivatives.real / amplitudes))
-        else:
-            return value, derivatives.imag
+        return dp, dUxx, dUyy, dUzz
+
+    if weights is None:
+        def gorkov_laplacian(phases_amplitudes):
+            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
+            complex_coeff = amplitudes * np.exp(1j * phases)
+            tot_der = {}
+            for key, value in spatial_derivatives.items():
+                tot_der[key] = np.sum(complex_coeff * value)
+
+            _, Uxx, Uyy, Uzz = calc_values(tot_der)
+            return Uxx, Uyy, Uzz
+
+    else:
+        if len(weights) == 4:
+            wp, wx, wy, wz = weights
+        elif len(weights) == 3:
+            wx, wy, wz = weights
+            wp = 0
+
+        def gorkov_laplacian(phases_amplitudes):
+            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
+            complex_coeff = amplitudes * np.exp(1j * phases)
+            ind_der = {}
+            tot_der = {}
+            for key, value in spatial_derivatives.items():
+                ind_der[key] = complex_coeff * value
+                tot_der[key] = np.sum(ind_der[key])
+
+            p_squared, Uxx, Uyy, Uzz = calc_values(tot_der)
+            dp, dUxx, dUyy, dUzz = calc_jacobian(tot_der, ind_der)
+            value = wp * p_squared + wx * Uxx + wy * Uyy + wz * Uzz
+            jacobian = wp * dp + wx * dUxx + wy * dUyy + wz * dUzz
+
+            if variable_amplitudes:
+                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
+            else:
+                return value, jacobian.imag
 
     return gorkov_laplacian
 
@@ -215,7 +288,9 @@ def amplitude_limiting(array, bounds=(1e-3, 1 - 1e-3), order=4, scaling=10):
     upper_bound = np.asarray(bounds).max()
 
     def amplitude_limiting(phases_amplitudes):
-        _, amplitudes, variable_amps = _phase_and_amplitude_input(phases_amplitudes, num_transducers)
+        # Note that this only makes sense as a const function, and only for variable amplitudes,
+        # so no implementation for complex inputs is needed.
+        _, amplitudes, variable_amps = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
         if not variable_amps:
             return 0, np.zeros(num_transducers)
         under_idx = amplitudes < lower_bound
@@ -224,39 +299,64 @@ def amplitude_limiting(array, bounds=(1e-3, 1 - 1e-3), order=4, scaling=10):
         over = scaling * (amplitudes[over_idx] - upper_bound)
 
         value = (under**order + over**order).sum()
-        derivatives = np.zeros(2 * num_transducers)
-        derivatives[num_transducers + under_idx] = under**(order - 1) * order
-        derivatives[num_transducers + over_idx] = over**(order - 1) * order
+        jacobian = np.zeros(2 * num_transducers)
+        jacobian[num_transducers + under_idx] = under**(order - 1) * order
+        jacobian[num_transducers + over_idx] = over**(order - 1) * order
 
-        return value, derivatives
+        return value, jacobian
     return amplitude_limiting
 
 
-def pressure_null(array, location, weights=(1, 1, 1, 1), spatial_derivatives=None):
+def pressure_null(array, location, weights=None, spatial_derivatives=None):
     num_transducers = array.num_transducers
     if spatial_derivatives is None:
         spatial_derivatives = array.spatial_derivatives(location, orders=1)
     gradient_scale = 1 / array.k**2
     wp, wx, wy, wz = weights
 
-    def pressure_null(phases_amplitudes):
-        phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers)
-        complex_coeff = amplitudes * np.exp(1j * phases)
-
+    def calc_values(complex_coeff):
         p = np.sum(complex_coeff * spatial_derivatives[''])
         px = np.sum(complex_coeff * spatial_derivatives['x'])
         py = np.sum(complex_coeff * spatial_derivatives['y'])
         pz = np.sum(complex_coeff * spatial_derivatives['y'])
 
+        return p, px, py, pz
+
+    def calc_jacobian(complex_coeff, values):
+        p, px, py, pz = values
         dp = 2 * p * np.conj(complex_coeff * spatial_derivatives[''])
         dpx = 2 * px * np.conj(complex_coeff * spatial_derivatives['x'])
         dpy = 2 * py * np.conj(complex_coeff * spatial_derivatives['y'])
         dpz = 2 * pz * np.conj(complex_coeff * spatial_derivatives['z'])
 
-        value = wp * np.abs(p)**2 + (wx * np.abs(px)**2 + wy * np.abs(py)**2 + wz * np.abs(pz)**2) * gradient_scale
-        derivatives = wp * dp + (wx * dpx + wy * dpy + wz * dpz) * gradient_scale
-        if variable_amplitudes:
-            return value, np.concatenate((derivatives.imag, derivatives.real / amplitudes))
-        else:
-            return value, derivatives.imag
+        return dp, dpx, dpy, dpz
+
+    if weights is None:
+        def pressure_null(phases_amplitudes):
+            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
+            complex_coeff = amplitudes * np.exp(1j * phases)
+            return calc_values(complex_coeff)
+    else:
+        if len(weights) == 4:
+            wp, wx, wy, wz = weights
+        elif len(weights) == 3:
+            wx, wy, wz = weights
+            wp = 0
+        elif len(weights) == 1:
+            wp = weights
+            wx = wy = wz = 0
+
+        def pressure_null(phases_amplitudes):
+            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
+            complex_coeff = amplitudes * np.exp(1j * phases)
+
+            p, px, py, pz = calc_values(complex_coeff)
+            dp, dpx, dpy, dpz = calc_jacobian(complex_coeff, (p, px, py, pz))
+
+            value = wp * np.abs(p)**2 + (wx * np.abs(px)**2 + wy * np.abs(py)**2 + wz * np.abs(pz)**2) * gradient_scale
+            jacobian = wp * dp + (wx * dpx + wy * dpy + wz * dpz) * gradient_scale
+            if variable_amplitudes:
+                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
+            else:
+                return value, jacobian.imag
     return pressure_null
