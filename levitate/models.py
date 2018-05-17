@@ -395,10 +395,9 @@ class CircularRing(TransducerModel):
 
 class TransducerArray:
 
-    def __init__(self, focus_point=[0, 0, 0.2], freq=40e3,
+    def __init__(self, freq=40e3,
                  grid=None, transducer_size=10e-3, shape=16,
                  transducer_model=None, directivity=None):
-        self.focus_point = focus_point
         self.transducer_size = transducer_size
 
         if transducer_model is None:
@@ -509,7 +508,6 @@ class TransducerArray:
         for idx in range(self.num_transducers):
             phase[idx] = -np.sum((self.transducer_positions[idx, :] - focus)**2)**0.5 * self.k
         phase = np.mod(phase + np.pi, 2 * np.pi) - np.pi  # Wrap phase to [-pi, pi]
-        self.focus_point = focus
         return phase
         # WARNING: Setting the initial condition for the phases to have an actual pressure focus point
         # at the desired levitation point will cause the optimization to fail!
@@ -556,12 +554,10 @@ class TransducerArray:
                 signature[idx] = 0
         return signature
 
-    def signature(self, phases=None, focus=None):
+    def signature(self, focus, phases=None):
         # TODO: Is this method really useful?
         if phases is None:
             phases = self.phases
-        if focus is None:
-            focus = self.focus_point
         focus_phases = self.focus_phases(focus)
         return np.mod(phases - focus_phases + np.pi, 2 * np.pi) - np.pi
 
