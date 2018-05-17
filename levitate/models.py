@@ -98,6 +98,8 @@ class TransducerModel:
         self.freq = freq
         self.effective_radius = effective_radius
         self.p0 = p0
+        # The murata transducers are measured to 85 dB SPL at 1 V at 1 m, which corresponds to ~6 Pa at 20 V
+        # The datasheet specifies 120 dB SPL @ 0.3 m, which corresponds to ~6 Pa @ 1 m
         for key, value in kwargs.items():
             setattr(self, key, value)
 
@@ -395,18 +397,13 @@ class CircularRing(TransducerModel):
 
 class TransducerArray:
 
-    def __init__(self, freq=40e3,
+    def __init__(self, freq=40e3, transducer_model=None,
                  grid=None, transducer_size=10e-3, shape=16,
-                 transducer_model=None, directivity=None):
+                 ):
         self.transducer_size = transducer_size
 
         if transducer_model is None:
             self.transducer_model = TransducerModel(freq=freq)
-            if directivity is not None:
-                warnings.warn(('Paramater `directivity` of TransducerArray is not recommended. '
-                               'Create and set a transducer model directly instead.'),
-                              DeprecationWarning, stacklevel=2)
-                self.use_directivity = directivity
         elif type(transducer_model) is type:
             self.transducer_model = transducer_model(freq=freq, effective_radius=transducer_size / 2)
         else:
@@ -423,10 +420,6 @@ class TransducerArray:
         self.num_transducers = self.transducer_positions.shape[0]
         self.amplitudes = np.ones(self.num_transducers)
         self.phases = np.zeros(self.num_transducers)
-
-        # self.p0 = 6  # Pa @ 1 m distance on-axis.
-        # The murata transducers are measured to 85 dB SPL at 1 V at 1 m, which corresponds to ~6 Pa at 20 V
-        # The datasheet specifies 120 dB SPL @ 0.3 m, which corresponds to ~6 Pa @ 1 m
 
     @property
     def k(self):
@@ -459,39 +452,6 @@ class TransducerArray:
     @wavelength.setter
     def wavelength(self, value):
         self.transducer_model.wavelength = value
-
-    # TODO: Legacy glue to change directivities
-    @property
-    def use_directivity(self):
-        warnings.warn(('`use_directivity` of TransducerArray is not recommended. '
-                       'Interact with `transducer_model` directly instead.'),
-                      DeprecationWarning, stacklevel=2)
-        if type(self.transducer_model) == CircularRing:
-            return 'j0'
-        if type(self.transducer_model) == CircularPiston:
-            return 'j1'
-        if type(self.transducer_model) == TransducerModel:
-            return None
-        else:
-            return 'Unknown transducer model `{}`'.format(type(self.transducer_model))
-
-    @use_directivity.setter
-    def use_directivity(self, value):
-        warnings.warn(('`use_directivity` of TransducerArray is not recommended. '
-                       'Create and set a transducer model directly instead.'),
-                      DeprecationWarning, stacklevel=2)
-        freq = self.freq
-        if value is None:
-            self.transducer_model = TransducerModel(freq=freq)
-            self._use_directivity = None
-        elif value == 'j0':
-            self.transducer_model = CircularRing(effective_radius=self.transducer_size / 2, freq=freq)
-            self._use_directivity = 'j0'
-        elif value == 'j1':
-            self.transducer_model = CircularPiston(effective_radius=self.transducer_size / 2, freq=freq)
-            self._use_directivity = 'j1'
-        else:
-            raise ValueError("Unknown dirictivity '{}'".format(value))
 
     @property
     def complex_amplitudes(self):
@@ -596,73 +556,6 @@ class TransducerArray:
         else:
             return p
 
-    def directivity(self, transducer_id, receiver_position):
-        warnings.warn(('`directivity` of TransducerArray is not recommended. '
-                       'Use the corresponding method of a transducer model instead.'),
-                      DeprecationWarning, stacklevel=2)
-        return self.transducer_model.directivity(self.transducer_positions[transducer_id], self.transducer_normals[transducer_id], receiver_position)
-        if self.use_directivity is None:
-            if receiver_position.ndim == 1:
-                return 1
-            else:
-                return np.ones(receiver_position.shape[0])
-
-        source_position = self.transducer_positions[transducer_id]
-        source_normal = self.transducer_normals[transducer_id]
-        difference = receiver_position - source_position
-
-        # These three lines are benchmarked with 20100 receiver positions
-        # einsum is twice as fast for large matrices e.g. difference, but slower for small e.g. source_normal
-        dots = difference.dot(source_normal)
-        norm1 = np.sum(source_normal**2)**0.5
-        norm2 = np.einsum('...i,...i', difference, difference)**0.5
-        cos_angle = dots / norm2 / norm1
-        sin_angle = (1 - cos_angle**2)**0.5
-        ka = self.k * self.transducer_size / 2
-
-        if self.use_directivity.lower() == 'j0':
-            # Circular postion in baffle?
-            return j0(ka * sin_angle)
-        if self.use_directivity.lower() == 'j1':
-            # Circular piston in baffle, version 2
-            #  TODO: Check this formula!
-            # TODO: Needs to ignore warning as well!
-            # vals = 2 * jn(1, k_a_sin) / k_a_sin
-            # vals[np.isnan(vals)] = 1
-            with np.errstate(invalid='ignore'):
-                denom = ka * sin_angle
-                numer = j1(denom)
-                return np.where(denom == 0, 1, 2 * numer / denom)
-                # return np.where(sin_angle == 0, 1, 2 * jn(1, ka * sin_angle) / (ka * sin_angle))
-
-        # If no match in the implemented directivities, use omnidirectional
-        # TODO: Add a warning?
-        assert False
-        self.use_directivity = None
-        return self.directivity(transducer_id, receiver_position)
-
-    def spherical_spreading(self, transducer_id, receiver_position):
-        warnings.warn(('`spherical_spreading` of TransducerArray is not recommended. '
-                       'Use the corresponding method of a transducer model instead.'),
-                      DeprecationWarning, stacklevel=2)
-        return self.transducer_model.spherical_spreading(self.transducer_positions[transducer_id], receiver_position)
-        source_position = self.transducer_positions[transducer_id]
-        diff = source_position - receiver_position
-        dist = np.einsum('...i,...i', diff, diff)**0.5
-        return 1 / dist * np.exp(1j * self.k * dist)
-
-    def greens_function(self, transducer_id, receiver_position):
-        warnings.warn(('`greens_function` of TransducerArray is not recommended. '
-                       'Use the corresponding method of a transducer model instead.'),
-                      DeprecationWarning, stacklevel=2)
-        return self.transducer_model.greens_function(
-            self.transducer_positions[transducer_id],
-            self.transducer_normals[transducer_id],
-            receiver_position)
-        directional_part = self.directivity(transducer_id, receiver_position)
-        spherical_part = self.spherical_spreading(transducer_id, receiver_position)
-        return directional_part * spherical_part
-
     def spatial_derivatives(self, focus, h=None, orders=3):
         if np.ndim(focus) == 1:
             # Single point
@@ -699,143 +592,3 @@ class TransducerArray:
             for key in derivatives:
                 derivatives[key][..., idx] = transducer_derivatives[key]
         return derivatives
-
-    def old_spatial_derivatives(self, focus, h=None, orders=3):
-        '''
-        Calculate and set the spatial derivatives for each transducer.
-        These are the same regardless of the amplitude and phase of the transducers,
-        and remains constant throughout the optimization.
-        '''
-        # Pre-initialize dictionary with arrays
-        # TODO: enable selective calculation of the derivatives actually needed
-        warnings.warn(('`old_spatial_derivatives` is an old implementation to caculate spatial derivatives. '
-                       'Use the new method to avoid issues.'),
-                      DeprecationWarning, stacklevel=2)
-        num_trans = self.num_transducers
-
-        spherical_derivatives = {'': np.empty(num_trans, complex)}
-        if orders > 0:
-            spherical_derivatives['x'] = np.empty(num_trans, complex)
-            spherical_derivatives['y'] = np.empty(num_trans, complex)
-            spherical_derivatives['z'] = np.empty(num_trans, complex)
-        if orders > 1:
-            spherical_derivatives['xx'] = np.empty(num_trans, complex)
-            spherical_derivatives['yy'] = np.empty(num_trans, complex)
-            spherical_derivatives['zz'] = np.empty(num_trans, complex)
-            spherical_derivatives['xy'] = np.empty(num_trans, complex)
-            spherical_derivatives['xz'] = np.empty(num_trans, complex)
-            spherical_derivatives['yz'] = np.empty(num_trans, complex)
-        if orders > 2:
-            spherical_derivatives['xxx'] = np.empty(num_trans, complex)
-            spherical_derivatives['yyy'] = np.empty(num_trans, complex)
-            spherical_derivatives['zzz'] = np.empty(num_trans, complex)
-            spherical_derivatives['xxy'] = np.empty(num_trans, complex)
-            spherical_derivatives['xxz'] = np.empty(num_trans, complex)
-            spherical_derivatives['yyx'] = np.empty(num_trans, complex)
-            spherical_derivatives['yyz'] = np.empty(num_trans, complex)
-            spherical_derivatives['zzx'] = np.empty(num_trans, complex)
-            spherical_derivatives['zzy'] = np.empty(num_trans, complex)
-
-        spatial_derivatives = {}
-        for key in spherical_derivatives.keys():
-            spatial_derivatives[key] = np.empty(num_trans, complex)
-        for idx in range(num_trans):
-            # Derivatives of the omnidirectional green's function
-            difference = focus - self.transducer_positions[idx]
-            r = np.sum(difference**2)**0.5
-            kr = self.k * r
-            jkr = 1j * kr
-            phase = np.exp(jkr)
-
-            # Zero derivatives (Pressure)
-            spherical_derivatives[''][idx] = phase / r
-
-            # First order derivatives
-            if orders > 0:
-                coeff = (jkr - 1) * phase / r**3
-                spherical_derivatives['x'][idx] = difference[0] * coeff
-                spherical_derivatives['y'][idx] = difference[1] * coeff
-                spherical_derivatives['z'][idx] = difference[2] * coeff
-
-            # Second order derivatives
-            if orders > 1:
-                coeff = (3 - kr**2 - 3 * jkr) * phase / r**5
-                constant = (jkr - 1) * phase / r**3
-                spherical_derivatives['xx'][idx] = difference[0]**2 * coeff + constant
-                spherical_derivatives['yy'][idx] = difference[1]**2 * coeff + constant
-                spherical_derivatives['zz'][idx] = difference[2]**2 * coeff + constant
-                spherical_derivatives['xy'][idx] = difference[0] * difference[1] * coeff
-                spherical_derivatives['xz'][idx] = difference[0] * difference[2] * coeff
-                spherical_derivatives['yz'][idx] = difference[1] * difference[2] * coeff
-
-            # Third order derivatives
-            if orders > 2:
-                constant = (3 - 3 * jkr - kr**2) * phase / r**5
-                coeff = ((jkr - 1) * (15 - kr**2) + 5 * kr**2) * phase / r**7
-                spherical_derivatives['xxx'][idx] = difference[0] * (3 * constant + difference[0]**2 * coeff)
-                spherical_derivatives['yyy'][idx] = difference[1] * (3 * constant + difference[1]**2 * coeff)
-                spherical_derivatives['zzz'][idx] = difference[2] * (3 * constant + difference[2]**2 * coeff)
-                spherical_derivatives['xxy'][idx] = difference[1] * (constant + difference[0]**2 * coeff)
-                spherical_derivatives['xxz'][idx] = difference[2] * (constant + difference[0]**2 * coeff)
-                spherical_derivatives['yyx'][idx] = difference[0] * (constant + difference[1]**2 * coeff)
-                spherical_derivatives['yyz'][idx] = difference[2] * (constant + difference[1]**2 * coeff)
-                spherical_derivatives['zzx'][idx] = difference[0] * (constant + difference[2]**2 * coeff)
-                spherical_derivatives['zzy'][idx] = difference[1] * (constant + difference[2]**2 * coeff)
-
-            if self.use_directivity is not None:
-                if h is None:
-                    h = 1 / self.k
-                    finite_difference_coefficients = {'': (np.array([0, 0, 0]), 1),
-                        'x': (np.array([[1, 0, 0], [-1, 0, 0]]), [0.5, -0.5]),
-                        'y': (np.array([[0, 1, 0], [0, -1, 0]]), [0.5, -0.5]),
-                        'z': (np.array([[0, 0, 1], [0, 0, -1]]), [0.5, -0.5]),
-                        'xx': (np.array([[1, 0, 0], [0, 0, 0], [-1, 0, 0]]), [1, -2, 1]),  # Alt: (np.array([[2, 0, 0], [0, 0, 0], [-2, 0, 0]]), [0.25, -0.5, 0.25])
-                        'yy': (np.array([[0, 1, 0], [0, 0, 0], [0, -1, 0]]), [1, -2, 1]),  # Alt: (np.array([[0, 2, 0], [0, 0, 0], [0, -2, 0]]), [0.25, -0.5, 0.25])
-                        'zz': (np.array([[0, 0, 1], [0, 0, 0], [0, 0, -1]]), [1, -2, 1]),  # Alt: (np.array([[0, 0, 2], [0, 0, 0], [0, 0, -2]]), [0.25, -0.5, 0.25])
-                        'xy': (np.array([[1, 1, 0], [-1, -1, 0], [1, -1, 0], [-1, 1, 0]]), [0.25, 0.25, -0.25, -0.25]),
-                        'xz': (np.array([[1, 0, 1], [-1, 0, -1], [1, 0, -1], [-1, 0, 1]]), [0.25, 0.25, -0.25, -0.25]),
-                        'yz': (np.array([[0, 1, 1], [0, -1, -1], [0, -1, 1], [0, 1, -1]]), [0.25, 0.25, -0.25, -0.25]),
-                        'xxx': (np.array([[2, 0, 0], [-2, 0, 0], [1, 0, 0], [-1, 0, 0]]), [0.5, -0.5, -1, 1]),  # Alt: (np.array([[3, 0, 0], [-3, 0, 0], [1, 0, 0], [-1, 0, 0]]), [0.125, -0.125, -0.375, 0.375])
-                        'yyy': (np.array([[0, 2, 0], [0, -2, 0], [0, 1, 0], [0, -1, 0]]), [0.5, -0.5, -1, 1]),  # Alt: (np.array([[0, 3, 0], [0, -3, 0], [0, 1, 0], [0, -1, 0]]), [0.125, -0.125, -0.375, 0.375])
-                        'zzz': (np.array([[0, 0, 2], [0, 0, -2], [0, 0, 1], [0, 0, -1]]), [0.5, -0.5, -1, 1]),  # Alt: (np.array([[0, 0, 3], [0, 0, -3], [0, 0, 1], [0, 0, -1]]), [0.125, -0.125, -0.375, 0.375])
-                        'xxy': (np.array([[1, 1, 0], [-1, -1, 0], [1, -1, 0], [-1, 1, 0], [0, 1, 0], [0, -1, 0]]), [0.5, -0.5, -0.5, 0.5, -1, 1]),  # Alt: (np.array([[2, 1, 0], [-2, -1, 0], [2, -1, 0], [-2, 1, 0], [0, 1, 0], [0, -1, 0]]), [0.125, -0.125, -0.125, 0.125, -0.25, 0.25])
-                        'xxz': (np.array([[1, 0, 1], [-1, 0, -1], [1, 0, -1], [-1, 0, 1], [0, 0, 1], [0, 0, -1]]), [0.5, -0.5, -0.5, 0.5, -1, 1]),  # Alt: (np.array([[2, 0, 1], [-2, 0, -1], [2, 0, -1], [-2, 0, 1], [0, 0, 1], [0, 0, -1]]), [0.125, -0.125, -0.125, 0.125, -0.25, 0.25])
-                        'yyx': (np.array([[1, 1, 0], [-1, -1, 0], [-1, 1, 0], [1, -1, 0], [1, 0, 0], [-1, 0, 0]]), [0.5, -0.5, -0.5, 0.5, -1, 1]),  # Alt: (np.array([[1, 2, 0], [-1, -2, 0], [-1, 2, 0], [1, -2, 0], [1, 0, 0], [-1, 0, 0]]), [0.125, -0.125, -0.125, 0.125, -0.25, 0.25])
-                        'yyz': (np.array([[0, 1, 1], [0, -1, -1], [0, 1, -1], [0, -1, 1], [0, 0, 1], [0, 0, -1]]), [0.5, -0.5, -0.5, 0.5, -1, 1]),  # Alt: (np.array([[0, 2, 1], [0, -2, -1], [0, 2, -1], [0, -2, 1], [0, 0, 1], [0, 0, -1]]), [0.125, -0.125, -0.125, 0.125, -0.25, 0.25])
-                        'zzx': (np.array([[1, 0, 1], [-1, 0, -1], [-1, 0, 1], [1, 0, -1], [1, 0, 0], [-1, 0, 0]]), [0.5, -0.5, -0.5, 0.5, -1, 1]),  # Alt: (np.array([[1, 0, 2], [-1, 0, -2], [-1, 0, 2], [1, 0, -2], [1, 0, 0], [-1, 0, 0]]), [0.125, -0.125, -0.125, 0.125, -0.25, 0.25])
-                        'zzy': (np.array([[0, 1, 1], [0, -1, -1], [0, -1, 1], [0, 1, -1], [0, 1, 0], [0, -1, 0]]), [0.5, -0.5, -0.5, 0.5, -1, 1])  # Alt: (np.array([[0, 1, 2], [0, -1, -2], [0, -1, 2], [0, 1, -2], [0, 1, 0], [0, -1, 0]]), [0.125, -0.125, -0.125, 0.125, -0.25, 0.25])
-                    }
-                directivity_derivatives = {}
-                for key in spherical_derivatives.keys():
-                    shifts, weights = finite_difference_coefficients[key]
-                    directivity_derivatives[key] = np.sum(self.directivity(idx, shifts * h + focus) * weights) / h**len(key)
-
-                spatial_derivatives[''][idx] = spherical_derivatives[''][idx] * directivity_derivatives['']
-
-                if orders > 0:
-                    spatial_derivatives['x'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['x'] + directivity_derivatives[''] * spherical_derivatives['x'][idx]
-                    spatial_derivatives['y'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['y'] + directivity_derivatives[''] * spherical_derivatives['y'][idx]
-                    spatial_derivatives['z'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['z'] + directivity_derivatives[''] * spherical_derivatives['z'][idx]
-
-                if orders > 1:
-                    spatial_derivatives['xx'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['xx'] + directivity_derivatives[''] * spherical_derivatives['xx'][idx] + 2 * directivity_derivatives['x'] * spherical_derivatives['x'][idx]
-                    spatial_derivatives['yy'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['yy'] + directivity_derivatives[''] * spherical_derivatives['yy'][idx] + 2 * directivity_derivatives['y'] * spherical_derivatives['y'][idx]
-                    spatial_derivatives['zz'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['zz'] + directivity_derivatives[''] * spherical_derivatives['zz'][idx] + 2 * directivity_derivatives['z'] * spherical_derivatives['z'][idx]
-                    spatial_derivatives['xy'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['xy'] + directivity_derivatives[''] * spherical_derivatives['xy'][idx] + spherical_derivatives['x'][idx] * directivity_derivatives['y'] + directivity_derivatives['x'] * spherical_derivatives['y'][idx]
-                    spatial_derivatives['xz'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['xz'] + directivity_derivatives[''] * spherical_derivatives['xz'][idx] + spherical_derivatives['x'][idx] * directivity_derivatives['z'] + directivity_derivatives['x'] * spherical_derivatives['z'][idx]
-                    spatial_derivatives['yz'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['yz'] + directivity_derivatives[''] * spherical_derivatives['yz'][idx] + spherical_derivatives['y'][idx] * directivity_derivatives['z'] + directivity_derivatives['y'] * spherical_derivatives['z'][idx]
-
-                if orders > 2:
-                    spatial_derivatives['xxx'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['xxx'] + directivity_derivatives[''] * spherical_derivatives['xxx'][idx] + 3 * (directivity_derivatives['xx'] * spherical_derivatives['x'][idx] + spherical_derivatives['xx'][idx] * directivity_derivatives['x'])
-                    spatial_derivatives['yyy'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['yyy'] + directivity_derivatives[''] * spherical_derivatives['yyy'][idx] + 3 * (directivity_derivatives['yy'] * spherical_derivatives['y'][idx] + spherical_derivatives['yy'][idx] * directivity_derivatives['y'])
-                    spatial_derivatives['zzz'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['zzz'] + directivity_derivatives[''] * spherical_derivatives['zzz'][idx] + 3 * (directivity_derivatives['zz'] * spherical_derivatives['z'][idx] + spherical_derivatives['zz'][idx] * directivity_derivatives['z'])
-                    spatial_derivatives['xxy'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['xxy'] + directivity_derivatives[''] * spherical_derivatives['xxy'][idx] + spherical_derivatives['y'][idx] * directivity_derivatives['xx'] + directivity_derivatives['y'] * spherical_derivatives['xx'][idx] + 2 * (spherical_derivatives['x'][idx] * directivity_derivatives['xy'] + directivity_derivatives['x'] * spherical_derivatives['xy'][idx])
-                    spatial_derivatives['xxz'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['xxz'] + directivity_derivatives[''] * spherical_derivatives['xxz'][idx] + spherical_derivatives['z'][idx] * directivity_derivatives['xx'] + directivity_derivatives['z'] * spherical_derivatives['xx'][idx] + 2 * (spherical_derivatives['x'][idx] * directivity_derivatives['xz'] + directivity_derivatives['x'] * spherical_derivatives['xz'][idx])
-                    spatial_derivatives['yyx'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['yyx'] + directivity_derivatives[''] * spherical_derivatives['yyx'][idx] + spherical_derivatives['x'][idx] * directivity_derivatives['yy'] + directivity_derivatives['x'] * spherical_derivatives['yy'][idx] + 2 * (spherical_derivatives['y'][idx] * directivity_derivatives['xy'] + directivity_derivatives['y'] * spherical_derivatives['xy'][idx])
-                    spatial_derivatives['yyz'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['yyz'] + directivity_derivatives[''] * spherical_derivatives['yyz'][idx] + spherical_derivatives['z'][idx] * directivity_derivatives['yy'] + directivity_derivatives['z'] * spherical_derivatives['yy'][idx] + 2 * (spherical_derivatives['y'][idx] * directivity_derivatives['yz'] + directivity_derivatives['y'] * spherical_derivatives['yz'][idx])
-                    spatial_derivatives['zzx'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['zzx'] + directivity_derivatives[''] * spherical_derivatives['zzx'][idx] + spherical_derivatives['x'][idx] * directivity_derivatives['zz'] + directivity_derivatives['x'] * spherical_derivatives['zz'][idx] + 2 * (spherical_derivatives['z'][idx] * directivity_derivatives['xz'] + directivity_derivatives['z'] * spherical_derivatives['xz'][idx])
-                    spatial_derivatives['zzy'][idx] = spherical_derivatives[''][idx] * directivity_derivatives['zzy'] + directivity_derivatives[''] * spherical_derivatives['zzy'][idx] + spherical_derivatives['y'][idx] * directivity_derivatives['zz'] + directivity_derivatives['y'] * spherical_derivatives['zz'][idx] + 2 * (spherical_derivatives['z'][idx] * directivity_derivatives['yz'] + directivity_derivatives['z'] * spherical_derivatives['yz'][idx])
-            else:
-                spatial_derivatives = spherical_derivatives
-
-        return spatial_derivatives
