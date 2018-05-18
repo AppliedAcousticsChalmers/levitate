@@ -1,8 +1,12 @@
+import os
 import numpy as np
 
 
-def data_to_cpp(complex_values, file):
-    np.asarray(complex_values).conj().astype(np.complex64).tofile(file)
+def data_to_cpp(complex_values, filename, normalize=True):
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    data = np.asarray(complex_values)
+    normalization = np.max(np.abs(data))
+    (data / normalization).conj().astype(np.complex64).tofile(filename)
 
 
 def data_from_cpp(file, num_transducers):
