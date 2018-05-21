@@ -480,59 +480,71 @@ class TransducerArray:
             raise ValueError('Cannot set {} phases and amplitudes with {} values!'.format(self.num_transducers, len(value)))
 
     def focus_phases(self, focus):
-        # TODO: Is this method really useful?
         phase = np.empty(self.num_transducers)
         for idx in range(self.num_transducers):
             phase[idx] = -np.sum((self.transducer_positions[idx, :] - focus)**2)**0.5 * self.k
         phase = np.mod(phase + np.pi, 2 * np.pi) - np.pi  # Wrap phase to [-pi, pi]
         return phase
-        # WARNING: Setting the initial condition for the phases to have an actual pressure focus point
-        # at the desired levitation point will cause the optimization to fail!
-        # self.phases = phase  # TODO: This is temporary until a proper optimisation scheme has been developed
 
-    def twin_signature(self, position=(0, 0), angle=0):
-        # TODO: Is this method really useful?
+    def twin_signature(self, position=(0, 0), angle=None):
         x = position[0]
         y = position[1]
-        # TODO: Rotate, shift, and make sure that the calculateion below actually works
+
+        if angle is None:
+            if np.allclose(x, 0):
+                a = 0
+                b = 1
+            elif np.allclose(y, 0):
+                a = 1
+                b = 0
+            else:
+                a = 1 / y
+                b = 1 / x
+        else:
+            cos = np.cos(angle)
+            sin = np.sin(angle)
+            if np.allclose(cos, 0):
+                a = 1
+                b = 0
+            elif np.allclose(sin, 0):
+                a = 0
+                b = 1
+            else:
+                a = 1 / cos
+                b = -1 / sin
+
         signature = np.empty(self.num_transducers)
         for idx in range(self.num_transducers):
-            if self.transducer_positions[idx, 0] < x:
+            if (self.transducer_positions[idx, 0] - x) * a + (self.transducer_positions[idx, 1] - y) * b > 0:
                 signature[idx] = -np.pi / 2
             else:
                 signature[idx] = np.pi / 2
         return signature
 
     def vortex_signature(self, position=(0, 0), angle=0):
-        # TODO: Is this method really useful?
         x = position[0]
         y = position[1]
-        # TODO: Rotate, shift, and make sure that the calculateion below actually works
+        # TODO: Rotate, shift, and make sure that the calculation below actually works
         signature = np.empty(self.num_transducers)
         for idx in range(self.num_transducers):
             signature[idx] = np.arctan2(self.transducer_positions[idx, 1], self.transducer_positions[idx, 0])
         return signature
 
     def bottle_signature(self, position=(0, 0), radius=None):
-        # TODO: Is this method really useful?
-        x = position[0]
-        y = position[1]
-        # TODO: Rotate, shift, and make sure that the calculateion below actually works
-
+        position = np.asarray(position)[:2]
         if radius is None:
             A = np.prod(self.shape) * self.transducer_size**2
             radius = (A / 2 / np.pi)**0.5
 
         signature = np.empty(self.num_transducers)
         for idx in range(self.num_transducers):
-            if np.sum((self.transducer_positions[idx, 0:2])**2)**0.5 > radius:
+            if np.sum((self.transducer_positions[idx, 0:2] - position)**2)**0.5 > radius:
                 signature[idx] = np.pi
             else:
                 signature[idx] = 0
         return signature
 
     def signature(self, focus, phases=None):
-        # TODO: Is this method really useful?
         if phases is None:
             phases = self.phases
         focus_phases = self.focus_phases(focus)
