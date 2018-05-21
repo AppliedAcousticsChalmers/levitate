@@ -105,8 +105,10 @@ def _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex
     return phases, amplitudes, variable_amplitudes
 
 
-def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
+def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3, array_mask=None):
     num_transducers = array.num_transducers
+    if array_mask is None:
+        array_mask = num_transducers * [True]
     if spatial_derivatives is None:
         spatial_derivatives = array.spatial_derivatives(location, orders=2)
 
@@ -173,7 +175,7 @@ def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c
 
         def gorkov_divergence(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
-            complex_coeff = amplitudes * np.exp(1j * phases)
+            complex_coeff = amplitudes[array_mask] * np.exp(1j * phases[array_mask])
             ind_der = {}
             tot_der = {}
             for key, value in spatial_derivatives.items():
@@ -183,7 +185,8 @@ def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c
             p_squared, Ux, Uy, Uz = calc_values(tot_der)
             dp, dUx, dUy, dUz = calc_jacobian(tot_der, ind_der)
             value = wp * p_squared + wx * Ux + wy * Uy + wz * Uz
-            jacobian = wp * dp + wx * dUx + wy * dUy + wz * dUz
+            jacobian = np.zeros(num_transducers, dtype=np.complex128)
+            jacobian[array_mask] = wp * dp + wx * dUx + wy * dUy + wz * dUz
 
             if variable_amplitudes:
                 return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
@@ -193,11 +196,16 @@ def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c
     return gorkov_divergence
 
 
-def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
+def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3, array_mask=None):
     # Before defining the cost function and the jacobian, we need to initialize the following variables:
     num_transducers = array.num_transducers
+    if array_mask is None:
+        array_mask = array.num_transducers * [True]
     if spatial_derivatives is None:
         spatial_derivatives = array.spatial_derivatives(location)
+
+    for key in spatial_derivatives:
+        spatial_derivatives[key] = spatial_derivatives[key][array_mask]
 
     c_air = models.c_air
     rho_air = models.rho_air
@@ -245,7 +253,7 @@ def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_
     if weights is None:
         def gorkov_laplacian(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
-            complex_coeff = amplitudes * np.exp(1j * phases)
+            complex_coeff = amplitudes[array_mask] * np.exp(1j * phases[array_mask])
             tot_der = {}
             for key, value in spatial_derivatives.items():
                 tot_der[key] = np.sum(complex_coeff * value)
@@ -262,7 +270,7 @@ def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_
 
         def gorkov_laplacian(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
-            complex_coeff = amplitudes * np.exp(1j * phases)
+            complex_coeff = amplitudes[array_mask] * np.exp(1j * phases[array_mask])
             ind_der = {}
             tot_der = {}
             for key, value in spatial_derivatives.items():
@@ -272,7 +280,8 @@ def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_
             p_squared, Uxx, Uyy, Uzz = calc_values(tot_der)
             dp, dUxx, dUyy, dUzz = calc_jacobian(tot_der, ind_der)
             value = wp * p_squared + wx * Uxx + wy * Uyy + wz * Uzz
-            jacobian = wp * dp + wx * dUxx + wy * dUyy + wz * dUzz
+            jacobian = np.zeros(num_transducers, dtype=np.complex128)
+            jacobian[array_mask] = wp * dp + wx * dUxx + wy * dUyy + wz * dUzz
 
             if variable_amplitudes:
                 return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
@@ -282,8 +291,10 @@ def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_
     return gorkov_laplacian
 
 
-def amplitude_limiting(array, bounds=(1e-3, 1 - 1e-3), order=4, scaling=10):
+def amplitude_limiting(array, bounds=(1e-3, 1 - 1e-3), order=4, scaling=10, array_mask=None):
     num_transducers = array.num_transducers
+    if array_mask is None:
+        array_mask = array.num_transducers * [True]
     lower_bound = np.asarray(bounds).min()
     upper_bound = np.asarray(bounds).max()
 
@@ -293,24 +304,28 @@ def amplitude_limiting(array, bounds=(1e-3, 1 - 1e-3), order=4, scaling=10):
         _, amplitudes, variable_amps = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
         if not variable_amps:
             return 0, np.zeros(num_transducers)
-        under_idx = amplitudes < lower_bound
-        over_idx = amplitudes > upper_bound
+        under_idx = amplitudes[array_mask] < lower_bound
+        over_idx = amplitudes[array_mask] > upper_bound
         under = scaling * (lower_bound - amplitudes[under_idx])
         over = scaling * (amplitudes[over_idx] - upper_bound)
 
         value = (under**order + over**order).sum()
         jacobian = np.zeros(2 * num_transducers)
-        jacobian[num_transducers + under_idx] = under**(order - 1) * order
-        jacobian[num_transducers + over_idx] = over**(order - 1) * order
+        jacobian[array_mask][num_transducers + under_idx] = under**(order - 1) * order
+        jacobian[array_mask][num_transducers + over_idx] = over**(order - 1) * order
 
         return value, jacobian
     return amplitude_limiting
 
 
-def pressure_null(array, location, weights=None, spatial_derivatives=None):
+def pressure_null(array, location, weights=None, spatial_derivatives=None, array_mask=None):
     num_transducers = array.num_transducers
     if spatial_derivatives is None:
         spatial_derivatives = array.spatial_derivatives(location, orders=1)
+    if array_mask is None:
+        array_mask = array.num_transducers * [True]
+    for key in spatial_derivatives:
+        spatial_derivatives[key] = spatial_derivatives[key][array_mask]
     gradient_scale = 1 / array.k**2
     wp, wx, wy, wz = weights
 
@@ -334,7 +349,7 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
     if weights is None:
         def pressure_null(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
-            complex_coeff = amplitudes * np.exp(1j * phases)
+            complex_coeff = amplitudes[array_mask] * np.exp(1j * phases[array_mask])
             return calc_values(complex_coeff)
     else:
         if len(weights) == 4:
@@ -348,13 +363,14 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
 
         def pressure_null(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
-            complex_coeff = amplitudes * np.exp(1j * phases)
+            complex_coeff = amplitudes[array_mask] * np.exp(1j * phases[array_mask])
 
             p, px, py, pz = calc_values(complex_coeff)
             dp, dpx, dpy, dpz = calc_jacobian(complex_coeff, (p, px, py, pz))
 
             value = wp * np.abs(p)**2 + (wx * np.abs(px)**2 + wy * np.abs(py)**2 + wz * np.abs(pz)**2) * gradient_scale
-            jacobian = wp * dp + (wx * dpx + wy * dpy + wz * dpz) * gradient_scale
+            jacobian = np.zeros(num_transducers, dtype=np.complex128)
+            jacobian[array_mask] = wp * dp + (wx * dpx + wy * dpy + wz * dpz) * gradient_scale
             if variable_amplitudes:
                 return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
             else:
