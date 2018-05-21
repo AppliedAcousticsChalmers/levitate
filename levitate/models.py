@@ -462,6 +462,23 @@ class TransducerArray:
         self.amplitudes = np.abs(value)
         self.phases = np.angle(value)
 
+    @property
+    def phases_amplitudes(self):
+        return np.concatenate((self.phases, self.amplitudes))
+
+    @phases_amplitudes.setter
+    def phases_amplitudes(self, value):
+        if len(value) == 2 * self.num_transducers:
+            self.phases = value[:self.num_transducers]
+            self.amplitudes = value[self.num_transducers:]
+        elif len(value) == self.num_transducers:
+            if np.iscomplex(value):
+                self.complex_amplitudes = value
+            else:
+                self.phases = value
+        else:
+            raise ValueError('Cannot set {} phases and amplitudes with {} values!'.format(self.num_transducers, len(value)))
+
     def focus_phases(self, focus):
         # TODO: Is this method really useful?
         phase = np.empty(self.num_transducers)
