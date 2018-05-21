@@ -91,7 +91,9 @@ class RadndomDisplacer:
 def _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False):
     if np.iscomplexobj(phases_amplitudes):
         if allow_complex:
-            return np.abs(phases_amplitudes), np.angle(phases_amplitudes), None
+            phases = np.angle(phases_amplitudes)
+            amplitudes = np.abs(phases_amplitudes)
+            variable_amplitudes = None
         else:
             raise NotImplementedError('Jacobian does not exist for complex inputs!')
     elif phases_amplitudes.size == num_transducers:
