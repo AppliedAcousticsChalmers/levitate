@@ -1,0 +1,10 @@
+name: levitate_dev
+dependencies:
+  - numpy
+  - scipy
+  - matplotlib
+  - jupyter
+  - snakeviz
+  - line_profiler
+  - pip:
+    - -e .
