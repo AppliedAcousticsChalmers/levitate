@@ -122,8 +122,8 @@ def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c
     monopole_coefficient = 1 - compressibility_sphere / compressibility_air  # f_1 in H. Bruus 2012
     dipole_coefficient = 2 * (rho_sphere / rho_air - 1) / (2 * rho_sphere / rho_air + 1)   # f_2 in H. Bruus 2012
     preToVel = 1 / (array.omega * rho_air)  # Converting velocity to pressure gradient using equation of motion
-    pressure_coefficient = V / 2 * compressibility_air * monopole_coefficient
-    gradient_coefficient = V * 3 / 4 * dipole_coefficient * preToVel**2 * rho_air
+    pressure_coefficient = V / 4 * compressibility_air * monopole_coefficient
+    gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * rho_air
 
     def calc_values(tot_der):
         p_squared = np.abs(tot_der[''])**2
@@ -217,8 +217,8 @@ def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_
     monopole_coefficient = 1 - compressibility_sphere / compressibility_air  # f_1 in H. Bruus 2012
     dipole_coefficient = 2 * (rho_sphere / rho_air - 1) / (2 * rho_sphere / rho_air + 1)   # f_2 in H. Bruus 2012
     preToVel = 1 / (array.omega * rho_air)  # Converting velocity to pressure gradient using equation of motion
-    pressure_coefficient = V / 2 * compressibility_air * monopole_coefficient
-    gradient_coefficient = V * 3 / 4 * dipole_coefficient * preToVel**2 * rho_air
+    pressure_coefficient = V / 4 * compressibility_air * monopole_coefficient
+    gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * rho_air
 
     def calc_values(tot_der):
         p_squared = np.abs(tot_der[''])**2
