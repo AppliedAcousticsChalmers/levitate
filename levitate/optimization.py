@@ -198,6 +198,62 @@ def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c
     return gorkov_divergence
 
 
+def second_order_force(array, location, weights=None, spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3, array_mask=None):
+    num_transducers = array.num_transducers
+    if array_mask is None:
+        array_mask = array.num_transducers * [True]
+    if spatial_derivatives is None:
+        spatial_derivatives = array.spatial_derivatives(location, orders=2)
+
+    for key in spatial_derivatives:
+        spatial_derivatives[key] = spatial_derivatives[key][array_mask]
+
+    c_air = models.c_air
+    rho_air = models.rho_air
+    compressibility_air = 1 / (rho_air * c_air**2)
+    compressibility_sphere = 1 / (rho_sphere * c_sphere**2)
+    f_1 = 1 - compressibility_sphere / compressibility_air  # f_1 in H. Bruus 2012
+    f_2 = 2 * (rho_sphere / rho_air - 1) / (2 * rho_sphere / rho_air + 1)   # f_2 in H. Bruus 2012
+
+    ka = array.k * radius_sphere
+    psi_0 = -2 * ka**6 / 9 * (f_1**2 + f_2**2 / 4 + f_1 * f_2) - 1j * ka**3 / 3 * (2 * f_1 + f_2)
+    psi_1 = -ka**6 / 18 * f_2**2 + 1j * ka**3 / 3 * f_2
+    force_coeff = -np.pi / array.k**5 * compressibility_air
+
+    def calc_values(tot_der):
+        Fx = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(tot_der['x']) +
+                                 psi_1 * np.conj(tot_der['']) * tot_der['x']) +
+              1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['xx']) +
+                                tot_der['y'] * np.conj(tot_der['xy']) +
+                                tot_der['z'] * np.conj(tot_der['xz']))
+              ).real * force_coeff
+        Fy = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(tot_der['y']) +
+                                 psi_1 * np.conj(tot_der['']) * tot_der['y']) +
+              1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['xy']) +
+                                tot_der['y'] * np.conj(tot_der['yy']) +
+                                tot_der['z'] * np.conj(tot_der['yz']))
+              ).real * force_coeff
+        Fz = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(tot_der['z']) +
+                                 psi_1 * np.conj(tot_der['']) * tot_der['z']) +
+              1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['xz']) +
+                                tot_der['y'] * np.conj(tot_der['yz']) +
+                                tot_der['z'] * np.conj(tot_der['zz']))
+              ).real * force_coeff
+        return Fx, Fy, Fz
+
+    if weights is None:
+        def second_order_force(phases_amplitudes):
+            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
+            complex_coeff = amplitudes * np.exp(1j * phases)
+            tot_der = {}
+            for key, value in spatial_derivatives.items():
+                tot_der[key] = np.sum(complex_coeff * value)
+            return calc_values(tot_der)
+    else:
+        raise NotImplementedError('Second order force not yet implemented for minimizations!')
+    return second_order_force
+
+
 def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3, array_mask=None):
     # Before defining the cost function and the jacobian, we need to initialize the following variables:
     num_transducers = array.num_transducers
