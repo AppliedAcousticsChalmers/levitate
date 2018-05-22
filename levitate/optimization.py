@@ -222,24 +222,45 @@ def second_order_force(array, location, weights=None, spatial_derivatives=None, 
 
     def calc_values(tot_der):
         Fx = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(tot_der['x']) +
-                                 psi_1 * np.conj(tot_der['']) * tot_der['x']) +
+                                 psi_1 * tot_der['x']) * np.conj(tot_der['']) +
               1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['xx']) +
                                 tot_der['y'] * np.conj(tot_der['xy']) +
                                 tot_der['z'] * np.conj(tot_der['xz']))
               ).real * force_coeff
         Fy = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(tot_der['y']) +
-                                 psi_1 * np.conj(tot_der['']) * tot_der['y']) +
+                                 psi_1 * tot_der['y']) * np.conj(tot_der['']) +
               1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['xy']) +
                                 tot_der['y'] * np.conj(tot_der['yy']) +
                                 tot_der['z'] * np.conj(tot_der['yz']))
               ).real * force_coeff
         Fz = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(tot_der['z']) +
-                                 psi_1 * np.conj(tot_der['']) * tot_der['z']) +
+                                 psi_1 * tot_der['z']) * np.conj(tot_der['']) +
               1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['xz']) +
                                 tot_der['y'] * np.conj(tot_der['yz']) +
                                 tot_der['z'] * np.conj(tot_der['zz']))
               ).real * force_coeff
         return Fx, Fy, Fz
+
+    def calc_jacobian(tot_der, ind_der):
+        dFx = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(ind_der['x']) - np.conj(psi_0) * tot_der['x'] * np.conj(ind_der['']) +
+                                  psi_1 * tot_der['x'] * np.conj(ind_der['']) - np.conj(psi_1) * tot_der[''] * np.conj(ind_der['x'])) +
+               1j * 3 * (psi_1 * tot_der['x'] * np.conj(ind_der['xx']) - np.conj(psi_1) * tot_der['xx'] * np.conj(ind_der['x']) +
+                         psi_1 * tot_der['y'] * np.conj(ind_der['xy']) - np.conj(psi_1) * tot_der['xy'] * np.conj(ind_der['y']) +
+                         psi_1 * tot_der['z'] * np.conj(ind_der['xz']) - np.conj(psi_1) * tot_der['xz'] * np.conj(ind_der['z']))
+               ) * force_coeff
+        dFy = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(ind_der['y']) - np.conj(psi_0) * tot_der['y'] * np.conj(ind_der['']) +
+                                  psi_1 * tot_der['y'] * np.conj(ind_der['']) - np.conj(psi_1) * tot_der[''] * np.conj(ind_der['y'])) +
+               1j * 3 * (psi_1 * tot_der['x'] * np.conj(ind_der['xy']) - np.conj(psi_1) * tot_der['xy'] * np.conj(ind_der['x']) +
+                         psi_1 * tot_der['y'] * np.conj(ind_der['yy']) - np.conj(psi_1) * tot_der['yy'] * np.conj(ind_der['y']) +
+                         psi_1 * tot_der['z'] * np.conj(ind_der['yz']) - np.conj(psi_1) * tot_der['yz'] * np.conj(ind_der['z']))
+               ) * force_coeff
+        dFz = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(ind_der['z']) - np.conj(psi_0) * tot_der['z'] * np.conj(ind_der['']) +
+                                  psi_1 * tot_der['z'] * np.conj(ind_der['']) - np.conj(psi_1) * tot_der[''] * np.conj(ind_der['z'])) +
+               1j * 3 * (psi_1 * tot_der['x'] * np.conj(ind_der['xz']) - np.conj(psi_1) * tot_der['xz'] * np.conj(ind_der['x']) +
+                         psi_1 * tot_der['y'] * np.conj(ind_der['yz']) - np.conj(psi_1) * tot_der['yz'] * np.conj(ind_der['y']) +
+                         psi_1 * tot_der['z'] * np.conj(ind_der['zz']) - np.conj(psi_1) * tot_der['zz'] * np.conj(ind_der['z']))
+               ) * force_coeff
+        return dFx, dFy, dFz
 
     if weights is None:
         def second_order_force(phases_amplitudes):
@@ -250,7 +271,27 @@ def second_order_force(array, location, weights=None, spatial_derivatives=None, 
                 tot_der[key] = np.sum(complex_coeff * value)
             return calc_values(tot_der)
     else:
-        raise NotImplementedError('Second order force not yet implemented for minimizations!')
+        wx, wy, wz = weights
+
+        def second_order_force(phases_amplitudes):
+            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
+            complex_coeff = amplitudes[array_mask] * np.exp(1j * phases[array_mask])
+            ind_der = {}
+            tot_der = {}
+            for key, value in spatial_derivatives.items():
+                ind_der[key] = complex_coeff * value
+                tot_der[key] = np.sum(ind_der[key])
+
+            Fx, Fy, Fz = calc_values(tot_der)
+            dFx, dFy, dFz = calc_jacobian(tot_der, ind_der)
+            value = wx * Fx + wy * Fy + wz * Fz
+            jacobian = np.zeros(num_transducers, dtype=np.complex128)
+            jacobian[array_mask] = wx * dFx + wy * dFy + wz * dFz
+
+            if variable_amplitudes:
+                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
+            else:
+                return value, jacobian.imag
     return second_order_force
 
 
