@@ -290,6 +290,38 @@ class ReflectingTransducer:
         return derivatives
 
 
+class PlaneWaveTransducer(TransducerModel):
+    def greens_function(self, source_position, source_normal, receiver_position):
+        return self.p0 * np.exp(1j * self.k * np.sum((receiver_position - source_position) * source_normal, axis=-1))
+
+    def spatial_derivatives(self, source_position, source_normal, receiver_position, orders=3):
+        source_normal = np.asarray(source_normal, dtype=np.float64)
+        source_normal /= (source_normal**2).sum()**0.5
+        derivatives = {'': self.greens_function(source_position, source_normal, receiver_position)}
+        if orders > 0:
+            derivatives['x'] = 1j * self.k * source_normal[0] * derivatives['']
+            derivatives['y'] = 1j * self.k * source_normal[1] * derivatives['']
+            derivatives['z'] = 1j * self.k * source_normal[2] * derivatives['']
+        if orders > 1:
+            derivatives['xx'] = 1j * self.k * source_normal[0] * derivatives['z']
+            derivatives['yy'] = 1j * self.k * source_normal[1] * derivatives['y']
+            derivatives['zz'] = 1j * self.k * source_normal[2] * derivatives['z']
+            derivatives['xy'] = 1j * self.k * source_normal[1] * derivatives['x']
+            derivatives['xz'] = 1j * self.k * source_normal[0] * derivatives['z']
+            derivatives['yz'] = 1j * self.k * source_normal[2] * derivatives['y']
+        if orders > 2:
+            derivatives['xxx'] = 1j * self.k * source_normal[0] * derivatives['xx']
+            derivatives['yyy'] = 1j * self.k * source_normal[1] * derivatives['yy']
+            derivatives['zzz'] = 1j * self.k * source_normal[2] * derivatives['zz']
+            derivatives['xxy'] = 1j * self.k * source_normal[1] * derivatives['xx']
+            derivatives['xxz'] = 1j * self.k * source_normal[2] * derivatives['xx']
+            derivatives['yyx'] = 1j * self.k * source_normal[0] * derivatives['yy']
+            derivatives['yyz'] = 1j * self.k * source_normal[2] * derivatives['yy']
+            derivatives['zzx'] = 1j * self.k * source_normal[0] * derivatives['zz']
+            derivatives['zzy'] = 1j * self.k * source_normal[1] * derivatives['zz']
+        return derivatives
+
+
 class CircularPiston(TransducerModel):
 
     def directivity(self, source_position, source_normal, receiver_position):
