@@ -390,6 +390,111 @@ def second_order_force(array, location, weights=None, spatial_derivatives=None, 
     return second_order_force
 
 
+def second_order_stiffness(array, location, weights=None, spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3, array_mask=None):
+    num_transducers = array.num_transducers
+    if array_mask is None:
+        array_mask = array.num_transducers * [True]
+    if spatial_derivatives is None:
+        spatial_derivatives = array.spatial_derivatives(location, orders=3)
+
+    for key in spatial_derivatives:
+        spatial_derivatives[key] = spatial_derivatives[key][array_mask]
+
+    c_air = models.c_air
+    rho_air = models.rho_air
+    compressibility_air = 1 / (rho_air * c_air**2)
+    compressibility_sphere = 1 / (rho_sphere * c_sphere**2)
+    f_1 = 1 - compressibility_sphere / compressibility_air  # f_1 in H. Bruus 2012
+    f_2 = 2 * (rho_sphere / rho_air - 1) / (2 * rho_sphere / rho_air + 1)   # f_2 in H. Bruus 2012
+
+    ka = array.k * radius_sphere
+    psi_0 = -2 * ka**6 / 9 * (f_1**2 + f_2**2 / 4 + f_1 * f_2) - 1j * ka**3 / 3 * (2 * f_1 + f_2)
+    psi_1 = -ka**6 / 18 * f_2**2 + 1j * ka**3 / 3 * f_2
+    force_coeff = -np.pi / array.k**5 * compressibility_air
+
+    def calc_values(tot_der):
+        p_squared = np.abs(tot_der[''])**2
+        Fxx = (1j * array.k**2 * (psi_0 * (tot_der[''] * np.conj(tot_der['xx']) + tot_der['x'] * np.conj(tot_der['x'])) +
+                                  psi_1 * (tot_der['xx'] * np.conj(tot_der['']) + tot_der['x'] * np.conj(tot_der['x']))) +
+               1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['xxx']) + tot_der['xx'] * np.conj(tot_der['xx']) +
+                                 tot_der['y'] * np.conj(tot_der['xxy']) + tot_der['xy'] * np.conj(tot_der['xy']) +
+                                 tot_der['z'] * np.conj(tot_der['xxz']) + tot_der['xz'] * np.conj(tot_der['xz']))
+               ).real * force_coeff
+        Fyy = (1j * array.k**2 * (psi_0 * (tot_der[''] * np.conj(tot_der['yy']) + tot_der['y'] * np.conj(tot_der['y'])) +
+                                  psi_1 * (tot_der['yy'] * np.conj(tot_der['']) + tot_der['y'] * np.conj(tot_der['y']))) +
+               1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['yyx']) + tot_der['xy'] * np.conj(tot_der['xy']) +
+                                 tot_der['y'] * np.conj(tot_der['yyy']) + tot_der['yy'] * np.conj(tot_der['yy']) +
+                                 tot_der['z'] * np.conj(tot_der['yyz']) + tot_der['yz'] * np.conj(tot_der['yz']))
+               ).real * force_coeff
+        Fzz = (1j * array.k**2 * (psi_0 * (tot_der[''] * np.conj(tot_der['zz']) + tot_der['z'] * np.conj(tot_der['z'])) +
+                                  psi_1 * (tot_der['zz'] * np.conj(tot_der['']) + tot_der['z'] * np.conj(tot_der['z']))) +
+               1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['zzx']) + tot_der['xz'] * np.conj(tot_der['xz']) +
+                                 tot_der['y'] * np.conj(tot_der['zzy']) + tot_der['yz'] * np.conj(tot_der['yz']) +
+                                 tot_der['z'] * np.conj(tot_der['zzz']) + tot_der['zz'] * np.conj(tot_der['zz']))
+               ).real * force_coeff
+        return p_squared, Fxx, Fyy, Fzz
+
+    def calc_jacobian(tot_der, ind_der):
+        dp = 2 * tot_der[''] * np.conj(ind_der[''])
+        dFxx = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(ind_der['xx']) - np.conj(psi_0) * tot_der['xx'] * np.conj(ind_der['']) + (psi_0 - np.conj(psi_0)) * tot_der['x'] * np.conj(ind_der['x']) +
+                                   psi_1 * tot_der['xx'] * np.conj(ind_der['']) - np.conj(psi_1) * tot_der[''] * np.conj(ind_der['xx']) + (psi_1 - np.conj(psi_1)) * tot_der['x'] * np.conj(ind_der['x'])) +
+                1j * 3 * (psi_1 * tot_der['x'] * np.conj(ind_der['xxx']) - np.conj(psi_1) * tot_der['xxx'] * np.conj(ind_der['x']) + (psi_1 - np.conj(psi_1)) * tot_der['xx'] * np.conj(ind_der['xx']) +
+                          psi_1 * tot_der['y'] * np.conj(ind_der['xxy']) - np.conj(psi_1) * tot_der['xxy'] * np.conj(ind_der['y']) + (psi_1 - np.conj(psi_1)) * tot_der['xy'] * np.conj(ind_der['xy']) +
+                          psi_1 * tot_der['z'] * np.conj(ind_der['xxz']) - np.conj(psi_1) * tot_der['xxz'] * np.conj(ind_der['z']) + (psi_1 - np.conj(psi_1)) * tot_der['xz'] * np.conj(ind_der['xz']))
+                ) * force_coeff
+        dFyy = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(ind_der['yy']) - np.conj(psi_0) * tot_der['yy'] * np.conj(ind_der['']) + (psi_0 - np.conj(psi_0)) * tot_der['y'] * np.conj(ind_der['y']) +
+                                   psi_1 * tot_der['yy'] * np.conj(ind_der['']) - np.conj(psi_1) * tot_der[''] * np.conj(ind_der['yy']) + (psi_1 - np.conj(psi_1)) * tot_der['y'] * np.conj(ind_der['y'])) +
+                1j * 3 * (psi_1 * tot_der['x'] * np.conj(ind_der['yyx']) - np.conj(psi_1) * tot_der['yyx'] * np.conj(ind_der['x']) + (psi_1 - np.conj(psi_1)) * tot_der['xy'] * np.conj(ind_der['xy']) +
+                          psi_1 * tot_der['y'] * np.conj(ind_der['yyy']) - np.conj(psi_1) * tot_der['yyy'] * np.conj(ind_der['y']) + (psi_1 - np.conj(psi_1)) * tot_der['yy'] * np.conj(ind_der['yy']) +
+                          psi_1 * tot_der['z'] * np.conj(ind_der['yyz']) - np.conj(psi_1) * tot_der['yyz'] * np.conj(ind_der['z']) + (psi_1 - np.conj(psi_1)) * tot_der['yz'] * np.conj(ind_der['yz']))
+                ) * force_coeff
+        dFzz = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(ind_der['zz']) - np.conj(psi_0) * tot_der['zz'] * np.conj(ind_der['']) + (psi_0 - np.conj(psi_0)) * tot_der['z'] * np.conj(ind_der['z']) +
+                                   psi_1 * tot_der['zz'] * np.conj(ind_der['']) - np.conj(psi_1) * tot_der[''] * np.conj(ind_der['zz']) + (psi_1 - np.conj(psi_1)) * tot_der['z'] * np.conj(ind_der['z'])) +
+                1j * 3 * (psi_1 * tot_der['x'] * np.conj(ind_der['zzx']) - np.conj(psi_1) * tot_der['zzx'] * np.conj(ind_der['x']) + (psi_1 - np.conj(psi_1)) * tot_der['xz'] * np.conj(ind_der['xz']) +
+                          psi_1 * tot_der['y'] * np.conj(ind_der['zzy']) - np.conj(psi_1) * tot_der['zzy'] * np.conj(ind_der['y']) + (psi_1 - np.conj(psi_1)) * tot_der['yz'] * np.conj(ind_der['yz']) +
+                          psi_1 * tot_der['z'] * np.conj(ind_der['zzz']) - np.conj(psi_1) * tot_der['zzz'] * np.conj(ind_der['z']) + (psi_1 - np.conj(psi_1)) * tot_der['zz'] * np.conj(ind_der['zz']))
+                ) * force_coeff
+        return dp, dFxx, dFyy, dFzz
+
+    if weights is None:
+        def second_order_stiffness(phases_amplitudes):
+            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
+            complex_coeff = amplitudes[array_mask] * np.exp(1j * phases[array_mask])
+            tot_der = {}
+            for key, value in spatial_derivatives.items():
+                tot_der[key] = np.sum(complex_coeff * value)
+
+            _, Fxx, Fyy, Fzz = calc_values(tot_der)
+            return Fxx, Fyy, Fzz
+    else:
+        if len(weights) == 4:
+            wp, wx, wy, wz = weights
+        elif len(weights) == 3:
+            wx, wy, wz = weights
+            wp = 0
+
+        def second_order_stiffness(phases_amplitudes):
+            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
+            complex_coeff = amplitudes[array_mask] * np.exp(1j * phases[array_mask])
+            ind_der = {}
+            tot_der = {}
+            for key, value in spatial_derivatives.items():
+                ind_der[key] = complex_coeff * value
+                tot_der[key] = np.sum(ind_der[key])
+
+            p_squared, Fxx, Fyy, Fzz = calc_values(tot_der)
+            dp, dFxx, dFyy, dFzz = calc_jacobian(tot_der, ind_der)
+            value = wp * p_squared + wx * Fxx + wy * Fyy + wz * Fzz
+            jacobian = np.zeros(num_transducers, dtype=np.complex128)
+            jacobian[array_mask] = wp * dp + wx * dFxx + wy * dFyy + wz * dFzz
+
+            if variable_amplitudes:
+                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
+            else:
+                return value, jacobian.imag
+    return second_order_stiffness
+
+
 def amplitude_limiting(array, bounds=(1e-3, 1 - 1e-3), order=4, scaling=10, array_mask=None):
     num_transducers = array.num_transducers
     if array_mask is None:
