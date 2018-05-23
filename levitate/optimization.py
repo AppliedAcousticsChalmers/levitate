@@ -317,19 +317,19 @@ def second_order_force(array, location, weights=None, spatial_derivatives=None, 
 
     def calc_values(tot_der):
         Fx = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(tot_der['x']) +
-                                 psi_1 * tot_der['x']) * np.conj(tot_der['']) +
+                                 psi_1 * tot_der['x'] * np.conj(tot_der[''])) +
               1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['xx']) +
                                 tot_der['y'] * np.conj(tot_der['xy']) +
                                 tot_der['z'] * np.conj(tot_der['xz']))
               ).real * force_coeff
         Fy = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(tot_der['y']) +
-                                 psi_1 * tot_der['y']) * np.conj(tot_der['']) +
+                                 psi_1 * tot_der['y'] * np.conj(tot_der[''])) +
               1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['xy']) +
                                 tot_der['y'] * np.conj(tot_der['yy']) +
                                 tot_der['z'] * np.conj(tot_der['yz']))
               ).real * force_coeff
         Fz = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(tot_der['z']) +
-                                 psi_1 * tot_der['z']) * np.conj(tot_der['']) +
+                                 psi_1 * tot_der['z'] * np.conj(tot_der[''])) +
               1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['xz']) +
                                 tot_der['y'] * np.conj(tot_der['yz']) +
                                 tot_der['z'] * np.conj(tot_der['zz']))
