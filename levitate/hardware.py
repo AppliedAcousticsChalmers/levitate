@@ -3,7 +3,9 @@ import numpy as np
 
 
 def data_to_cpp(complex_values, filename, normalize=True):
-    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    directory = os.path.dirname(filename)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
     data = np.asarray(complex_values)
     normalization = np.max(np.abs(data))
     (data / normalization).conj().astype(np.complex64).tofile(filename)
