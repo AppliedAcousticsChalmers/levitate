@@ -115,10 +115,8 @@ def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c
 
     Modes:
         1) weights = None: returns the x, y and z derivatives as a numpy array
-        2) weights = False: returns the derivatives (including p) as an array and the jacobian as a 4 x num_transducers 2darray as a tuple
-        3) else: returns the weighted divergence (the derivatives get weighted by multiplying them with their weight) including p and
-        a) imaginary part and real part divided by amplitude of the jacobian if amplitudes are given
-        b) imaginary part of the jacobian
+        2) weights = False: returns the derivatives (including squared pressure) as an array and the jacobian as a 4 x num_transducers 2darray as a tuple
+        3) else: returns the weighted divergence including squared pressure and the corresponding jacobian
 
     Parameters
     ----------
@@ -258,10 +256,8 @@ def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_
 
     Modes:
         1) weights = None: returns the x, y and z second derivatives as a numpy array
-        2) weights = False: returns the second derivatives (including p) as an array and the jacobian as a 4 x num_transducers 2darray as a tuple
-        3) else: returns the weighted laplacian (the second derivatives get weighted by multiplying them with their weight) including p and
-        a) imaginary part and real part divided by amplitude of the jacobian if amplitudes are given
-        b) imaginary part of the jacobian
+        2) weights = False: returns the second derivatives (including squared pressure) as an array and the jacobian as a 4 x num_transducers 2darray as a tuple
+        3) else: returns the weighted laplacian including squared pressure and the corresponding jacobian
 
     Parameters
     ----------
@@ -424,10 +420,8 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
 
     Modes:
         1) weights = None: returns the x, y and z derivatives and p as a numpy array
-        2) weights = False: returns the derivatives (including p) as an array and the jacobian as a 4 x num_transducers 2darray as a tuple
-        3) else: returns the weighted derivatives (the derivatives get weighted by multiplying them with their weight) including p and
-        a) imaginary part and real part divided by amplitude of the jacobian if amplitudes are given
-        b) imaginary part of the jacobian
+        2) weights = False: returns the derivatives (including squared pressure) as an array and the jacobian as a 4 x num_transducers 2darray as a tuple
+        3) else: returns the weighted derivatives including squared pressure and the corresponding jacobian
 
     Parameters
     ----------
