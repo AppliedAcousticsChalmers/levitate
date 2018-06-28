@@ -214,10 +214,13 @@ def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c
 
             p_squared, Ux, Uy, Uz = calc_values(tot_der)
             dp, dUx, dUy, dUz = calc_jacobian(tot_der, ind_der)
-            value = np.asarry((p_squared, Ux, Uy, Uz))
+            value = np.asarray((p_squared, Ux, Uy, Uz))
             jacobian = np.asarray((dp, dUx, dUy, dUz))
 
-            return value, jacobian
+            if variable_amplitudes:
+                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes), axis=-1)
+            else:
+                return value, jacobian.imag
     else:
         if len(weights) == 4:
             wp, wx, wy, wz = weights
@@ -355,7 +358,10 @@ def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_
             value = np.asarray((p_squared, Uxx, Uyy, Uzz))
             jacobian = np.asarray((dp, dUxx, dUyy, dUzz))
 
-            return value, jacobian
+            if variable_amplitudes:
+                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes), axis=-1)
+            else:
+                return value, jacobian.imag
     else:
         if len(weights) == 4:
             wp, wx, wy, wz = weights
@@ -443,7 +449,6 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
     if spatial_derivatives is None:
         spatial_derivatives = array.spatial_derivatives(location, orders=1)
     gradient_scale = 1 / array.k**2
-    wp, wx, wy, wz = weights
 
     def calc_values(complex_coeff):
         p = np.sum(complex_coeff * spatial_derivatives[''])
@@ -477,7 +482,10 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
 
             value = np.asarray((np.abs(p)**2, gradient_scale * np.abs(px)**2, gradient_scale * np.abs(py)**2, gradient_scale * np.abs(pz)**2))
             jacobian = np.asarray((dp, gradient_scale * dpx, gradient_scale * dpy, gradient_scale * dpz))
-            return value, jacobian
+            if variable_amplitudes:
+                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes), axis=-1)
+            else:
+                return value, jacobian.imag
     else:
         if len(weights) == 4:
             wp, wx, wy, wz = weights
