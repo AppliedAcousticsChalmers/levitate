@@ -56,7 +56,7 @@ napoleon_use_admonition_for_examples = False
 napoleon_use_admonition_for_notes = False
 napoleon_use_admonition_for_references = False
 napoleon_use_ivar = True
-napoleon_use_param = False
+napoleon_use_param = True
 napoleon_use_rtype = False
 
 # Add any paths that contain templates here, relative to this directory.
