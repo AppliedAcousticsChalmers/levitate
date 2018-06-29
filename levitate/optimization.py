@@ -8,6 +8,28 @@ logger = logging.getLogger(__name__)
 
 
 class Optimizer:
+    """ Optimizer for transducer array optimizations
+
+    Attributes
+    ----------
+    array : levitate.models.TransducerArray
+        The transducer array for which to optimize.
+    objectives : list of callables
+        A list of cost functions which should be minimized.
+        A valid cost function has the signature
+        `value, jacobian = fun(phases_amplitudes)`.
+        If the amplitudes should be varied in the optimization, the arguments
+        for cost functions will be of shape `2 * num_transduces` where all
+        phases come first, then all amplitudes. If the amplitudes are kept
+        constant, the input is of shape `num_transducers` with only the phases.
+    variable_amplitudes : bool
+        Toggles the optimization of amplitudes.
+    basinhopping : bool
+        Toggles the use of basinhopping in the optimization.
+    complex_amplitudes : complex numpy.ndarray
+        The result after optimization, on complex valued form.
+
+    """
 
     def __init__(self, array=None):
         if array is None:
@@ -28,12 +50,33 @@ class Optimizer:
         self.phases = np.angle(value)
 
     def func_and_jac(self, phases_amplitudes):
-            results = [f(phases_amplitudes) for f in self.objectives]
-            value = np.sum(result[0] for result in results)
-            jac = np.sum(result[1] for result in results)
-            return value, jac
+        """ Evaluates all cost functions
+
+        Parameters
+        ----------
+        phases_amplitudes : numpy.ndarray
+            Representation of the array state, formatted according to the
+            `variable_amplitudes` attribute.
+
+        Returns
+        -------
+        value : float
+            The total sum of the cost functions.
+        jacobian : ndarray
+            The jacobian of the sum of const functions, wrt the input arguments.
+            This if up to individual cost funcitons to implement properly.
+
+
+        """
+        results = [f(phases_amplitudes) for f in self.objectives]
+        value = np.sum(result[0] for result in results)
+        jac = np.sum(result[1] for result in results)
+        return value, jac
 
     def __call__(self):
+        """ Runs the optimiszation.
+
+        """
         # Initialize all parts of the objective function
         # Assemble objective function and jacobian function
         # Start optimization
