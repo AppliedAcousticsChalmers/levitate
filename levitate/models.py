@@ -11,6 +11,24 @@ rho_air = 1.2
 
 
 def update_air_properties(temperature=None, pressure=None):
+    """ Updates the module level air properties
+
+    Will update the module properties `c_air` and `rho_air` according to the
+    temperature and static pressure given.
+
+    Parameters
+    ----------
+    temperature : float
+        The current temperature of the air, in degrees Celcius.
+    pressure : float
+        The ambient hydrostatic pressure, in Pascals.
+
+    Note
+    ----
+    This should be called immidiately after module import, since changes
+    will not propagate to previously created objects.
+
+    """
     R_spec = 287.058
     gamma = 1.4
     if temperature is not None:
@@ -19,14 +37,16 @@ def update_air_properties(temperature=None, pressure=None):
         globals()['rho_air'] = pressure / R_spec / (temperature + 273.15)
 
 
-def rectangular_grid(shape, spread, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0):
+def rectangular_grid(shape=None, spread=None, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
     """ Creates a grid with positions and normals
 
     Defines the locations and normals of elements (transducers) in an array.
     For rotated arrays, the rotations is a follows:
+
         1) A grid of the correct layout is crated in the xy-plane
         2) The grid is rotated to the disired plane, as defined by the normal.
         3) The grid is rotated around the normal.
+
     The rotation to the disired plane is arount the line where the desired
     plane intersects with the xy-plane.
 
@@ -45,10 +65,10 @@ def rectangular_grid(shape, spread, offset=(0, 0, 0), normal=(0, 0, 1), rotation
 
     Returns
     -------
-    positions : ndarray
+    positions : numpy.ndarray
         nx3 array with the positions of the elements.
-    normals : ndarray
-        nx3 array with normals of tge elements.
+    normals : numpy.ndarray
+        nx3 array with normals of the elements.
     """
     normal = np.asarray(normal, dtype='float64')
     normal /= (normal**2).sum()**0.5
@@ -83,20 +103,64 @@ def rectangular_grid(shape, spread, offset=(0, 0, 0), normal=(0, 0, 1), rotation
     return positions, normals
 
 
-def double_sided_grid(shape, spread, separation, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, grid_generator=rectangular_grid, **kwargs):
+def double_sided_grid(separation=0, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, grid_generator=rectangular_grid, **kwargs):
+    """ Creates a double sided transducer grid
+
+    Parameters
+    ----------
+    separation : float
+        The distance between the two halves, along the normal.
+    offset : array_like, 3 elements
+        The placement of the center of the first half.
+    normal : array_like, 3 elements
+        The normal of the first half.
+    grid_generator : callable
+        A callable which should return a tuple (positions, normals) for a single sided grid
+    **kwargs
+        All arguments will be passed to the generator
+
+    Returns
+    -------
+    positions : numpy.ndarray
+        nx3 array with the positions of the elements.
+    normals : numpy.ndarray
+        nx3 array with normals of tge elements.
+    """
     normal = np.asarray(normal, dtype='float64')
     normal /= (normal**2).sum()**0.5
 
-    pos_1, norm_1 = grid_generator(shape=shape, spread=spread, offset=offset, normal=normal, rotation=rotation, **kwargs)
-    pos_2, norm_2 = grid_generator(shape=shape, spread=spread, offset=offset + separation * normal, normal=-normal, rotation=-rotation, **kwargs)
+    pos_1, norm_1 = grid_generator(offset=offset, normal=normal, rotation=rotation, **kwargs)
+    pos_2, norm_2 = grid_generator(offset=offset + separation * normal, normal=-normal, rotation=-rotation, **kwargs)
     return np.concatenate([pos_1, pos_2], axis=0), np.concatenate([norm_1, norm_2], axis=0)
 
 
 class TransducerModel:
+    """ Base class for ultrasonic single frequency transducers
 
-    def __init__(self, freq=40e3, effective_radius=None, p0=6, **kwargs):
+    Parameters
+    ----------
+    freq : float
+        The resonant frequency of the transducer.
+    p0 : float
+        The sound pressure crated at maximum amplitude at 1m distance, in Pa.
+    **kwargs
+        All remaining arguments will be used as additional properties for the object.
+
+    Attributes
+    ----------
+    k : float
+        Wavenumber in air
+    wavelength : float
+        Wavelength in air
+    omega : float
+        Angular frequency
+    freq : float
+        Wave frequency
+
+    """
+
+    def __init__(self, freq=40e3, p0=6, **kwargs):
         self.freq = freq
-        self.effective_radius = effective_radius
         self.p0 = p0
         # The murata transducers are measured to 85 dB SPL at 1 V at 1 m, which corresponds to ~6 Pa at 20 V
         # The datasheet specifies 120 dB SPL @ 0.3 m, which corresponds to ~6 Pa @ 1 m
@@ -138,20 +202,94 @@ class TransducerModel:
         self.k = 2 * np.pi / value
 
     def greens_function(self, source_position, source_normal, receiver_position):
+        """ Evaluates the transducer radiation
+
+        Parameters
+        ----------
+        source_position : numpy.ndarray
+            The location of the transducer, as a 3 element array.
+        source_normal : numpy.ndarray
+            The look direction of the transducer, as a 3 element array.
+        receiver_position : numpy.ndarray
+            The location(s) at which to evaluate the radiation. The last dimention must have length 3 and represent the coordinates of the points.
+
+        Returns
+        -------
+            out : numpy.ndarray
+                The pressure at the locations, assuming `p0` as the source strength.
+                Has the same shape as `receiver_position` with the last axis removed.
+        """
         return self.p0 * self.spherical_spreading(source_position, receiver_position) * self.directivity(source_position, source_normal, receiver_position)
 
     def spherical_spreading(self, source_position, receiver_position):
+        """ Evaluates spherical wavefronts
+
+        Parameters
+        ----------
+        source_position : numpy.ndarray
+            The location of the transducer, as a 3 element array.
+        receiver_position : numpy.ndarray
+            The location(s) at which to evaluate. The last dimention must have length 3 and represent the coordinates of the points.
+
+        Returns
+        -------
+            out : numpy.ndarray
+                The amplitude and phase of the wavefront, assuming 1Pa at 1m distance,
+                phase referenced to the transducer center.
+                Has the same shape as `receiver_position` with the last axis removed.
+        """
         diff = receiver_position - source_position
         distance = np.einsum('...i,...i', diff, diff)**0.5
         return np.exp(1j * self.k * distance) / distance
 
     def directivity(self, source_position, source_normal, receiver_position):
+        """ Evaluates transducer directivity
+
+        Subclasses will preferrably implement this to create new directivity models.
+        Default implementation is omnidirectional sources.
+
+        Parameters
+        ----------
+        source_position : numpy.ndarray
+            The location of the transducer, as a 3 element array.
+        source_normal : numpy.ndarray
+            The look direction of the transducer, as a 3 element array.
+        receiver_position : numpy.ndarray
+            The location(s) at which to evaluate the directivity. The last dimention must have length 3 and represent the coordinates of the points.
+
+        Returns
+        -------
+            out : numpy.ndarray
+                The amplitude (and phase) of the directivity, assuming 1Pa at 1m distance,
+                phase referenced to the transducer center.
+                Has the same shape as `receiver_position` with the last axis removed.
+        """
         if receiver_position.ndim == 1:
             return 1
         else:
             return np.ones(receiver_position.shape[:-1])
 
     def spatial_derivatives(self, source_position, source_normal, receiver_position, orders=3):
+        """ Calculates the spatial derivatives of the greens function
+
+        Parameters
+        ----------
+        source_position : numpy.ndarray
+            The location of the transducer, as a 3 element array.
+        source_normal : numpy.ndarray
+            The look direction of the transducer, as a 3 element array.
+        receiver_position : numpy.ndarray
+            The location(s) at which to evaluate the derivatives. The last dimention must have length 3 and represent the coordinates of the points.
+        orders : int
+            How many orders of derivatives to calculate. Currently three orders are supported.
+
+        Returns
+        -------
+        derivatives : dict
+            Dictionary with the calculated derivatives, indexed by the axes along which the derivatives are taken.
+            The underivated greens function is included with the index ''.
+
+        """
         spherical_derivatives = self.spherical_derivatives(source_position, receiver_position, orders)
         directivity_derivatives = self.directivity_derivatives(source_position, source_normal, receiver_position, orders)
 
@@ -187,6 +325,24 @@ class TransducerModel:
         return derivatives
 
     def spherical_derivatives(self, source_position, receiver_position, orders=3):
+        """ Calculates the spatial derivatives of the spherical spreading
+
+        Parameters
+        ----------
+        source_position : numpy.ndarray
+            The location of the transducer, as a 3 element array.
+        receiver_position : numpy.ndarray
+            The location(s) at which to evaluate the derivatives. The last dimention must have length 3 and represent the coordinates of the points.
+        orders : int
+            How many orders of derivatives to calculate. Currently three orders are supported.
+
+        Returns
+        -------
+        derivatives : dict
+            Dictionary with the calculated derivatives, indexed by the axes along which the derivatives are taken.
+            The underivated spherical spreading is included with the index ''.
+
+        """
         diff = receiver_position - source_position
         # r = np.einsum('...i,...i', diff, diff)**0.5
         r = np.sum(diff**2, axis=-1)**0.5
@@ -228,6 +384,31 @@ class TransducerModel:
         return derivatives
 
     def directivity_derivatives(self, source_position, source_normal, receiver_position, orders=3):
+        """ Calculates the spatial derivatives of the directivity
+
+        The default implementation uses finite difference stencils to evaluate the
+        derivatives. In principle this means that customised directivity models
+        does not need to implement their own derivatives, but can do so for speed
+        and precicion benefits.
+
+        Parameters
+        ----------
+        source_position : numpy.ndarray
+            The location of the transducer, as a 3 element array.
+        source_normal : numpy.ndarray
+            The look direction of the transducer, as a 3 element array.
+        receiver_position : numpy.ndarray
+            The location(s) at which to evaluate the derivatives. The last dimention must have length 3 and represent the coordinates of the points.
+        orders : int
+            How many orders of derivatives to calculate. Currently three orders are supported.
+
+        Returns
+        -------
+        derivatives : dict
+            Dictionary with the calculated derivatives, indexed by the axes along which the derivatives are taken.
+            The underivated directivity is included with the index ''.
+
+        """
         finite_difference_coefficients = {'': (np.array([0, 0, 0]), 1)}
         if orders > 0:
             finite_difference_coefficients['x'] = (np.array([[1, 0, 0], [-1, 0, 0]]), [0.5, -0.5])
@@ -259,6 +440,29 @@ class TransducerModel:
 
 
 class ReflectingTransducer:
+    """ Metaclass for transducers with planar reflectors
+
+    Parameters
+    ----------
+    ctype : class
+        The class implementing the transducer model.
+    plane_distance : float
+        The distance between the array and the reflector, along the normal.
+    plane_normal : array_like
+        3 element vector with the plane normal.
+    reflection_coefficient : float, complex
+        Reflection coefficient to tune the magnitude and phase of the reflection.
+    *args
+        Passed to ctype initializer
+    **kwargs
+        Passed to ctype initializer
+
+    Returns
+    -------
+    obj
+        An object of a dynamically created class, inheriting ReflectingTransducer and ctype.
+
+    """
     def __new__(cls, ctype, *args, **kwargs):
         obj = ctype.__new__(ctype)
         obj.__class__ = type('Reflecting{}'.format(ctype.__name__), (ReflectingTransducer, ctype), {})
@@ -323,6 +527,17 @@ class PlaneWaveTransducer(TransducerModel):
 
 
 class CircularPiston(TransducerModel):
+    """ Circular piston transducer model
+
+    Implementation of the circular piston directivity :math:`D(\\theta) = 2 J_1(ka\\sin\\theta) / (ka\\sin\\theta)`.
+
+    Parameters
+    ----------
+    effective_radius : float
+        The radius :math:`a` in the above.
+    **kwargs
+        See `TransducerModel`
+    """
 
     def directivity(self, source_position, source_normal, receiver_position):
         diff = receiver_position - source_position
@@ -340,6 +555,17 @@ class CircularPiston(TransducerModel):
 
 
 class CircularRing(TransducerModel):
+    """ Circular ring transducer model
+
+    Implementation of the circular ring directivity :math:`D(\\theta) = J_0(ka\\sin\\theta)`.
+
+    Parameters
+    ----------
+    effective_radius : float
+        The radius :math:`a` in the above.
+    **kwargs
+        See `TransducerModel`
+    """
 
     def directivity(self, source_position, source_normal, receiver_position):
         diff = receiver_position - source_position
@@ -428,6 +654,46 @@ class CircularRing(TransducerModel):
 
 
 class TransducerArray:
+    """ Class to handle transducer arrays
+
+    Parameters
+    ----------
+    freq : float
+        The frequency at which to emit
+    transducer_model
+        An object of `TransducerModel` or a subclass. If passed a class it will instantiate an object with default parameters.
+    grid : (numpy.ndarray, numpy.ndarray)
+        Tuple of ndarrays to define the transducer layout.
+        The first emelent should be the transducer positions, shape Nx3.
+        The second emelent should be the transducer normals, shape Nx3.
+    transducer_size : float
+        Fallback transducer size if no transducer model object is given, or if no grid is given.
+    shape : int or (int, int)
+        Fallback specificaiton if the transducer grid is not supplied. Assumes a rectangular grid.
+
+    Attributes
+    ----------
+    phases : numpy.ndarray
+        The phases of the transducer elements
+    amplitudes : numpy.ndarray
+        The amplitudes of the transduder elements
+    complex_amplitudes : complex numpy.ndarray
+        Transducer controls, complex form
+    phases_amplitudes : numpy.ndarray
+        Transducer controls, concatenated phase-amplitude form.
+        This contains an array with two parts; first all phases, then all amplitudes.
+    num_transducers : int
+        The number of transducers.
+    k : float
+        Wavenumber in air
+    wavelength : float
+        Wavelength in air
+    omega : float
+        Angular frequency
+    freq : float
+        Wave frequency
+
+    """
 
     def __init__(self, freq=40e3, transducer_model=None,
                  grid=None, transducer_size=10e-3, shape=16,
@@ -512,6 +778,19 @@ class TransducerArray:
             raise ValueError('Cannot set {} phases and amplitudes with {} values!'.format(self.num_transducers, len(value)))
 
     def focus_phases(self, focus):
+        """ Focuses the phases to create a focus point
+
+        Parameters
+        ----------
+        focus : array_like
+            Three element array with a location where to focus.
+
+        Returns
+        -------
+        phases : numpy.ndarray
+            Array with the phases for the transducer elements.
+
+        """
         phase = np.empty(self.num_transducers)
         for idx in range(self.num_transducers):
             phase[idx] = -np.sum((self.transducer_positions[idx, :] - focus)**2)**0.5 * self.k
@@ -583,17 +862,21 @@ class TransducerArray:
         return np.mod(phases - focus_phases + np.pi, 2 * np.pi) - np.pi
 
     def calculate_pressure(self, point, transducer=None):
-        '''
-            Calculates the complex pressure amplitude created by the array.
+        """ Calculates the complex pressure amplitude created by the array.
 
-            Parameters
-            ----------
-            point : ndarray or tuple
-                Pass either a Nx3 ndarray with [x,y,z] as rows or a tuple with three matrices for x, y, z.
-            transducer : int, optional
-                Calculate only the pressure for the transducer with this index.
-                If None (default) the sum from all transducers is calculated.
-        '''
+        Parameters
+        ----------
+        point : numpy.ndarray or tuple
+            Either a Nx3 ndarray with [x,y,z] as rows or a tuple with three matrices for x, y, z.
+        transducer : int, optional
+            Calculate only the pressure for the transducer with this index.
+            If None (default) the sum from all transducers is calculated.
+
+        Returns
+        -------
+        out : numpy.ndarray
+            The calculated pressures, on the same form as the input with the last dimention removed
+        """
         if type(point) is tuple:
             reshape = True
             shape = point[0].shape
@@ -618,6 +901,24 @@ class TransducerArray:
             return p
 
     def spatial_derivatives(self, focus, h=None, orders=3):
+        """ Calculates the spatial derivatives for all the transducers
+
+        Parameters
+        ----------
+        focus : array_like
+            Three element array spcifying a location in space where to calculate
+            the derivatives, or a Nx3 element array to calculate at mutiple points
+            simultaneously.
+        orders : int
+            How many orders of derivatives to calculate. Currently three orders are supported.
+
+        Returns
+        -------
+        derivatives : dict
+            Dictionary with the calculated derivatives, indexed by the axes along which the derivatives are taken.
+            The underivated greens function is included with the index ''. Each element in the dict is an array
+            with the same dimentions as the input with the last dimention removed.
+        """
         if np.ndim(focus) == 1:
             # Single point
             shape = self.num_transducers
