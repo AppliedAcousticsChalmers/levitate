@@ -1,3 +1,4 @@
 levitate.egg-info
+docs/_build
 *.npy
 *.dat
