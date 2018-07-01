@@ -214,7 +214,7 @@ def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c
               gradient_coefficient * (tot_der['yz'] * np.conj(tot_der['y'])).real -
               gradient_coefficient * (tot_der['zz'] * np.conj(tot_der['z'])).real) * 2
 
-        return Ux, Uy, Uz
+        return np.array((Ux, Uy, Uz))
 
     def calc_jacobian(tot_der, ind_der):
         dUx = (pressure_coefficient * (tot_der['x'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['x'])) -
@@ -230,7 +230,7 @@ def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c
                gradient_coefficient * (tot_der['yz'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['yz'])) -
                gradient_coefficient * (tot_der['zz'] * np.conj(ind_der['z']) + tot_der['z'] * np.conj(ind_der['zz']))) * 2
 
-        return dUx, dUy, dUz
+        return np.array((dUx, dUy, dUz))
 
     if weights is None:
         def gorkov_divergence(phases_amplitudes):
@@ -239,8 +239,7 @@ def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c
             tot_der = {}
             for key, value in spatial_derivatives.items():
                 tot_der[key] = np.sum(complex_coeff * value)
-            Ux, Uy, Uz = calc_values(tot_der)
-            return np.asarray((Ux, Uy, Uz))
+            return calc_values(tot_der)
     elif weights is False:
         def gorkov_divergence(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
@@ -251,10 +250,8 @@ def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c
                 ind_der[key] = complex_coeff * value
                 tot_der[key] = np.sum(ind_der[key])
 
-            Ux, Uy, Uz = calc_values(tot_der)
-            dUx, dUy, dUz = calc_jacobian(tot_der, ind_der)
-            value = np.asarray((Ux, Uy, Uz))
-            jacobian = np.asarray((dUx, dUy, dUz))
+            value = calc_values(tot_der)
+            jacobian = calc_jacobian(tot_der, ind_der)
 
             if variable_amplitudes:
                 return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes), axis=-1)
@@ -272,6 +269,8 @@ def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c
                 ind_der[key] = complex_coeff * value
                 tot_der[key] = np.sum(ind_der[key])
 
+            # Tried to keep values and jacobian as single arrays and converting
+            # weights to an array, but this seems to be the fastest implementation.
             Ux, Uy, Uz = calc_values(tot_der)
             dUx, dUy, dUz = calc_jacobian(tot_der, ind_der)
             value = wx * Ux + wy * Uy + wz * Uz
@@ -347,7 +346,7 @@ def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_
                gradient_coefficient * (tot_der['zzx'] * np.conj(tot_der['x']) + tot_der['xz'] * np.conj(tot_der['xz'])).real -
                gradient_coefficient * (tot_der['zzy'] * np.conj(tot_der['y']) + tot_der['yz'] * np.conj(tot_der['yz'])).real -
                gradient_coefficient * (tot_der['zzz'] * np.conj(tot_der['z']) + tot_der['zz'] * np.conj(tot_der['zz'])).real) * 2
-        return Uxx, Uyy, Uzz
+        return np.array((Uxx, Uyy, Uzz))
 
     def calc_jacobian(tot_der, ind_der):
         dUxx = (pressure_coefficient * (tot_der['xx'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['xx']) + 2 * tot_der['x'] * np.conj(ind_der['x'])) -
@@ -362,7 +361,7 @@ def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_
                 gradient_coefficient * (tot_der['zzx'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['zzx']) + 2 * tot_der['xz'] * np.conj(ind_der['xz'])) -
                 gradient_coefficient * (tot_der['zzy'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['zzy']) + 2 * tot_der['yz'] * np.conj(ind_der['yz'])) -
                 gradient_coefficient * (tot_der['zzz'] * np.conj(ind_der['z']) + tot_der['z'] * np.conj(ind_der['zzz']) + 2 * tot_der['zz'] * np.conj(ind_der['zz']))) * 2
-        return dUxx, dUyy, dUzz
+        return np.array((dUxx, dUyy, dUzz))
 
     if weights is None:
         def gorkov_laplacian(phases_amplitudes):
@@ -372,8 +371,7 @@ def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_
             for key, value in spatial_derivatives.items():
                 tot_der[key] = np.sum(complex_coeff * value)
 
-            Uxx, Uyy, Uzz = calc_values(tot_der)
-            return np.asarray((Uxx, Uyy, Uzz))
+            return calc_values(tot_der)
     elif weights is False:
         def gorkov_laplacian(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
@@ -384,10 +382,8 @@ def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_
                 ind_der[key] = complex_coeff * value
                 tot_der[key] = np.sum(ind_der[key])
 
-            Uxx, Uyy, Uzz = calc_values(tot_der)
-            dUxx, dUyy, dUzz = calc_jacobian(tot_der, ind_der)
-            value = np.asarray((Uxx, Uyy, Uzz))
-            jacobian = np.asarray((dUxx, dUyy, dUzz))
+            value = calc_values(tot_der)
+            jacobian = calc_jacobian(tot_der, ind_der)
 
             if variable_amplitudes:
                 return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes), axis=-1)
@@ -405,6 +401,8 @@ def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_
                 ind_der[key] = complex_coeff * value
                 tot_der[key] = np.sum(ind_der[key])
 
+            # Tried to keep values and jacobian as single arrays and converting
+            # weights to an array, but this seems to be the fastest implementation.
             Uxx, Uyy, Uzz = calc_values(tot_der)
             dUxx, dUyy, dUzz = calc_jacobian(tot_der, ind_der)
             value = wx * Uxx + wy * Uyy + wz * Uzz
@@ -454,7 +452,7 @@ def second_order_force(array, location, weights=None, spatial_derivatives=None, 
                                 tot_der['y'] * np.conj(tot_der['yz']) +
                                 tot_der['z'] * np.conj(tot_der['zz']))
               ).real * force_coeff
-        return Fx, Fy, Fz
+        return np.array((Fx, Fy, Fz))
 
     def calc_jacobian(tot_der, ind_der):
         dFx = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(ind_der['x']) - np.conj(psi_0) * tot_der['x'] * np.conj(ind_der['']) +
@@ -475,7 +473,7 @@ def second_order_force(array, location, weights=None, spatial_derivatives=None, 
                          psi_1 * tot_der['y'] * np.conj(ind_der['yz']) - np.conj(psi_1) * tot_der['yz'] * np.conj(ind_der['y']) +
                          psi_1 * tot_der['z'] * np.conj(ind_der['zz']) - np.conj(psi_1) * tot_der['zz'] * np.conj(ind_der['z']))
                ) * force_coeff
-        return dFx, dFy, dFz
+        return np.array((dFx, dFy, dFz))
 
     if weights is None:
         def second_order_force(phases_amplitudes):
@@ -497,6 +495,8 @@ def second_order_force(array, location, weights=None, spatial_derivatives=None, 
                 ind_der[key] = complex_coeff * value
                 tot_der[key] = np.sum(ind_der[key])
 
+            # Tried to keep values and jacobian as single arrays and converting
+            # weights to an array, but this seems to be the fastest implementation.
             Fx, Fy, Fz = calc_values(tot_der)
             dFx, dFy, dFz = calc_jacobian(tot_der, ind_der)
             value = wx * Fx + wy * Fy + wz * Fz
@@ -545,7 +545,7 @@ def second_order_stiffness(array, location, weights=None, spatial_derivatives=No
                                  tot_der['y'] * np.conj(tot_der['zzy']) + tot_der['yz'] * np.conj(tot_der['yz']) +
                                  tot_der['z'] * np.conj(tot_der['zzz']) + tot_der['zz'] * np.conj(tot_der['zz']))
                ).real * force_coeff
-        return Fxx, Fyy, Fzz
+        return np.array((Fxx, Fyy, Fzz))
 
     def calc_jacobian(tot_der, ind_der):
         dFxx = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(ind_der['xx']) - np.conj(psi_0) * tot_der['xx'] * np.conj(ind_der['']) + (psi_0 - np.conj(psi_0)) * tot_der['x'] * np.conj(ind_der['x']) +
@@ -566,7 +566,7 @@ def second_order_stiffness(array, location, weights=None, spatial_derivatives=No
                           psi_1 * tot_der['y'] * np.conj(ind_der['zzy']) - np.conj(psi_1) * tot_der['zzy'] * np.conj(ind_der['y']) + (psi_1 - np.conj(psi_1)) * tot_der['yz'] * np.conj(ind_der['yz']) +
                           psi_1 * tot_der['z'] * np.conj(ind_der['zzz']) - np.conj(psi_1) * tot_der['zzz'] * np.conj(ind_der['z']) + (psi_1 - np.conj(psi_1)) * tot_der['zz'] * np.conj(ind_der['zz']))
                 ) * force_coeff
-        return dFxx, dFyy, dFzz
+        return np.array((dFxx, dFyy, dFzz))
 
     if weights is None:
         def second_order_stiffness(phases_amplitudes):
@@ -576,8 +576,7 @@ def second_order_stiffness(array, location, weights=None, spatial_derivatives=No
             for key, value in spatial_derivatives.items():
                 tot_der[key] = np.sum(complex_coeff * value)
 
-            Fxx, Fyy, Fzz = calc_values(tot_der)
-            return Fxx, Fyy, Fzz
+            return calc_values(tot_der)
     else:
         wx, wy, wz = weights
 
@@ -590,6 +589,8 @@ def second_order_stiffness(array, location, weights=None, spatial_derivatives=No
                 ind_der[key] = complex_coeff * value
                 tot_der[key] = np.sum(ind_der[key])
 
+            # Tried to keep values and jacobian as single arrays and converting
+            # weights to an array, but this seems to be the fastest implementation.
             Fxx, Fyy, Fzz = calc_values(tot_der)
             dFxx, dFyy, dFzz = calc_jacobian(tot_der, ind_der)
             value = wx * Fxx + wy * Fyy + wz * Fzz
@@ -672,7 +673,7 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
         py = np.sum(complex_coeff * spatial_derivatives['y'])
         pz = np.sum(complex_coeff * spatial_derivatives['y'])
 
-        return p, px, py, pz
+        return np.array((p, px, py, pz))
 
     def calc_jacobian(complex_coeff, values):
         p, px, py, pz = values
@@ -681,13 +682,13 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
         dpy = 2 * py * np.conj(complex_coeff * spatial_derivatives['y'])
         dpz = 2 * pz * np.conj(complex_coeff * spatial_derivatives['z'])
 
-        return dp, dpx, dpy, dpz
+        return np.array((dp, dpx, dpy, dpz))
 
     if weights is None:
         def pressure_null(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
             complex_coeff = amplitudes * np.exp(1j * phases)
-            return np.asarray(calc_values(complex_coeff))
+            return calc_values(complex_coeff)
     elif weights is False:
         def pressure_null(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
