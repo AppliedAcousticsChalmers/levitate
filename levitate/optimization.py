@@ -483,6 +483,23 @@ def second_order_force(array, location, weights=None, spatial_derivatives=None, 
             for key, value in spatial_derivatives.items():
                 tot_der[key] = np.sum(complex_coeff * value)
             return calc_values(tot_der)
+    elif weights is False:
+        def second_order_force(phases_amplitudes):
+            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
+            complex_coeff = amplitudes * np.exp(1j * phases)
+            ind_der = {}
+            tot_der = {}
+            for key, value in spatial_derivatives.items():
+                ind_der[key] = complex_coeff * value
+                tot_der[key] = np.sum(ind_der[key])
+
+            value = calc_values(tot_der)
+            jacobian = calc_jacobian(tot_der, ind_der)
+
+            if variable_amplitudes:
+                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
+            else:
+                return value, jacobian.imag
     else:
         wx, wy, wz = weights
 
@@ -577,6 +594,23 @@ def second_order_stiffness(array, location, weights=None, spatial_derivatives=No
                 tot_der[key] = np.sum(complex_coeff * value)
 
             return calc_values(tot_der)
+    elif weights is False:
+        def second_order_stiffness(phases_amplitudes):
+            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
+            complex_coeff = amplitudes * np.exp(1j * phases)
+            ind_der = {}
+            tot_der = {}
+            for key, value in spatial_derivatives.items():
+                ind_der[key] = complex_coeff * value
+                tot_der[key] = np.sum(ind_der[key])
+
+            value = calc_values(tot_der)
+            jacobian = calc_jacobian(tot_der, ind_der)
+
+            if variable_amplitudes:
+                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
+            else:
+                return value, jacobian.imag
     else:
         wx, wy, wz = weights
 
