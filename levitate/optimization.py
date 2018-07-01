@@ -241,7 +241,7 @@ def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c
                 tot_der[key] = np.sum(complex_coeff * value)
             Ux, Uy, Uz = calc_values(tot_der)
             return np.asarray((Ux, Uy, Uz))
-    elif not weights:
+    elif weights is False:
         def gorkov_divergence(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
             complex_coeff = amplitudes * np.exp(1j * phases)
@@ -374,7 +374,7 @@ def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_
 
             Uxx, Uyy, Uzz = calc_values(tot_der)
             return np.asarray((Uxx, Uyy, Uzz))
-    elif not weights:
+    elif weights is False:
         def gorkov_laplacian(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
             complex_coeff = amplitudes * np.exp(1j * phases)
@@ -688,7 +688,7 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
             complex_coeff = amplitudes * np.exp(1j * phases)
             return np.asarray(calc_values(complex_coeff))
-    elif not weights:
+    elif weights is False:
         def pressure_null(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
             complex_coeff = amplitudes * np.exp(1j * phases)
