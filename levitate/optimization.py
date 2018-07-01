@@ -714,12 +714,13 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
             else:
                 return value, jacobian.imag
     else:
-        if len(weights) == 4:
-            wp, wx, wy, wz = weights
-        elif len(weights) == 3:
-            wx, wy, wz = weights
-            wp = 0
-        elif len(weights) == 1:
+        try:
+            if len(weights) == 4:
+                wp, wx, wy, wz = weights
+            elif len(weights) == 3:
+                wx, wy, wz = weights
+                wp = 0
+        except TypeError:
             wp = weights
             wx = wy = wz = 0
 
