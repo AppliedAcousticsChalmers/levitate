@@ -665,8 +665,6 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
                                'y': input_ders['y'],
                                'z': input_ders['z']}
 
-    gradient_scale = 1 / array.k**2
-
     def calc_values(complex_coeff):
         p = np.sum(complex_coeff * spatial_derivatives[''])
         px = np.sum(complex_coeff * spatial_derivatives['x'])
@@ -694,11 +692,9 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
             complex_coeff = amplitudes * np.exp(1j * phases)
 
-            p, px, py, pz = calc_values(complex_coeff)
-            dp, dpx, dpy, dpz = calc_jacobian(complex_coeff, (p, px, py, pz))
-
-            value = np.asarray((np.abs(p)**2, gradient_scale * np.abs(px)**2, gradient_scale * np.abs(py)**2, gradient_scale * np.abs(pz)**2))
-            jacobian = np.asarray((dp, gradient_scale * dpx, gradient_scale * dpy, gradient_scale * dpz))
+            complex_value = calc_values(complex_coeff)
+            jacobian = calc_jacobian(complex_coeff, complex_value)
+            value = np.abs(complex_value)**2
             if variable_amplitudes:
                 return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes), axis=-1)
             else:
@@ -706,23 +702,19 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
     else:
         try:
             if len(weights) == 4:
-                wp, wx, wy, wz = weights
+                weights = np.asarray(weights)
             elif len(weights) == 3:
-                wx, wy, wz = weights
-                wp = 0
+                weights = np.concatenate((0, weights))
         except TypeError:
-            wp = weights
-            wx = wy = wz = 0
+            weights = np.array((weights, 0, 0, 0))
 
         def pressure_null(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
             complex_coeff = amplitudes * np.exp(1j * phases)
 
-            p, px, py, pz = calc_values(complex_coeff)
-            dp, dpx, dpy, dpz = calc_jacobian(complex_coeff, (p, px, py, pz))
-
-            value = wp * np.abs(p)**2 + (wx * np.abs(px)**2 + wy * np.abs(py)**2 + wz * np.abs(pz)**2) * gradient_scale
-            jacobian = wp * dp + (wx * dpx + wy * dpy + wz * dpz) * gradient_scale
+            complex_vals = calc_values(complex_coeff)
+            jacobian = np.sum(calc_jacobian(complex_coeff, complex_vals) * weights[:, np.newaxis], axis=0)
+            value = np.sum(np.abs(complex_vals)**2 * weights)
             if variable_amplitudes:
                 return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
             else:
