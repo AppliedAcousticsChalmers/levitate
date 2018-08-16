@@ -650,6 +650,8 @@ class TransducerArray:
     phases_amplitudes : numpy.ndarray
         Transducer controls, concatenated phase-amplitude form.
         This contains an array with two parts; first all phases, then all amplitudes.
+        As a setter this accepts either the concatenated form, complex values,
+        or just phases (amplitudes unchanged).
     num_transducers : int
         The number of transducers.
     k : float
@@ -738,7 +740,7 @@ class TransducerArray:
             self.phases = value[:self.num_transducers]
             self.amplitudes = value[self.num_transducers:]
         elif len(value) == self.num_transducers:
-            if np.iscomplex(value):
+            if np.iscomplexobj(value):
                 self.complex_amplitudes = value
             else:
                 self.phases = value
