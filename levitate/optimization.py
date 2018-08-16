@@ -2,6 +2,7 @@ import numpy as np
 # from scipy.optimize import minimize, basinhopping
 import scipy.optimize
 import logging
+import itertools
 
 from . import models
 
@@ -116,12 +117,59 @@ class Optimizer:
 
 
 def minimize_objectives(functions, array, variable_amplitudes=False,
-                        constrain_transducers=None,
+                        constrain_transducers=None, passover_callable=None,
                         basinhopping=False, status_return=None,
                         ):
-
     if constrain_transducers is None or constrain_transducers is False:
         constrain_transducers = []
+    # Handle single function input case
+    try:
+        iter(functions)
+    except TypeError:
+        functions = [functions]
+    # Check if we should do sequenced optimization
+    try:
+        iter(next(iter(functions)))
+    except TypeError:
+        pass
+    else:
+        # This is where we end up if we are sequencing optimizations
+        initial_array_state = array.phases_amplitudes
+        try:
+            iter(variable_amplitudes)
+        except TypeError:
+            variable_amplitudes = itertools.repeat(variable_amplitudes)
+        if passover_callable is None:
+            def passover_callable(arg): return arg
+        try:
+            iter(passover_callable)
+        except TypeError:
+            passover_callable = itertools.repeat(passover_callable)
+        try:
+            next(iter(constrain_transducers))
+            iter(next(iter(constrain_transducers)))
+        except StopIteration:  # Empty list case
+            constrain_transducers = itertools.repeat(constrain_transducers)
+        except TypeError:
+            # We need to make sure that we don't have a list of lists but with the first element as None or False
+            first_val = next(iter(constrain_transducers))
+            if first_val is not False and first_val is not None:
+                constrain_transducers = itertools.repeat(constrain_transducers)
+        try:
+            iter(basinhopping)
+        except TypeError:
+            basinhopping = itertools.repeat(basinhopping)
+        results = []
+        for function, var_amp, const_trans, basinhop, pass_call in zip(functions, variable_amplitudes, constrain_transducers, basinhopping, passover_callable):
+            results.append(minimize_objectives(function, array, variable_amplitudes=var_amp,
+                constrain_transducers=const_trans, basinhopping=basinhop, status_return=status_return))
+            array.phases_amplitudes = pass_call(results[-1])
+        array.phases_amplitudes = initial_array_state
+        return results
+
+    # =================================================
+    # Single minimization of cost functions start here!
+    # =================================================
     unconstrained_transducers = np.delete(np.arange(array.num_transducers), constrain_transducers)
     num_unconstrained_transducers = len(unconstrained_transducers)
 
