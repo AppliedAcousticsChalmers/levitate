@@ -1,5 +1,6 @@
 import numpy as np
-from scipy.optimize import minimize, basinhopping
+# from scipy.optimize import minimize, basinhopping
+import scipy.optimize
 import logging
 
 from . import models
@@ -98,9 +99,9 @@ class Optimizer:
                 'method': 'L-BFGS-B', 'bounds': bounds, 'options': {'gtol': 1e-9, 'ftol': 1e-15}}
         if self.basinhopping:
             take_step = RadndomDisplacer(self.array.num_transducers, self.variable_amplitudes, stepsize=0.1)
-            self.result = basinhopping(self.func_and_jac, start, T=1e-7, take_step=None, minimizer_kwargs=args, disp=True)
+            self.result = scipy.optimize.basinhopping(self.func_and_jac, start, T=1e-7, take_step=None, minimizer_kwargs=args, disp=True)
         else:
-            self.result = minimize(self.func_and_jac, start, callback=None, **args)
+            self.result = scipy.optimize.minimize(self.func_and_jac, start, callback=None, **args)
 
         if self.variable_amplitudes:
             self.phases = self.result.x[:self.array.num_transducers]
@@ -115,33 +116,47 @@ class Optimizer:
 
 
 def minimize_objectives(functions, array, variable_amplitudes=False,
+                        constrain_transducers=None,
                         basinhopping=False, status_return=None,
                         ):
+
+    if constrain_transducers is None or constrain_transducers is False:
+        constrain_transducers = []
+    unconstrained_transducers = np.delete(np.arange(array.num_transducers), constrain_transducers)
+    num_unconstrained_transducers = len(unconstrained_transducers)
+
+    if variable_amplitudes:
+        unconstrained_variables = np.concatenate((unconstrained_transducers, unconstrained_transducers + array.num_transducers))
+    else:
+        unconstrained_variables = unconstrained_transducers
+    call_values = array.phases_amplitudes.copy()
+    start = call_values[unconstrained_variables].copy()
+
     def func(phases_amplitudes):
-        results = [f(phases_amplitudes) for f in functions]
+        call_values[unconstrained_variables] = phases_amplitudes
+        results = [f(call_values) for f in functions]
         value = np.sum(result[0] for result in results)
-        jacobian = np.sum(result[1] for result in results)
+        jacobian = np.sum(result[1] for result in results)[unconstrained_variables]
+
         return value, jacobian
 
-    bounds = [(None, None)] * array.num_transducers
+    bounds = [(None, None)] * num_unconstrained_transducers
     if variable_amplitudes:
-        start = array.phases_amplitudes
-        bounds += [(1e-3, 1)] * array.num_transducers
-    else:
-        start = array.phases
+        bounds += [(1e-3, 1)] * num_unconstrained_transducers
     opt_args = {'jac': True, 'method': 'L-BFGS-B', 'bounds': bounds, 'options': {'gtol': 1e-9, 'ftol': 1e-15}}
 
     if basinhopping:
         if basinhopping is True:
             # It's not a number, use default value
             basinhopping = 20
-        opt_result = basinhopping(func, start, T=1e-7, minimizer_kwargs=opt_args, niter=basinhopping)
+        opt_result = scipy.optimize.basinhopping(func, start, T=1e-7, minimizer_kwargs=opt_args, niter=basinhopping)
     else:
-        opt_result = minimize(func, start, **opt_args)
+        opt_result = scipy.optimize.minimize(func, start, **opt_args)
     if status_return is not None:
         status_return.append(opt_result)
 
-    return opt_result.x
+    call_values[unconstrained_variables] = opt_result.x
+    return call_values
 
 
 class RadndomDisplacer:
