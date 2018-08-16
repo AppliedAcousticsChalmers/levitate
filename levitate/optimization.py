@@ -114,6 +114,36 @@ class Optimizer:
         # method='BFGS', options={'return_all': True, 'gtol': 1e-5, 'norm': 2})
 
 
+def minimize_objectives(functions, array, variable_amplitudes=False,
+                        basinhopping=False, status_return=None,
+                        ):
+    def func(phases_amplitudes):
+        results = [f(phases_amplitudes) for f in functions]
+        value = np.sum(result[0] for result in results)
+        jacobian = np.sum(result[1] for result in results)
+        return value, jacobian
+
+    bounds = [(None, None)] * array.num_transducers
+    if variable_amplitudes:
+        start = array.phases_amplitudes
+        bounds += [(1e-3, 1)] * array.num_transducers
+    else:
+        start = array.phases
+    opt_args = {'jac': True, 'method': 'L-BFGS-B', 'bounds': bounds, 'options': {'gtol': 1e-9, 'ftol': 1e-15}}
+
+    if basinhopping:
+        if basinhopping is True:
+            # It's not a number, use default value
+            basinhopping = 20
+        opt_result = basinhopping(func, start, T=1e-7, minimizer_kwargs=opt_args, niter=basinhopping)
+    else:
+        opt_result = minimize(func, start, **opt_args)
+    if status_return is not None:
+        status_return.append(opt_result)
+
+    return opt_result.x
+
+
 class RadndomDisplacer:
     def __init__(self, num_transducers, variable_amplitude=False, stepsize=0.05):
         self.stepsize = stepsize
@@ -836,7 +866,7 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
             if len(weights) == 4:
                 weights = np.asarray(weights)
             elif len(weights) == 3:
-                weights = np.concatenate((0, weights))
+                weights = np.concatenate(([0], weights))
         except TypeError:
             weights = np.array((weights, 0, 0, 0))
 
