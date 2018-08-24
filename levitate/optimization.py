@@ -186,20 +186,27 @@ def minimize_objectives(functions, array, variable_amplitudes=False,
     call_values = array.phases_amplitudes.copy()
     start = call_values[unconstrained_variables].copy()
 
-    def func(phases_amplitudes):
-        call_values[unconstrained_variables] = phases_amplitudes
-        results = [f(call_values) for f in functions]
-        value = np.sum(result[0] for result in results)
-        jacobian = np.sum(result[1] for result in results)[unconstrained_variables]
-
-        return value, jacobian
-
     bounds = [(None, None)] * num_unconstrained_transducers
     if variable_amplitudes:
         bounds += [(1e-3, 1)] * num_unconstrained_transducers
     opt_args = {'jac': True, 'method': 'L-BFGS-B', 'bounds': bounds, 'options': {'gtol': 1e-9, 'ftol': 1e-15}}
     if minimize_kwargs is not None:
         opt_args.update(minimize_kwargs)
+
+    if opt_args['jac']:
+        def func(phases_amplitudes):
+            call_values[unconstrained_variables] = phases_amplitudes
+            results = [f(call_values) for f in functions]
+            value = np.sum(result[0] for result in results)
+            jacobian = np.sum(result[1] for result in results)[unconstrained_variables]
+
+            return value, jacobian
+    else:
+        def func(phases_amplitudes):
+            call_values[unconstrained_variables] = phases_amplitudes
+            value = np.sum([f(call_values) for f in functions])
+
+            return value
 
     if basinhopping:
         if basinhopping is True:
