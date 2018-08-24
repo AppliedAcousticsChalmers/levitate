@@ -118,7 +118,7 @@ class Optimizer:
 
 def minimize_objectives(functions, array, variable_amplitudes=False,
                         constrain_transducers=None, passover_callable=None,
-                        basinhopping=False, status_return=None,
+                        basinhopping=False, status_return=None, minimize_kwargs=None,
                         ):
     if constrain_transducers is None or constrain_transducers is False:
         constrain_transducers = []
@@ -146,6 +146,12 @@ def minimize_objectives(functions, array, variable_amplitudes=False,
         except TypeError:
             passover_callable = itertools.repeat(passover_callable)
         try:
+            iter(minimize_kwargs)  # Exception for None
+            if type(next(iter(minimize_kwargs))) is not dict:
+                raise TypeError
+        except TypeError:
+            minimize_kwargs = itertools.repeat(minimize_kwargs)
+        try:
             next(iter(constrain_transducers))
             iter(next(iter(constrain_transducers)))
         except StopIteration:  # Empty list case
@@ -160,9 +166,9 @@ def minimize_objectives(functions, array, variable_amplitudes=False,
         except TypeError:
             basinhopping = itertools.repeat(basinhopping)
         results = []
-        for function, var_amp, const_trans, basinhop, pass_call in zip(functions, variable_amplitudes, constrain_transducers, basinhopping, passover_callable):
+        for function, var_amp, const_trans, basinhop, pass_call, min_kwarg in zip(functions, variable_amplitudes, constrain_transducers, basinhopping, passover_callable, minimize_kwargs):
             results.append(minimize_objectives(function, array, variable_amplitudes=var_amp,
-                constrain_transducers=const_trans, basinhopping=basinhop, status_return=status_return))
+                constrain_transducers=const_trans, basinhopping=basinhop, status_return=status_return, minimize_kwargs=min_kwarg))
             array.phases_amplitudes = pass_call(results[-1])
         array.phases_amplitudes = initial_array_state
         return results
@@ -192,6 +198,8 @@ def minimize_objectives(functions, array, variable_amplitudes=False,
     if variable_amplitudes:
         bounds += [(1e-3, 1)] * num_unconstrained_transducers
     opt_args = {'jac': True, 'method': 'L-BFGS-B', 'bounds': bounds, 'options': {'gtol': 1e-9, 'ftol': 1e-15}}
+    if minimize_kwargs is not None:
+        opt_args.update(minimize_kwargs)
 
     if basinhopping:
         if basinhopping is True:
