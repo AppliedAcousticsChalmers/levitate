@@ -258,6 +258,47 @@ def _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex
     return phases, amplitudes, variable_amplitudes
 
 
+def vector_target(vector_calculator, target_vector=(0, 0, 0), weights=(1, 1, 1)):
+    """
+    Creates a function which calculates the weighted squared difference between a
+    target vector and a varying vector.
+
+    This can create cost functions representing :math:`||(v - v_0)||^2_w`, i.e.
+    the weighted square norm between a varying vector and a fixed vector.
+    Note that the values in the norm will not be squared.
+
+    Parameters
+    ----------
+    vector_calculator : callable
+        A function which calculates the varying vector from array phases and
+        optional amplitudes, along with the jacobian of said varying vector.
+        This function must return `(v, dv)`, where `v` is a 3 element ndarray,
+        and `dv` is a shape 3xn ndarray.
+        Suitable functions can be created by passing `False` as weights to other
+        cost function generators in this module.
+    target_vector : 3 element numeric, default (0, 0, 0)
+        The fixed target vector, should be a 3 element ndarray or a scalar.
+    weights : 3 element numeric, default (1, 1, 1)
+        Specifies how the three parts should be weighted in the calculation.
+
+    Returns
+    -------
+    vector_target : callable
+        A function which given phases and optional amplitudes for an array
+        evaluates the above equation, as well as the jacobian of said equation.
+    """
+    target_vector = np.asarray(target_vector)
+    weights = np.asarray(weights)
+
+    def vector_target(phases_amplitudes):
+        v, dv = vector_calculator(phases_amplitudes)
+        difference = v - target_vector
+        value = np.sum(np.abs(difference)**2 * weights)
+        jacobian = (2 * weights * difference).dot(dv)
+        return value, jacobian
+    return vector_target
+
+
 def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
     """
     Creates a function, which calculates the divergence and the jacobian of the field
