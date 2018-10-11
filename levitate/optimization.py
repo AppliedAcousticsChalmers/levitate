@@ -117,7 +117,7 @@ class Optimizer:
 
 
 def minimize_objectives(functions, array, variable_amplitudes=False,
-                        constrain_transducers=None, passover_callable=None,
+                        constrain_transducers=None, callback=None,
                         basinhopping=False, status_return=None, minimize_kwargs=None,
                         ):
     if constrain_transducers is None or constrain_transducers is False:
@@ -139,12 +139,12 @@ def minimize_objectives(functions, array, variable_amplitudes=False,
             iter(variable_amplitudes)
         except TypeError:
             variable_amplitudes = itertools.repeat(variable_amplitudes)
-        if passover_callable is None:
-            def passover_callable(arg): return arg
+        if callback is None:
+            def callback(arg): return arg
         try:
-            iter(passover_callable)
+            iter(callback)
         except TypeError:
-            passover_callable = itertools.repeat(passover_callable)
+            callback = itertools.repeat(callback)
         try:
             iter(minimize_kwargs)  # Exception for None
             if type(next(iter(minimize_kwargs))) is not dict:
@@ -166,10 +166,10 @@ def minimize_objectives(functions, array, variable_amplitudes=False,
         except TypeError:
             basinhopping = itertools.repeat(basinhopping)
         results = []
-        for function, var_amp, const_trans, basinhop, pass_call, min_kwarg in zip(functions, variable_amplitudes, constrain_transducers, basinhopping, passover_callable, minimize_kwargs):
+        for function, var_amp, const_trans, basinhop, clbck, min_kwarg in zip(functions, variable_amplitudes, constrain_transducers, basinhopping, callback, minimize_kwargs):
             results.append(minimize_objectives(function, array, variable_amplitudes=var_amp,
                 constrain_transducers=const_trans, basinhopping=basinhop, status_return=status_return, minimize_kwargs=min_kwarg))
-            array.phases_amplitudes = pass_call(results[-1])
+            array.phases_amplitudes = clbck(results[-1])
         array.phases_amplitudes = initial_array_state
         return results
 
