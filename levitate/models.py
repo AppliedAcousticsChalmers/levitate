@@ -947,11 +947,11 @@ class TransducerArray:
         try:
             phases, phase_min, phase_max = phases
         except TypeError:
-            phase_min, phase_max = None, None
+            phase_min, phase_max = -1, 1
         try:
             amplitudes, amplitude_min, amplitude_max = amplitudes
         except TypeError:
-            amplitude_min, amplitude_max = None, None
+            amplitude_min, amplitude_max = 0, 1
         try:
             phases_alpha, phase_alpha_min, phase_alpha_max = phases_alpha
         except TypeError:
