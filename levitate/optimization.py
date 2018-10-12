@@ -140,7 +140,7 @@ def minimize_objectives(functions, array, variable_amplitudes=False,
         except TypeError:
             variable_amplitudes = itertools.repeat(variable_amplitudes)
         if callback is None:
-            def callback(arg): return arg
+            def callback(phase, amplitude): return phase, amplitude
         try:
             iter(callback)
         except TypeError:
@@ -166,10 +166,11 @@ def minimize_objectives(functions, array, variable_amplitudes=False,
         except TypeError:
             basinhopping = itertools.repeat(basinhopping)
         results = []
-        for function, var_amp, const_trans, basinhop, clbck, min_kwarg in zip(functions, variable_amplitudes, constrain_transducers, basinhopping, callback, minimize_kwargs):
+        for idx, (function, var_amp, const_trans, basinhop, clbck, min_kwarg) in enumerate(zip(functions, variable_amplitudes, constrain_transducers, basinhopping, callback, minimize_kwargs)):
             results.append(minimize_objectives(function, array, variable_amplitudes=var_amp,
                 constrain_transducers=const_trans, basinhopping=basinhop, status_return=status_return, minimize_kwargs=min_kwarg))
-            array.phases_amplitudes = clbck(results[-1])
+            phase, amplitude, _ = _phase_and_amplitude_input(results[-1], array.num_transducers)
+            array.phases, array.amplitude = clbck(phase, amplitude, idx)
         array.phases_amplitudes = initial_array_state
         return results
 
