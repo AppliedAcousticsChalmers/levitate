@@ -117,7 +117,7 @@ class Optimizer:
 
 
 def minimize_objectives(functions, array, variable_amplitudes=False,
-                        constrain_transducers=None, callback=None,
+                        constrain_transducers=None, callback=None, precall=None,
                         basinhopping=False, status_return=None, minimize_kwargs=None,
                         ):
     if constrain_transducers is None or constrain_transducers is False:
@@ -140,11 +140,17 @@ def minimize_objectives(functions, array, variable_amplitudes=False,
         except TypeError:
             variable_amplitudes = itertools.repeat(variable_amplitudes)
         if callback is None:
-            def callback(phase, amplitude): return phase, amplitude
+            def callback(phase, amplitude, idx): return phase, amplitude
         try:
             iter(callback)
         except TypeError:
             callback = itertools.repeat(callback)
+        if precall is None:
+            def precall(phase, amplitude, idx): return phase, amplitude
+        try:
+            iter(precall)
+        except TypeError:
+            precall = itertools.repeat(precall)
         try:
             iter(minimize_kwargs)  # Exception for None
             if type(next(iter(minimize_kwargs))) is not dict:
@@ -166,7 +172,8 @@ def minimize_objectives(functions, array, variable_amplitudes=False,
         except TypeError:
             basinhopping = itertools.repeat(basinhopping)
         results = []
-        for idx, (function, var_amp, const_trans, basinhop, clbck, min_kwarg) in enumerate(zip(functions, variable_amplitudes, constrain_transducers, basinhopping, callback, minimize_kwargs)):
+        for idx, (function, var_amp, const_trans, basinhop, clbck, precl, min_kwarg) in enumerate(zip(functions, variable_amplitudes, constrain_transducers, basinhopping, callback, precall, minimize_kwargs)):
+            array.phases, array.amplitudes = precl(array.phases, array.amplitudes, idx)
             result = minimize_objectives(function, array, variable_amplitudes=var_amp,
                 constrain_transducers=const_trans, basinhopping=basinhop, status_return=status_return, minimize_kwargs=min_kwarg)
             results.append(result.copy())
