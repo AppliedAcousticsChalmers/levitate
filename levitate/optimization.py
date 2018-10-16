@@ -120,6 +120,53 @@ def minimize_objectives(functions, array, variable_amplitudes=False,
                         constrain_transducers=None, callback=None, precall=None,
                         basinhopping=False, return_optim_status=False, minimize_kwargs=None,
                         ):
+    """
+    Minimizes a set of cost functions.
+
+    This function supports minimization sequeces. Pass an iterable of iterables
+    of cost functions to start sequenced minimization.
+
+    Parameters
+    ----------
+    functions
+        The const functions that should be minimized. A single callable, an
+        iterable of callables, or an iterable of iterables of callables, as
+        described above.
+    array : `TransducerArray`
+        The array from which the const functions are created.
+    variable_amplitudes : bool
+        Toggles the usage of varying amplitudes in the minimization.
+    constrain_transducers : array_like
+        Specifies a number of transducers which are constant elements in the
+        minimization. Will be used as the second argument in `np.delete`
+    callback : callable, ``callback(array=array, retult=result, optim_status=opt_res, idx=idx)``
+        A callback function which will be called after each step in sequenced
+        minimization. Return false from the callback to break the sequence.
+    precall : callable, ``precall(phases, amplitudes, idx)``
+        Initialization function which will be called with the array phases,
+        amplitudes, and the sequence index before each sequence step.
+        Must return the initial phases and amplitudes for the sequence step.
+        Default sets the phases and amplitudes to the solution of the previous
+        sequence step, or the original state for the first iteration.
+    basinhopping : bool or int
+        Specifies if basinhopping should be used. Pass an int to specify the
+        number of basinhopping interations, or True to use default value.
+    return_optim_status : bool
+        Toggles the `optim_status` output.
+    minimize_kwargs : dict
+        Extra keyword arguments which will be passed to `scipy.minimize`.
+
+    Returns
+    -------
+    result : `ndarray`
+        The array phases and amplitudes after minimization.
+        Stacks sequenced result in the first dimension.
+    optim_status : `OptimizeResult`
+        Scipy optimization result structure. Optional ourput,
+        toggle with the corresponding input argument.
+
+
+    """
     if constrain_transducers is None or constrain_transducers is False:
         constrain_transducers = []
     # Handle single function input case
