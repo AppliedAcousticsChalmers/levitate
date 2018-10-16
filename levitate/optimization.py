@@ -167,12 +167,13 @@ def minimize_objectives(functions, array, variable_amplitudes=False,
             basinhopping = itertools.repeat(basinhopping)
         results = []
         for idx, (function, var_amp, const_trans, basinhop, clbck, min_kwarg) in enumerate(zip(functions, variable_amplitudes, constrain_transducers, basinhopping, callback, minimize_kwargs)):
-            results.append(minimize_objectives(function, array, variable_amplitudes=var_amp,
-                constrain_transducers=const_trans, basinhopping=basinhop, status_return=status_return, minimize_kwargs=min_kwarg))
-            phase, amplitude, _ = _phase_and_amplitude_input(results[-1], array.num_transducers)
-            array.phases, array.amplitude = clbck(phase, amplitude, idx)
+            result = minimize_objectives(function, array, variable_amplitudes=var_amp,
+                constrain_transducers=const_trans, basinhopping=basinhop, status_return=status_return, minimize_kwargs=min_kwarg)
+            results.append(result.copy())
+            phase, amplitude, _ = _phase_and_amplitude_input(result, array.num_transducers)
+            array.phases, array.amplitudes = clbck(phase, amplitude, idx)
         array.phases_amplitudes = initial_array_state
-        return results
+        return np.asarray(results)
 
     # =================================================
     # Single minimization of cost functions start here!
@@ -266,7 +267,7 @@ def vector_target(vector_calculator, target_vector=(0, 0, 0), weights=(1, 1, 1))
 
     This can create cost functions representing :math:`||(v - v_0)||^2_w`, i.e.
     the weighted square norm between a varying vector and a fixed vector.
-    Note that the values in the norm will not be squared.
+    Note that the values in the weights will not be squared.
 
     Parameters
     ----------
