@@ -131,9 +131,57 @@ def minimize_objectives(functions, array, variable_amplitudes=False,
     try:
         iter(next(iter(functions)))
     except TypeError:
-        pass
+        # =================================================
+        # Single minimization of cost functions start here!
+        # =================================================
+        unconstrained_transducers = np.delete(np.arange(array.num_transducers), constrain_transducers)
+        num_unconstrained_transducers = len(unconstrained_transducers)
+
+        if variable_amplitudes:
+            unconstrained_variables = np.concatenate((unconstrained_transducers, unconstrained_transducers + array.num_transducers))
+        else:
+            unconstrained_variables = unconstrained_transducers
+        call_values = array.phases_amplitudes.copy()
+        start = call_values[unconstrained_variables].copy()
+
+        bounds = [(None, None)] * num_unconstrained_transducers
+        if variable_amplitudes:
+            bounds += [(1e-3, 1)] * num_unconstrained_transducers
+        opt_args = {'jac': True, 'method': 'L-BFGS-B', 'bounds': bounds, 'options': {'gtol': 1e-9, 'ftol': 1e-15}}
+        if minimize_kwargs is not None:
+            opt_args.update(minimize_kwargs)
+
+        if opt_args['jac']:
+            def func(phases_amplitudes):
+                call_values[unconstrained_variables] = phases_amplitudes
+                results = [f(call_values) for f in functions]
+                value = np.sum(result[0] for result in results)
+                jacobian = np.sum(result[1] for result in results)[unconstrained_variables]
+
+                return value, jacobian
+        else:
+            def func(phases_amplitudes):
+                call_values[unconstrained_variables] = phases_amplitudes
+                value = np.sum([f(call_values) for f in functions])
+
+                return value
+
+        if basinhopping:
+            if basinhopping is True:
+                # It's not a number, use default value
+                basinhopping = 20
+            opt_result = scipy.optimize.basinhopping(func, start, T=1e-7, minimizer_kwargs=opt_args, niter=basinhopping)
+        else:
+            opt_result = scipy.optimize.minimize(func, start, **opt_args)
+        if status_return is not None:
+            status_return.append(opt_result)
+
+        call_values[unconstrained_variables] = opt_result.x
+        return call_values
     else:
-        # This is where we end up if we are sequencing optimizations
+        # ====================================================
+        # Sequenced minimization of cost functions start here!
+        # ====================================================
         initial_array_state = array.phases_amplitudes
         try:
             iter(variable_amplitudes)
@@ -181,54 +229,6 @@ def minimize_objectives(functions, array, variable_amplitudes=False,
             array.phases, array.amplitudes = clbck(phase, amplitude, idx)
         array.phases_amplitudes = initial_array_state
         return np.asarray(results)
-
-    # =================================================
-    # Single minimization of cost functions start here!
-    # =================================================
-    unconstrained_transducers = np.delete(np.arange(array.num_transducers), constrain_transducers)
-    num_unconstrained_transducers = len(unconstrained_transducers)
-
-    if variable_amplitudes:
-        unconstrained_variables = np.concatenate((unconstrained_transducers, unconstrained_transducers + array.num_transducers))
-    else:
-        unconstrained_variables = unconstrained_transducers
-    call_values = array.phases_amplitudes.copy()
-    start = call_values[unconstrained_variables].copy()
-
-    bounds = [(None, None)] * num_unconstrained_transducers
-    if variable_amplitudes:
-        bounds += [(1e-3, 1)] * num_unconstrained_transducers
-    opt_args = {'jac': True, 'method': 'L-BFGS-B', 'bounds': bounds, 'options': {'gtol': 1e-9, 'ftol': 1e-15}}
-    if minimize_kwargs is not None:
-        opt_args.update(minimize_kwargs)
-
-    if opt_args['jac']:
-        def func(phases_amplitudes):
-            call_values[unconstrained_variables] = phases_amplitudes
-            results = [f(call_values) for f in functions]
-            value = np.sum(result[0] for result in results)
-            jacobian = np.sum(result[1] for result in results)[unconstrained_variables]
-
-            return value, jacobian
-    else:
-        def func(phases_amplitudes):
-            call_values[unconstrained_variables] = phases_amplitudes
-            value = np.sum([f(call_values) for f in functions])
-
-            return value
-
-    if basinhopping:
-        if basinhopping is True:
-            # It's not a number, use default value
-            basinhopping = 20
-        opt_result = scipy.optimize.basinhopping(func, start, T=1e-7, minimizer_kwargs=opt_args, niter=basinhopping)
-    else:
-        opt_result = scipy.optimize.minimize(func, start, **opt_args)
-    if status_return is not None:
-        status_return.append(opt_result)
-
-    call_values[unconstrained_variables] = opt_result.x
-    return call_values
 
 
 class RadndomDisplacer:
