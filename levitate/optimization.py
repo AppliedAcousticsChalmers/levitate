@@ -118,7 +118,7 @@ class Optimizer:
 
 def minimize_objectives(functions, array, variable_amplitudes=False,
                         constrain_transducers=None, callback=None, precall=None,
-                        basinhopping=False, status_return=None, minimize_kwargs=None,
+                        basinhopping=False, return_optim_status=False, minimize_kwargs=None,
                         ):
     if constrain_transducers is None or constrain_transducers is False:
         constrain_transducers = []
@@ -173,11 +173,12 @@ def minimize_objectives(functions, array, variable_amplitudes=False,
             opt_result = scipy.optimize.basinhopping(func, start, T=1e-7, minimizer_kwargs=opt_args, niter=basinhopping)
         else:
             opt_result = scipy.optimize.minimize(func, start, **opt_args)
-        if status_return is not None:
-            status_return.append(opt_result)
 
         call_values[unconstrained_variables] = opt_result.x
-        return call_values
+        if return_optim_status:
+            return call_values, opt_result
+        else:
+            return call_values
     else:
         # ====================================================
         # Sequenced minimization of cost functions start here!
@@ -188,7 +189,7 @@ def minimize_objectives(functions, array, variable_amplitudes=False,
         except TypeError:
             variable_amplitudes = itertools.repeat(variable_amplitudes)
         if callback is None:
-            def callback(phase, amplitude, idx): return phase, amplitude
+            def callback(**kwargs): pass
         try:
             iter(callback)
         except TypeError:
@@ -220,15 +221,23 @@ def minimize_objectives(functions, array, variable_amplitudes=False,
         except TypeError:
             basinhopping = itertools.repeat(basinhopping)
         results = []
+        opt_results = []
+
         for idx, (function, var_amp, const_trans, basinhop, clbck, precl, min_kwarg) in enumerate(zip(functions, variable_amplitudes, constrain_transducers, basinhopping, callback, precall, minimize_kwargs)):
             array.phases, array.amplitudes = precl(array.phases, array.amplitudes, idx)
-            result = minimize_objectives(function, array, variable_amplitudes=var_amp,
-                constrain_transducers=const_trans, basinhopping=basinhop, status_return=status_return, minimize_kwargs=min_kwarg)
+            result, opt_res = minimize_objectives(function, array, variable_amplitudes=var_amp,
+                constrain_transducers=const_trans, basinhopping=basinhop, return_optim_status=True, minimize_kwargs=min_kwarg)
             results.append(result.copy())
-            phase, amplitude, _ = _phase_and_amplitude_input(result, array.num_transducers)
-            array.phases, array.amplitudes = clbck(phase, amplitude, idx)
+            opt_results.append(opt_res)
+            array.phases_amplitudes = result
+            if clbck(array=array, retult=result, optim_status=opt_res, idx=idx) is False:
+                break
+
         array.phases_amplitudes = initial_array_state
-        return np.asarray(results)
+        if return_optim_status:
+            return np.asarray(results), opt_results
+        else:
+            return np.asarray(results)
 
 
 class RadndomDisplacer:
