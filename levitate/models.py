@@ -134,6 +134,9 @@ def double_sided_grid(separation=0, offset=(0, 0, 0), normal=(0, 0, 1), rotation
     return np.concatenate([pos_1, pos_2], axis=0), np.concatenate([norm_1, norm_2], axis=0)
 
 
+spatial_derivative_order = ['', 'x', 'y', 'z', 'xx', 'yy', 'zz', 'xy', 'xz', 'yz', 'xxx', 'yyy', 'zzz', 'xxy', 'xxz', 'yyx', 'yyz', 'zzx', 'zzy', 'xyz']
+
+
 class TransducerModel:
     """ Base class for ultrasonic single frequency transducers
 
