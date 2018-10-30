@@ -134,7 +134,8 @@ def double_sided_grid(separation=0, offset=(0, 0, 0), normal=(0, 0, 1), rotation
     return np.concatenate([pos_1, pos_2], axis=0), np.concatenate([norm_1, norm_2], axis=0)
 
 
-spatial_derivative_order = ['', 'x', 'y', 'z', 'xx', 'yy', 'zz', 'xy', 'xz', 'yz', 'xxx', 'yyy', 'zzz', 'xxy', 'xxz', 'yyx', 'yyz', 'zzx', 'zzy', 'xyz']
+spatial_derivative_order = ['', 'x', 'y', 'z', 'xx', 'yy', 'zz', 'xy', 'xz', 'yz', 'xxx', 'yyy', 'zzz', 'xxy', 'xxz', 'yyx', 'yyz', 'zzx', 'zzy']
+num_spatial_derivatives = [1, 4, 10, 19]
 
 
 class TransducerModel:
@@ -288,43 +289,42 @@ class TransducerModel:
 
         Returns
         -------
-        derivatives : dict
-            Dictionary with the calculated derivatives, indexed by the axes along which the derivatives are taken.
-            The underivated greens function is included with the index ''.
+        derivatives : ndarray
+            Array with the calculated derivatives. Has the same shape as the `receiver_position` input except for the last dimention.
+            The last dimention has the spatial derivatives, ordered according to `spatial_derivative_order`.
 
         """
         spherical_derivatives = self.spherical_derivatives(source_position, receiver_position, orders)
         directivity_derivatives = self.directivity_derivatives(source_position, source_normal, receiver_position, orders)
 
-        derivatives = {'': spherical_derivatives[''] * directivity_derivatives['']}
+        derivatives = np.empty(receiver_position.shape[:-1] + (num_spatial_derivatives[orders],), dtype=np.complex128)
+        derivatives[..., 0] = spherical_derivatives[..., 0] * directivity_derivatives[..., 0]
 
         if orders > 0:
-            derivatives['x'] = spherical_derivatives[''] * directivity_derivatives['x'] + directivity_derivatives[''] * spherical_derivatives['x']
-            derivatives['y'] = spherical_derivatives[''] * directivity_derivatives['y'] + directivity_derivatives[''] * spherical_derivatives['y']
-            derivatives['z'] = spherical_derivatives[''] * directivity_derivatives['z'] + directivity_derivatives[''] * spherical_derivatives['z']
+            derivatives[..., 1] = spherical_derivatives[..., 0] * directivity_derivatives[..., 1] + directivity_derivatives[..., 0] * spherical_derivatives[..., 1]
+            derivatives[..., 2] = spherical_derivatives[..., 0] * directivity_derivatives[..., 2] + directivity_derivatives[..., 0] * spherical_derivatives[..., 2]
+            derivatives[..., 3] = spherical_derivatives[..., 0] * directivity_derivatives[..., 3] + directivity_derivatives[..., 0] * spherical_derivatives[..., 3]
 
         if orders > 1:
-            derivatives['xx'] = spherical_derivatives[''] * directivity_derivatives['xx'] + directivity_derivatives[''] * spherical_derivatives['xx'] + 2 * directivity_derivatives['x'] * spherical_derivatives['x']
-            derivatives['yy'] = spherical_derivatives[''] * directivity_derivatives['yy'] + directivity_derivatives[''] * spherical_derivatives['yy'] + 2 * directivity_derivatives['y'] * spherical_derivatives['y']
-            derivatives['zz'] = spherical_derivatives[''] * directivity_derivatives['zz'] + directivity_derivatives[''] * spherical_derivatives['zz'] + 2 * directivity_derivatives['z'] * spherical_derivatives['z']
-            derivatives['xy'] = spherical_derivatives[''] * directivity_derivatives['xy'] + directivity_derivatives[''] * spherical_derivatives['xy'] + spherical_derivatives['x'] * directivity_derivatives['y'] + directivity_derivatives['x'] * spherical_derivatives['y']
-            derivatives['xz'] = spherical_derivatives[''] * directivity_derivatives['xz'] + directivity_derivatives[''] * spherical_derivatives['xz'] + spherical_derivatives['x'] * directivity_derivatives['z'] + directivity_derivatives['x'] * spherical_derivatives['z']
-            derivatives['yz'] = spherical_derivatives[''] * directivity_derivatives['yz'] + directivity_derivatives[''] * spherical_derivatives['yz'] + spherical_derivatives['y'] * directivity_derivatives['z'] + directivity_derivatives['y'] * spherical_derivatives['z']
+            derivatives[..., 4] = spherical_derivatives[..., 0] * directivity_derivatives[..., 4] + directivity_derivatives[..., 0] * spherical_derivatives[..., 4] + 2 * directivity_derivatives[..., 1] * spherical_derivatives[..., 1]
+            derivatives[..., 5] = spherical_derivatives[..., 0] * directivity_derivatives[..., 5] + directivity_derivatives[..., 0] * spherical_derivatives[..., 5] + 2 * directivity_derivatives[..., 2] * spherical_derivatives[..., 2]
+            derivatives[..., 6] = spherical_derivatives[..., 0] * directivity_derivatives[..., 6] + directivity_derivatives[..., 0] * spherical_derivatives[..., 6] + 2 * directivity_derivatives[..., 3] * spherical_derivatives[..., 3]
+            derivatives[..., 7] = spherical_derivatives[..., 0] * directivity_derivatives[..., 7] + directivity_derivatives[..., 0] * spherical_derivatives[..., 7] + spherical_derivatives[..., 1] * directivity_derivatives[..., 2] + directivity_derivatives[..., 1] * spherical_derivatives[..., 2]
+            derivatives[..., 8] = spherical_derivatives[..., 0] * directivity_derivatives[..., 8] + directivity_derivatives[..., 0] * spherical_derivatives[..., 8] + spherical_derivatives[..., 1] * directivity_derivatives[..., 3] + directivity_derivatives[..., 1] * spherical_derivatives[..., 3]
+            derivatives[..., 9] = spherical_derivatives[..., 0] * directivity_derivatives[..., 9] + directivity_derivatives[..., 0] * spherical_derivatives[..., 9] + spherical_derivatives[..., 2] * directivity_derivatives[..., 3] + directivity_derivatives[..., 2] * spherical_derivatives[..., 3]
 
         if orders > 2:
-            derivatives['xxx'] = spherical_derivatives[''] * directivity_derivatives['xxx'] + directivity_derivatives[''] * spherical_derivatives['xxx'] + 3 * (directivity_derivatives['xx'] * spherical_derivatives['x'] + spherical_derivatives['xx'] * directivity_derivatives['x'])
-            derivatives['yyy'] = spherical_derivatives[''] * directivity_derivatives['yyy'] + directivity_derivatives[''] * spherical_derivatives['yyy'] + 3 * (directivity_derivatives['yy'] * spherical_derivatives['y'] + spherical_derivatives['yy'] * directivity_derivatives['y'])
-            derivatives['zzz'] = spherical_derivatives[''] * directivity_derivatives['zzz'] + directivity_derivatives[''] * spherical_derivatives['zzz'] + 3 * (directivity_derivatives['zz'] * spherical_derivatives['z'] + spherical_derivatives['zz'] * directivity_derivatives['z'])
-            derivatives['xxy'] = spherical_derivatives[''] * directivity_derivatives['xxy'] + directivity_derivatives[''] * spherical_derivatives['xxy'] + spherical_derivatives['y'] * directivity_derivatives['xx'] + directivity_derivatives['y'] * spherical_derivatives['xx'] + 2 * (spherical_derivatives['x'] * directivity_derivatives['xy'] + directivity_derivatives['x'] * spherical_derivatives['xy'])
-            derivatives['xxz'] = spherical_derivatives[''] * directivity_derivatives['xxz'] + directivity_derivatives[''] * spherical_derivatives['xxz'] + spherical_derivatives['z'] * directivity_derivatives['xx'] + directivity_derivatives['z'] * spherical_derivatives['xx'] + 2 * (spherical_derivatives['x'] * directivity_derivatives['xz'] + directivity_derivatives['x'] * spherical_derivatives['xz'])
-            derivatives['yyx'] = spherical_derivatives[''] * directivity_derivatives['yyx'] + directivity_derivatives[''] * spherical_derivatives['yyx'] + spherical_derivatives['x'] * directivity_derivatives['yy'] + directivity_derivatives['x'] * spherical_derivatives['yy'] + 2 * (spherical_derivatives['y'] * directivity_derivatives['xy'] + directivity_derivatives['y'] * spherical_derivatives['xy'])
-            derivatives['yyz'] = spherical_derivatives[''] * directivity_derivatives['yyz'] + directivity_derivatives[''] * spherical_derivatives['yyz'] + spherical_derivatives['z'] * directivity_derivatives['yy'] + directivity_derivatives['z'] * spherical_derivatives['yy'] + 2 * (spherical_derivatives['y'] * directivity_derivatives['yz'] + directivity_derivatives['y'] * spherical_derivatives['yz'])
-            derivatives['zzx'] = spherical_derivatives[''] * directivity_derivatives['zzx'] + directivity_derivatives[''] * spherical_derivatives['zzx'] + spherical_derivatives['x'] * directivity_derivatives['zz'] + directivity_derivatives['x'] * spherical_derivatives['zz'] + 2 * (spherical_derivatives['z'] * directivity_derivatives['xz'] + directivity_derivatives['z'] * spherical_derivatives['xz'])
-            derivatives['zzy'] = spherical_derivatives[''] * directivity_derivatives['zzy'] + directivity_derivatives[''] * spherical_derivatives['zzy'] + spherical_derivatives['y'] * directivity_derivatives['zz'] + directivity_derivatives['y'] * spherical_derivatives['zz'] + 2 * (spherical_derivatives['z'] * directivity_derivatives['yz'] + directivity_derivatives['z'] * spherical_derivatives['yz'])
+            derivatives[..., 10] = spherical_derivatives[..., 0] * directivity_derivatives[..., 10] + directivity_derivatives[..., 0] * spherical_derivatives[..., 10] + 3 * (directivity_derivatives[..., 4] * spherical_derivatives[..., 1] + spherical_derivatives[..., 4] * directivity_derivatives[..., 1])
+            derivatives[..., 11] = spherical_derivatives[..., 0] * directivity_derivatives[..., 11] + directivity_derivatives[..., 0] * spherical_derivatives[..., 11] + 3 * (directivity_derivatives[..., 5] * spherical_derivatives[..., 2] + spherical_derivatives[..., 5] * directivity_derivatives[..., 2])
+            derivatives[..., 12] = spherical_derivatives[..., 0] * directivity_derivatives[..., 12] + directivity_derivatives[..., 0] * spherical_derivatives[..., 12] + 3 * (directivity_derivatives[..., 6] * spherical_derivatives[..., 3] + spherical_derivatives[..., 6] * directivity_derivatives[..., 3])
+            derivatives[..., 13] = spherical_derivatives[..., 0] * directivity_derivatives[..., 13] + directivity_derivatives[..., 0] * spherical_derivatives[..., 13] + spherical_derivatives[..., 2] * directivity_derivatives[..., 4] + directivity_derivatives[..., 2] * spherical_derivatives[..., 4] + 2 * (spherical_derivatives[..., 1] * directivity_derivatives[..., 7] + directivity_derivatives[..., 1] * spherical_derivatives[..., 7])
+            derivatives[..., 14] = spherical_derivatives[..., 0] * directivity_derivatives[..., 14] + directivity_derivatives[..., 0] * spherical_derivatives[..., 14] + spherical_derivatives[..., 3] * directivity_derivatives[..., 4] + directivity_derivatives[..., 3] * spherical_derivatives[..., 4] + 2 * (spherical_derivatives[..., 1] * directivity_derivatives[..., 8] + directivity_derivatives[..., 1] * spherical_derivatives[..., 8])
+            derivatives[..., 15] = spherical_derivatives[..., 0] * directivity_derivatives[..., 15] + directivity_derivatives[..., 0] * spherical_derivatives[..., 15] + spherical_derivatives[..., 1] * directivity_derivatives[..., 5] + directivity_derivatives[..., 1] * spherical_derivatives[..., 5] + 2 * (spherical_derivatives[..., 2] * directivity_derivatives[..., 7] + directivity_derivatives[..., 2] * spherical_derivatives[..., 7])
+            derivatives[..., 16] = spherical_derivatives[..., 0] * directivity_derivatives[..., 16] + directivity_derivatives[..., 0] * spherical_derivatives[..., 16] + spherical_derivatives[..., 3] * directivity_derivatives[..., 5] + directivity_derivatives[..., 3] * spherical_derivatives[..., 5] + 2 * (spherical_derivatives[..., 2] * directivity_derivatives[..., 9] + directivity_derivatives[..., 2] * spherical_derivatives[..., 9])
+            derivatives[..., 17] = spherical_derivatives[..., 0] * directivity_derivatives[..., 17] + directivity_derivatives[..., 0] * spherical_derivatives[..., 17] + spherical_derivatives[..., 1] * directivity_derivatives[..., 6] + directivity_derivatives[..., 1] * spherical_derivatives[..., 6] + 2 * (spherical_derivatives[..., 3] * directivity_derivatives[..., 8] + directivity_derivatives[..., 3] * spherical_derivatives[..., 8])
+            derivatives[..., 18] = spherical_derivatives[..., 0] * directivity_derivatives[..., 18] + directivity_derivatives[..., 0] * spherical_derivatives[..., 18] + spherical_derivatives[..., 2] * directivity_derivatives[..., 6] + directivity_derivatives[..., 2] * spherical_derivatives[..., 6] + 2 * (spherical_derivatives[..., 3] * directivity_derivatives[..., 9] + directivity_derivatives[..., 3] * spherical_derivatives[..., 9])
 
-        for key in derivatives.keys():
-            derivatives[key] *= self.p0
-
+        derivatives *= self.p0
         return derivatives
 
     def spherical_derivatives(self, source_position, receiver_position, orders=3):
@@ -341,9 +341,9 @@ class TransducerModel:
 
         Returns
         -------
-        derivatives : dict
-            Dictionary with the calculated derivatives, indexed by the axes along which the derivatives are taken.
-            The underivated spherical spreading is included with the index ''.
+        derivatives : ndarray
+            Array with the calculated derivatives. Has the same shape as the `receiver_position` input except for the last dimention.
+            The last dimention has the spatial derivatives, ordered according to `spatial_derivative_order`.
 
         """
         diff = receiver_position - source_position
@@ -353,36 +353,37 @@ class TransducerModel:
         jkr = 1j * kr
         phase = np.exp(jkr)
 
-        derivatives = {'': phase / r}
+        derivatives = np.empty(receiver_position.shape[:-1] + (num_spatial_derivatives[orders],), dtype=np.complex128)
+        derivatives[..., 0] = phase / r
 
         if orders > 0:
             coeff = (jkr - 1) * phase / r**3
-            derivatives['x'] = diff[..., 0] * coeff
-            derivatives['y'] = diff[..., 1] * coeff
-            derivatives['z'] = diff[..., 2] * coeff
+            derivatives[..., 1] = diff[..., 0] * coeff
+            derivatives[..., 2] = diff[..., 1] * coeff
+            derivatives[..., 3] = diff[..., 2] * coeff
 
         if orders > 1:
             coeff = (3 - kr**2 - 3 * jkr) * phase / r**5
             const = (jkr - 1) * phase / r**3
-            derivatives['xx'] = diff[..., 0]**2 * coeff + const
-            derivatives['yy'] = diff[..., 1]**2 * coeff + const
-            derivatives['zz'] = diff[..., 2]**2 * coeff + const
-            derivatives['xy'] = diff[..., 0] * diff[..., 1] * coeff
-            derivatives['xz'] = diff[..., 0] * diff[..., 2] * coeff
-            derivatives['yz'] = diff[..., 1] * diff[..., 2] * coeff
+            derivatives[..., 4] = diff[..., 0]**2 * coeff + const
+            derivatives[..., 5] = diff[..., 1]**2 * coeff + const
+            derivatives[..., 6] = diff[..., 2]**2 * coeff + const
+            derivatives[..., 7] = diff[..., 0] * diff[..., 1] * coeff
+            derivatives[..., 8] = diff[..., 0] * diff[..., 2] * coeff
+            derivatives[..., 9] = diff[..., 1] * diff[..., 2] * coeff
 
         if orders > 2:
             const = (3 - 3 * jkr - kr**2) * phase / r**5
             coeff = ((jkr - 1) * (15 - kr**2) + 5 * kr**2) * phase / r**7
-            derivatives['xxx'] = diff[..., 0] * (3 * const + diff[..., 0]**2 * coeff)
-            derivatives['yyy'] = diff[..., 1] * (3 * const + diff[..., 1]**2 * coeff)
-            derivatives['zzz'] = diff[..., 2] * (3 * const + diff[..., 2]**2 * coeff)
-            derivatives['xxy'] = diff[..., 1] * (const + diff[..., 0]**2 * coeff)
-            derivatives['xxz'] = diff[..., 2] * (const + diff[..., 0]**2 * coeff)
-            derivatives['yyx'] = diff[..., 0] * (const + diff[..., 1]**2 * coeff)
-            derivatives['yyz'] = diff[..., 2] * (const + diff[..., 1]**2 * coeff)
-            derivatives['zzx'] = diff[..., 0] * (const + diff[..., 2]**2 * coeff)
-            derivatives['zzy'] = diff[..., 1] * (const + diff[..., 2]**2 * coeff)
+            derivatives[..., 10] = diff[..., 0] * (3 * const + diff[..., 0]**2 * coeff)
+            derivatives[..., 11] = diff[..., 1] * (3 * const + diff[..., 1]**2 * coeff)
+            derivatives[..., 12] = diff[..., 2] * (3 * const + diff[..., 2]**2 * coeff)
+            derivatives[..., 13] = diff[..., 1] * (const + diff[..., 0]**2 * coeff)
+            derivatives[..., 14] = diff[..., 2] * (const + diff[..., 0]**2 * coeff)
+            derivatives[..., 15] = diff[..., 0] * (const + diff[..., 1]**2 * coeff)
+            derivatives[..., 16] = diff[..., 2] * (const + diff[..., 1]**2 * coeff)
+            derivatives[..., 17] = diff[..., 0] * (const + diff[..., 2]**2 * coeff)
+            derivatives[..., 18] = diff[..., 1] * (const + diff[..., 2]**2 * coeff)
 
         return derivatives
 
@@ -407,9 +408,9 @@ class TransducerModel:
 
         Returns
         -------
-        derivatives : dict
-            Dictionary with the calculated derivatives, indexed by the axes along which the derivatives are taken.
-            The underivated directivity is included with the index ''.
+        derivatives : ndarray
+            Array with the calculated derivatives. Has the same shape as the `receiver_position` input except for the last dimention.
+            The last dimention has the spatial derivatives, ordered according to `spatial_derivative_order`.
 
         """
         finite_difference_coefficients = {'': (np.array([0, 0, 0]), 1)}
@@ -435,10 +436,10 @@ class TransducerModel:
             finite_difference_coefficients['zzx'] = (np.array([[1, 0, 1], [-1, 0, -1], [-1, 0, 1], [1, 0, -1], [1, 0, 0], [-1, 0, 0]]), [0.5, -0.5, -0.5, 0.5, -1, 1])  # Alt -- (np.array([[1, 0, 2], [-1, 0, -2], [-1, 0, 2], [1, 0, -2], [1, 0, 0], [-1, 0, 0]]), [0.125, -0.125, -0.125, 0.125, -0.25, 0.25])
             finite_difference_coefficients['zzy'] = (np.array([[0, 1, 1], [0, -1, -1], [0, -1, 1], [0, 1, -1], [0, 1, 0], [0, -1, 0]]), [0.5, -0.5, -0.5, 0.5, -1, 1])  # Alt -- (np.array([[0, 1, 2], [0, -1, -2], [0, -1, 2], [0, 1, -2], [0, 1, 0], [0, -1, 0]]), [0.125, -0.125, -0.125, 0.125, -0.25, 0.25])
 
-        derivatives = {}
+        derivatives = np.empty(receiver_position.shape[:-1] + (num_spatial_derivatives[orders],), dtype=np.complex128)
         h = 1 / self.k
         for derivative, (shifts, weights) in finite_difference_coefficients.items():
-            derivatives[derivative] = np.sum(self.directivity(source_position, source_normal, shifts * h + receiver_position[..., np.newaxis, :]) * weights, axis=-1) / h**len(derivative)
+            derivatives[..., spatial_derivative_order.index(derivative)] = np.sum(self.directivity(source_position, source_normal, shifts * h + receiver_position[..., np.newaxis, :]) * weights, axis=-1) / h**len(derivative)
         return derivatives
 
 
@@ -490,11 +491,7 @@ class ReflectingTransducer:
         mirror_position = source_position - 2 * self.plane_normal * ((source_position * self.plane_normal).sum(axis=-1) - self.plane_distance)
         mirror_normal = source_normal - 2 * self.plane_normal * (source_normal * self.plane_normal).sum(axis=-1)
         reflected = super().spatial_derivatives(mirror_position, mirror_normal, receiver_position, orders)
-        derivatives = {}
-
-        for key in direct:
-            derivatives[key] = direct[key] + self.reflection_coefficient * reflected[key]
-        return derivatives
+        return direct + self.reflection_coefficient * reflected
 
 
 class PlaneWaveTransducer(TransducerModel):
@@ -504,28 +501,29 @@ class PlaneWaveTransducer(TransducerModel):
     def spatial_derivatives(self, source_position, source_normal, receiver_position, orders=3):
         source_normal = np.asarray(source_normal, dtype=np.float64)
         source_normal /= (source_normal**2).sum()**0.5
-        derivatives = {'': self.greens_function(source_position, source_normal, receiver_position)}
+        derivatives = np.empty(receiver_position.shape[:-1] + (num_spatial_derivatives[orders],), dtype=np.complex128)
+        derivatives[..., 0] = self.greens_function(source_position, source_normal, receiver_position)
         if orders > 0:
-            derivatives['x'] = 1j * self.k * source_normal[0] * derivatives['']
-            derivatives['y'] = 1j * self.k * source_normal[1] * derivatives['']
-            derivatives['z'] = 1j * self.k * source_normal[2] * derivatives['']
+            derivatives[..., 1] = 1j * self.k * source_normal[0] * derivatives[..., 0]
+            derivatives[..., 2] = 1j * self.k * source_normal[1] * derivatives[..., 0]
+            derivatives[..., 3] = 1j * self.k * source_normal[2] * derivatives[..., 0]
         if orders > 1:
-            derivatives['xx'] = 1j * self.k * source_normal[0] * derivatives['z']
-            derivatives['yy'] = 1j * self.k * source_normal[1] * derivatives['y']
-            derivatives['zz'] = 1j * self.k * source_normal[2] * derivatives['z']
-            derivatives['xy'] = 1j * self.k * source_normal[1] * derivatives['x']
-            derivatives['xz'] = 1j * self.k * source_normal[0] * derivatives['z']
-            derivatives['yz'] = 1j * self.k * source_normal[2] * derivatives['y']
+            derivatives[..., 4] = 1j * self.k * source_normal[0] * derivatives[..., 3]
+            derivatives[..., 5] = 1j * self.k * source_normal[1] * derivatives[..., 2]
+            derivatives[..., 6] = 1j * self.k * source_normal[2] * derivatives[..., 3]
+            derivatives[..., 7] = 1j * self.k * source_normal[1] * derivatives[..., 1]
+            derivatives[..., 8] = 1j * self.k * source_normal[0] * derivatives[..., 3]
+            derivatives[..., 9] = 1j * self.k * source_normal[2] * derivatives[..., 2]
         if orders > 2:
-            derivatives['xxx'] = 1j * self.k * source_normal[0] * derivatives['xx']
-            derivatives['yyy'] = 1j * self.k * source_normal[1] * derivatives['yy']
-            derivatives['zzz'] = 1j * self.k * source_normal[2] * derivatives['zz']
-            derivatives['xxy'] = 1j * self.k * source_normal[1] * derivatives['xx']
-            derivatives['xxz'] = 1j * self.k * source_normal[2] * derivatives['xx']
-            derivatives['yyx'] = 1j * self.k * source_normal[0] * derivatives['yy']
-            derivatives['yyz'] = 1j * self.k * source_normal[2] * derivatives['yy']
-            derivatives['zzx'] = 1j * self.k * source_normal[0] * derivatives['zz']
-            derivatives['zzy'] = 1j * self.k * source_normal[1] * derivatives['zz']
+            derivatives[..., 10] = 1j * self.k * source_normal[0] * derivatives[..., 4]
+            derivatives[..., 11] = 1j * self.k * source_normal[1] * derivatives[..., 5]
+            derivatives[..., 12] = 1j * self.k * source_normal[2] * derivatives[..., 6]
+            derivatives[..., 13] = 1j * self.k * source_normal[1] * derivatives[..., 4]
+            derivatives[..., 14] = 1j * self.k * source_normal[2] * derivatives[..., 4]
+            derivatives[..., 15] = 1j * self.k * source_normal[0] * derivatives[..., 5]
+            derivatives[..., 16] = 1j * self.k * source_normal[2] * derivatives[..., 5]
+            derivatives[..., 17] = 1j * self.k * source_normal[0] * derivatives[..., 6]
+            derivatives[..., 18] = 1j * self.k * source_normal[1] * derivatives[..., 6]
         return derivatives
 
 
@@ -592,8 +590,9 @@ class CircularRing(TransducerModel):
         ka = self.k * self.effective_radius
         ka_sin = ka * sin
 
+        derivatives = np.empty(receiver_position.shape[:-1] + (num_spatial_derivatives[orders],), dtype=np.complex128)
         J0 = j0(ka_sin)
-        derivatives = {'': J0}
+        derivatives[..., 0] = J0
         if orders > 0:
             r2 = r**2
             r3 = r**3
@@ -604,9 +603,9 @@ class CircularRing(TransducerModel):
             with np.errstate(invalid='ignore'):
                 J1_xi = np.where(sin == 0, 0.5, j1(ka_sin) / ka_sin)
             first_order_const = J1_xi * ka**2 * cos
-            derivatives['x'] = first_order_const * cos_dx
-            derivatives['y'] = first_order_const * cos_dy
-            derivatives['z'] = first_order_const * cos_dz
+            derivatives[..., 1] = first_order_const * cos_dx
+            derivatives[..., 2] = first_order_const * cos_dy
+            derivatives[..., 3] = first_order_const * cos_dz
 
         if orders > 1:
             r5 = r2 * r3
@@ -620,12 +619,12 @@ class CircularRing(TransducerModel):
             with np.errstate(invalid='ignore'):
                 J2_xi2 = np.where(sin == 0, 0.125, (2 * J1_xi - J0) / ka_sin**2)
             second_order_const = J2_xi2 * ka**4 * cos**2 + J1_xi * ka**2
-            derivatives['xx'] = second_order_const * cos_dx**2 + first_order_const * cos_dx2
-            derivatives['yy'] = second_order_const * cos_dy**2 + first_order_const * cos_dy2
-            derivatives['zz'] = second_order_const * cos_dz**2 + first_order_const * cos_dz2
-            derivatives['xy'] = second_order_const * cos_dx * cos_dy + first_order_const * cos_dxdy
-            derivatives['xz'] = second_order_const * cos_dx * cos_dz + first_order_const * cos_dxdz
-            derivatives['yz'] = second_order_const * cos_dy * cos_dz + first_order_const * cos_dydz
+            derivatives[..., 4] = second_order_const * cos_dx**2 + first_order_const * cos_dx2
+            derivatives[..., 5] = second_order_const * cos_dy**2 + first_order_const * cos_dy2
+            derivatives[..., 6] = second_order_const * cos_dz**2 + first_order_const * cos_dz2
+            derivatives[..., 7] = second_order_const * cos_dx * cos_dy + first_order_const * cos_dxdy
+            derivatives[..., 8] = second_order_const * cos_dx * cos_dz + first_order_const * cos_dxdz
+            derivatives[..., 9] = second_order_const * cos_dy * cos_dz + first_order_const * cos_dydz
 
         if orders > 2:
             r4 = r2**2
@@ -643,15 +642,15 @@ class CircularRing(TransducerModel):
             with np.errstate(invalid='ignore'):
                 J3_xi3 = np.where(sin == 0, 1 / 48, (4 * J2_xi2 - J1_xi) / ka_sin**2)
             third_order_const = J3_xi3 * ka**6 * cos**3 + 3 * J2_xi2 * ka**4 * cos
-            derivatives['xxx'] = third_order_const * cos_dx**3 + 3 * second_order_const * cos_dx2 * cos_dx + first_order_const * cos_dx3
-            derivatives['yyy'] = third_order_const * cos_dy**3 + 3 * second_order_const * cos_dy2 * cos_dy + first_order_const * cos_dy3
-            derivatives['zzz'] = third_order_const * cos_dz**3 + 3 * second_order_const * cos_dz2 * cos_dz + first_order_const * cos_dz3
-            derivatives['xxy'] = third_order_const * cos_dx**2 * cos_dy + second_order_const * (cos_dx2 * cos_dy + 2 * cos_dxdy * cos_dx) + first_order_const * cos_dx2dy
-            derivatives['xxz'] = third_order_const * cos_dx**2 * cos_dz + second_order_const * (cos_dx2 * cos_dz + 2 * cos_dxdz * cos_dx) + first_order_const * cos_dx2dz
-            derivatives['yyx'] = third_order_const * cos_dy**2 * cos_dx + second_order_const * (cos_dy2 * cos_dx + 2 * cos_dxdy * cos_dy) + first_order_const * cos_dy2dx
-            derivatives['yyz'] = third_order_const * cos_dy**2 * cos_dz + second_order_const * (cos_dy2 * cos_dz + 2 * cos_dydz * cos_dy) + first_order_const * cos_dy2dz
-            derivatives['zzx'] = third_order_const * cos_dz**2 * cos_dx + second_order_const * (cos_dz2 * cos_dx + 2 * cos_dxdz * cos_dz) + first_order_const * cos_dz2dx
-            derivatives['zzy'] = third_order_const * cos_dz**2 * cos_dy + second_order_const * (cos_dz2 * cos_dy + 2 * cos_dydz * cos_dz) + first_order_const * cos_dz2dy
+            derivatives[..., 10] = third_order_const * cos_dx**3 + 3 * second_order_const * cos_dx2 * cos_dx + first_order_const * cos_dx3
+            derivatives[..., 11] = third_order_const * cos_dy**3 + 3 * second_order_const * cos_dy2 * cos_dy + first_order_const * cos_dy3
+            derivatives[..., 12] = third_order_const * cos_dz**3 + 3 * second_order_const * cos_dz2 * cos_dz + first_order_const * cos_dz3
+            derivatives[..., 13] = third_order_const * cos_dx**2 * cos_dy + second_order_const * (cos_dx2 * cos_dy + 2 * cos_dxdy * cos_dx) + first_order_const * cos_dx2dy
+            derivatives[..., 14] = third_order_const * cos_dx**2 * cos_dz + second_order_const * (cos_dx2 * cos_dz + 2 * cos_dxdz * cos_dx) + first_order_const * cos_dx2dz
+            derivatives[..., 15] = third_order_const * cos_dy**2 * cos_dx + second_order_const * (cos_dy2 * cos_dx + 2 * cos_dxdy * cos_dy) + first_order_const * cos_dy2dx
+            derivatives[..., 16] = third_order_const * cos_dy**2 * cos_dz + second_order_const * (cos_dy2 * cos_dz + 2 * cos_dydz * cos_dy) + first_order_const * cos_dy2dz
+            derivatives[..., 17] = third_order_const * cos_dz**2 * cos_dx + second_order_const * (cos_dz2 * cos_dx + 2 * cos_dxdz * cos_dz) + first_order_const * cos_dz2dx
+            derivatives[..., 18] = third_order_const * cos_dz**2 * cos_dy + second_order_const * (cos_dz2 * cos_dy + 2 * cos_dydz * cos_dz) + first_order_const * cos_dz2dy
 
         return derivatives
 
@@ -1096,57 +1095,25 @@ class TransducerArray:
         else:
             return p
 
-    def spatial_derivatives(self, focus, h=None, orders=3):
+    def spatial_derivatives(self, receiver_position, h=None, orders=3):
         """ Calculates the spatial derivatives for all the transducers
 
         Parameters
         ----------
-        focus : array_like
-            Three element array spcifying a location in space where to calculate
-            the derivatives, or a Nx3 element array to calculate at mutiple points
-            simultaneously.
+        receiver_position : numpy.ndarray
+            The location(s) at which to evaluate the derivatives. The last dimention must have length 3 and represent the coordinates of the points.
         orders : int
             How many orders of derivatives to calculate. Currently three orders are supported.
 
         Returns
         -------
-        derivatives : dict
-            Dictionary with the calculated derivatives, indexed by the axes along which the derivatives are taken.
-            The underivated greens function is included with the index ''. Each element in the dict is an array
-            with the same dimentions as the input with the last dimention removed.
+        derivatives : ndarray
+            Array with the calculated derivatives. Has the same shape as the `receiver_position` input except for the last two dimentions.
+            The second to last dimention has the spatial derivatives, ordered according to `spatial_derivative_order`, and the last dimention
+            indexes the individual transducers.
         """
-        if np.ndim(focus) == 1:
-            # Single point
-            shape = self.num_transducers
-        elif np.ndim(focus) == 2:
-            # Array/list of points
-            shape = (np.shape(focus)[0], self.num_transducers)
-
-        derivatives = {'': np.empty(shape, complex)}
-        if orders > 0:
-            derivatives['x'] = np.empty(shape, complex)
-            derivatives['y'] = np.empty(shape, complex)
-            derivatives['z'] = np.empty(shape, complex)
-        if orders > 1:
-            derivatives['xx'] = np.empty(shape, complex)
-            derivatives['yy'] = np.empty(shape, complex)
-            derivatives['zz'] = np.empty(shape, complex)
-            derivatives['xy'] = np.empty(shape, complex)
-            derivatives['xz'] = np.empty(shape, complex)
-            derivatives['yz'] = np.empty(shape, complex)
-        if orders > 2:
-            derivatives['xxx'] = np.empty(shape, complex)
-            derivatives['yyy'] = np.empty(shape, complex)
-            derivatives['zzz'] = np.empty(shape, complex)
-            derivatives['xxy'] = np.empty(shape, complex)
-            derivatives['xxz'] = np.empty(shape, complex)
-            derivatives['yyx'] = np.empty(shape, complex)
-            derivatives['yyz'] = np.empty(shape, complex)
-            derivatives['zzx'] = np.empty(shape, complex)
-            derivatives['zzy'] = np.empty(shape, complex)
+        derivatives = np.empty(receiver_position.shape[:-1] + (num_spatial_derivatives[orders], self.num_transducers), dtype=np.complex128)
 
         for idx in range(self.num_transducers):
-            transducer_derivatives = self.transducer_model.spatial_derivatives(self.transducer_positions[idx], self.transducer_normals[idx], focus, orders)
-            for key in derivatives:
-                derivatives[key][..., idx] = transducer_derivatives[key]
+            derivatives[..., idx] = self.transducer_model.spatial_derivatives(self.transducer_positions[idx], self.transducer_normals[idx], receiver_position, orders)
         return derivatives
