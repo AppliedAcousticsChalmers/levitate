@@ -415,60 +415,54 @@ def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c
     gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * rho_air
 
     def calc_values(tot_der):
-        Ux = (pressure_coefficient * (tot_der['x'] * np.conj(tot_der[''])).real -
-              gradient_coefficient * (tot_der['xx'] * np.conj(tot_der['x'])).real -
-              gradient_coefficient * (tot_der['xy'] * np.conj(tot_der['y'])).real -
-              gradient_coefficient * (tot_der['xz'] * np.conj(tot_der['z'])).real) * 2
-        Uy = (pressure_coefficient * (tot_der['y'] * np.conj(tot_der[''])).real -
-              gradient_coefficient * (tot_der['xy'] * np.conj(tot_der['x'])).real -
-              gradient_coefficient * (tot_der['yy'] * np.conj(tot_der['y'])).real -
-              gradient_coefficient * (tot_der['yz'] * np.conj(tot_der['z'])).real) * 2
-        Uz = (pressure_coefficient * (tot_der['z'] * np.conj(tot_der[''])).real -
-              gradient_coefficient * (tot_der['xz'] * np.conj(tot_der['x'])).real -
-              gradient_coefficient * (tot_der['yz'] * np.conj(tot_der['y'])).real -
-              gradient_coefficient * (tot_der['zz'] * np.conj(tot_der['z'])).real) * 2
+        Ux = (pressure_coefficient * (tot_der[1] * np.conj(tot_der[0])).real -  # Gx G
+              gradient_coefficient * (tot_der[4] * np.conj(tot_der[1])).real -  # Gxx Gx
+              gradient_coefficient * (tot_der[7] * np.conj(tot_der[2])).real -  # Gxy Gy
+              gradient_coefficient * (tot_der[8] * np.conj(tot_der[3])).real) * 2  # Gxz Gz
+        Uy = (pressure_coefficient * (tot_der[2] * np.conj(tot_der[0])).real -  # Gy G
+              gradient_coefficient * (tot_der[7] * np.conj(tot_der[1])).real -  # Gxy Gx
+              gradient_coefficient * (tot_der[5] * np.conj(tot_der[2])).real -  # Gyy Gy
+              gradient_coefficient * (tot_der[9] * np.conj(tot_der[3])).real) * 2  # Gyz Gz
+        Uz = (pressure_coefficient * (tot_der[3] * np.conj(tot_der[0])).real -  # Gz G
+              gradient_coefficient * (tot_der[8] * np.conj(tot_der[1])).real -  # Gxz Gx
+              gradient_coefficient * (tot_der[9] * np.conj(tot_der[2])).real -  # Gyz Gy
+              gradient_coefficient * (tot_der[6] * np.conj(tot_der[3])).real) * 2  # Gzz Gz
 
-        return np.array((Ux, Uy, Uz))
+        return np.stack((Ux, Uy, Uz), axis=0)
 
     def calc_jacobian(tot_der, ind_der):
-        dUx = (pressure_coefficient * (tot_der['x'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['x'])) -
-               gradient_coefficient * (tot_der['xx'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['xx'])) -
-               gradient_coefficient * (tot_der['xy'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['xy'])) -
-               gradient_coefficient * (tot_der['xz'] * np.conj(ind_der['z']) + tot_der['z'] * np.conj(ind_der['xz']))) * 2
-        dUy = (pressure_coefficient * (tot_der['y'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['y'])) -
-               gradient_coefficient * (tot_der['xy'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['xy'])) -
-               gradient_coefficient * (tot_der['yy'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['yy'])) -
-               gradient_coefficient * (tot_der['yz'] * np.conj(ind_der['z']) + tot_der['z'] * np.conj(ind_der['yz']))) * 2
-        dUz = (pressure_coefficient * (tot_der['z'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['z'])) -
-               gradient_coefficient * (tot_der['xz'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['xz'])) -
-               gradient_coefficient * (tot_der['yz'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['yz'])) -
-               gradient_coefficient * (tot_der['zz'] * np.conj(ind_der['z']) + tot_der['z'] * np.conj(ind_der['zz']))) * 2
+        dUx = (pressure_coefficient * (tot_der[1] * np.conj(ind_der[0]) + tot_der[0] * np.conj(ind_der[1])) -  # Gx G(i) + G Gx(i)
+               gradient_coefficient * (tot_der[4] * np.conj(ind_der[1]) + tot_der[1] * np.conj(ind_der[4])) -  # Gxx Gx(i) + Gx Gxx(i)
+               gradient_coefficient * (tot_der[7] * np.conj(ind_der[2]) + tot_der[2] * np.conj(ind_der[7])) -  # Gxy Gy(i) + Gy Gxy(i)
+               gradient_coefficient * (tot_der[8] * np.conj(ind_der[3]) + tot_der[3] * np.conj(ind_der[8]))) * 2  # Gxz Gz(i) + Gz Gxz(i)
+        dUy = (pressure_coefficient * (tot_der[2] * np.conj(ind_der[0]) + tot_der[0] * np.conj(ind_der[2])) -  # Gy G(i) + G Gy(i)
+               gradient_coefficient * (tot_der[7] * np.conj(ind_der[1]) + tot_der[1] * np.conj(ind_der[7])) -  # Gxy Gx(i) + Gx Gxy(i)
+               gradient_coefficient * (tot_der[5] * np.conj(ind_der[2]) + tot_der[2] * np.conj(ind_der[5])) -  # Gyy Gy(i) + Gy Gyy(i)
+               gradient_coefficient * (tot_der[9] * np.conj(ind_der[3]) + tot_der[3] * np.conj(ind_der[9]))) * 2  # Gyz Gz(i) + Gz Gyz(i)
+        dUz = (pressure_coefficient * (tot_der[3] * np.conj(ind_der[0]) + tot_der[0] * np.conj(ind_der[3])) -  # Gz G(i) + G Gz(i)
+               gradient_coefficient * (tot_der[8] * np.conj(ind_der[1]) + tot_der[1] * np.conj(ind_der[8])) -  # Gxz Gx(i) + Gx Gxz(i)
+               gradient_coefficient * (tot_der[9] * np.conj(ind_der[2]) + tot_der[2] * np.conj(ind_der[9])) -  # Gyz Gy(i) + Gy Gyz(i)
+               gradient_coefficient * (tot_der[6] * np.conj(ind_der[3]) + tot_der[3] * np.conj(ind_der[6]))) * 2  # Gzz Gz(i) + Gz Gzz(i)
 
-        return np.array((dUx, dUy, dUz))
+        return np.stack((dUx, dUy, dUz), axis=0)
 
     if weights is None:
         def gorkov_divergence(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
             complex_coeff = amplitudes * np.exp(1j * phases)
-            tot_der = {}
-            for key, value in spatial_derivatives.items():
-                tot_der[key] = np.sum(complex_coeff * value)
+            tot_der = np.einsum('i,ji...->j...', complex_coeff, spatial_derivatives)
             return calc_values(tot_der)
     elif weights is False:
         def gorkov_divergence(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
             complex_coeff = amplitudes * np.exp(1j * phases)
-            ind_der = {}
-            tot_der = {}
-            for key, value in spatial_derivatives.items():
-                ind_der[key] = complex_coeff * value
-                tot_der[key] = np.sum(ind_der[key])
-
+            ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
+            tot_der = np.sum(ind_der, axis=1)
             value = calc_values(tot_der)
             jacobian = calc_jacobian(tot_der, ind_der)
 
             if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes), axis=-1)
+                return value, np.concatenate((jacobian.imag, np.einsum('i,ji...->ji...', 1 / amplitudes, jacobian.real)), axis=1)
             else:
                 return value, jacobian.imag
     else:
@@ -477,11 +471,8 @@ def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c
         def gorkov_divergence(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
             complex_coeff = amplitudes * np.exp(1j * phases)
-            ind_der = {}
-            tot_der = {}
-            for key, value in spatial_derivatives.items():
-                ind_der[key] = complex_coeff * value
-                tot_der[key] = np.sum(ind_der[key])
+            ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
+            tot_der = np.sum(ind_der, axis=1)
 
             # Tried to keep values and jacobian as single arrays and converting
             # weights to an array, but this seems to be the fastest implementation.
@@ -491,7 +482,7 @@ def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c
             jacobian = wx * dUx + wy * dUy + wz * dUz
 
             if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
+                return value, np.concatenate((jacobian.imag, np.einsum('i,i...->i...', 1 / amplitudes, jacobian.real)), axis=0)
             else:
                 return value, jacobian.imag
 
@@ -548,59 +539,52 @@ def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_
     gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * rho_air
 
     def calc_values(tot_der):
-        Uxx = (pressure_coefficient * (tot_der['xx'] * np.conj(tot_der['']) + tot_der['x'] * np.conj(tot_der['x'])).real -
-               gradient_coefficient * (tot_der['xxx'] * np.conj(tot_der['x']) + tot_der['xx'] * np.conj(tot_der['xx'])).real -
-               gradient_coefficient * (tot_der['xxy'] * np.conj(tot_der['y']) + tot_der['xy'] * np.conj(tot_der['xy'])).real -
-               gradient_coefficient * (tot_der['xxz'] * np.conj(tot_der['z']) + tot_der['xz'] * np.conj(tot_der['xz'])).real) * 2
-        Uyy = (pressure_coefficient * (tot_der['yy'] * np.conj(tot_der['']) + tot_der['y'] * np.conj(tot_der['y'])).real -
-               gradient_coefficient * (tot_der['yyx'] * np.conj(tot_der['x']) + tot_der['xy'] * np.conj(tot_der['xy'])).real -
-               gradient_coefficient * (tot_der['yyy'] * np.conj(tot_der['y']) + tot_der['yy'] * np.conj(tot_der['yy'])).real -
-               gradient_coefficient * (tot_der['yyz'] * np.conj(tot_der['z']) + tot_der['yz'] * np.conj(tot_der['yz'])).real) * 2
-        Uzz = (pressure_coefficient * (tot_der['zz'] * np.conj(tot_der['']) + tot_der['z'] * np.conj(tot_der['z'])).real -
-               gradient_coefficient * (tot_der['zzx'] * np.conj(tot_der['x']) + tot_der['xz'] * np.conj(tot_der['xz'])).real -
-               gradient_coefficient * (tot_der['zzy'] * np.conj(tot_der['y']) + tot_der['yz'] * np.conj(tot_der['yz'])).real -
-               gradient_coefficient * (tot_der['zzz'] * np.conj(tot_der['z']) + tot_der['zz'] * np.conj(tot_der['zz'])).real) * 2
+        Uxx = (pressure_coefficient * (tot_der[4] * np.conj(tot_der[0]) + tot_der[1] * np.conj(tot_der[1])).real -  # Gxx G + Gx Gx
+               gradient_coefficient * (tot_der[10] * np.conj(tot_der[1]) + tot_der[4] * np.conj(tot_der[4])).real -  # Gxxx Gx + Gxx Gxx
+               gradient_coefficient * (tot_der[13] * np.conj(tot_der[2]) + tot_der[7] * np.conj(tot_der[7])).real -  # Gxxy Gy + Gxy Gxy
+               gradient_coefficient * (tot_der[14] * np.conj(tot_der[3]) + tot_der[8] * np.conj(tot_der[8])).real) * 2  # Gxxz Gz + Gxz Gxz
+        Uyy = (pressure_coefficient * (tot_der[5] * np.conj(tot_der[0]) + tot_der[2] * np.conj(tot_der[2])).real -  # Gyy G + Gy Gy
+               gradient_coefficient * (tot_der[15] * np.conj(tot_der[1]) + tot_der[7] * np.conj(tot_der[7])).real -  # Gyyx Gx + Gxy Gxy
+               gradient_coefficient * (tot_der[11] * np.conj(tot_der[2]) + tot_der[5] * np.conj(tot_der[5])).real -  # Gyyy Gy + Gyy Gyy
+               gradient_coefficient * (tot_der[16] * np.conj(tot_der[3]) + tot_der[9] * np.conj(tot_der[9])).real) * 2  # Gyyz Gz + Gyz Gyz
+        Uzz = (pressure_coefficient * (tot_der[6] * np.conj(tot_der[0]) + tot_der[3] * np.conj(tot_der[3])).real -  # Gzz G + Gz Gz
+               gradient_coefficient * (tot_der[17] * np.conj(tot_der[1]) + tot_der[8] * np.conj(tot_der[8])).real -  # Gzzx Gx + Gxz Gxz
+               gradient_coefficient * (tot_der[18] * np.conj(tot_der[2]) + tot_der[9] * np.conj(tot_der[9])).real -  # Gzzy Gy + Gyz Gyz
+               gradient_coefficient * (tot_der[12] * np.conj(tot_der[3]) + tot_der[6] * np.conj(tot_der[6])).real) * 2  # Gzzz Gz + Gzz Gzz
         return np.array((Uxx, Uyy, Uzz))
 
     def calc_jacobian(tot_der, ind_der):
-        dUxx = (pressure_coefficient * (tot_der['xx'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['xx']) + 2 * tot_der['x'] * np.conj(ind_der['x'])) -
-                gradient_coefficient * (tot_der['xxx'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['xxx']) + 2 * tot_der['xx'] * np.conj(ind_der['xx'])) -
-                gradient_coefficient * (tot_der['xxy'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['xxy']) + 2 * tot_der['xy'] * np.conj(ind_der['xy'])) -
-                gradient_coefficient * (tot_der['xxz'] * np.conj(ind_der['z']) + tot_der['z'] * np.conj(ind_der['xxz']) + 2 * tot_der['xz'] * np.conj(ind_der['xz']))) * 2
-        dUyy = (pressure_coefficient * (tot_der['yy'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['yy']) + 2 * tot_der['y'] * np.conj(ind_der['y'])) -
-                gradient_coefficient * (tot_der['yyx'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['yyx']) + 2 * tot_der['xy'] * np.conj(ind_der['xy'])) -
-                gradient_coefficient * (tot_der['yyy'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['yyy']) + 2 * tot_der['yy'] * np.conj(ind_der['yy'])) -
-                gradient_coefficient * (tot_der['yyz'] * np.conj(ind_der['z']) + tot_der['z'] * np.conj(ind_der['yyz']) + 2 * tot_der['yz'] * np.conj(ind_der['yz']))) * 2
-        dUzz = (pressure_coefficient * (tot_der['zz'] * np.conj(ind_der['']) + tot_der[''] * np.conj(ind_der['zz']) + 2 * tot_der['z'] * np.conj(ind_der['z'])) -
-                gradient_coefficient * (tot_der['zzx'] * np.conj(ind_der['x']) + tot_der['x'] * np.conj(ind_der['zzx']) + 2 * tot_der['xz'] * np.conj(ind_der['xz'])) -
-                gradient_coefficient * (tot_der['zzy'] * np.conj(ind_der['y']) + tot_der['y'] * np.conj(ind_der['zzy']) + 2 * tot_der['yz'] * np.conj(ind_der['yz'])) -
-                gradient_coefficient * (tot_der['zzz'] * np.conj(ind_der['z']) + tot_der['z'] * np.conj(ind_der['zzz']) + 2 * tot_der['zz'] * np.conj(ind_der['zz']))) * 2
+        dUxx = (pressure_coefficient * (tot_der[4] * np.conj(ind_der[0]) + tot_der[0] * np.conj(ind_der[4]) + 2 * tot_der[1] * np.conj(ind_der[1])) -  # Gxx G(i) + G Gxx(i) + 2 Gx Gx(i)
+                gradient_coefficient * (tot_der[10] * np.conj(ind_der[1]) + tot_der[1] * np.conj(ind_der[10]) + 2 * tot_der[4] * np.conj(ind_der[4])) -  # Gxxx Gx(i) + Gx Gxxx(i) + 2 Gxx Gxx(i)
+                gradient_coefficient * (tot_der[13] * np.conj(ind_der[2]) + tot_der[2] * np.conj(ind_der[13]) + 2 * tot_der[7] * np.conj(ind_der[7])) -  # Gxxy Gy(i) + Gy Gxxy(i) + 2 Gxy Gxy(i)
+                gradient_coefficient * (tot_der[14] * np.conj(ind_der[3]) + tot_der[3] * np.conj(ind_der[14]) + 2 * tot_der[8] * np.conj(ind_der[8]))) * 2  # Gxxz Gz(i) + Gz Gxxz(i) + 2 Gxz Gxz(i)
+        dUyy = (pressure_coefficient * (tot_der[5] * np.conj(ind_der[0]) + tot_der[0] * np.conj(ind_der[5]) + 2 * tot_der[2] * np.conj(ind_der[2])) -  # Gyy G(i) + G Gyy(i) + 2 Gy Gy(i)
+                gradient_coefficient * (tot_der[15] * np.conj(ind_der[1]) + tot_der[1] * np.conj(ind_der[15]) + 2 * tot_der[7] * np.conj(ind_der[7])) -  # Gyyx Gx(i) + Gx Gyyx(i) + 2 Gxy Gxy(i)
+                gradient_coefficient * (tot_der[11] * np.conj(ind_der[2]) + tot_der[2] * np.conj(ind_der[11]) + 2 * tot_der[5] * np.conj(ind_der[5])) -  # Gyyy Gy(i) + Gy Gyyy(i) + 2 Gyy Gyy(i)
+                gradient_coefficient * (tot_der[16] * np.conj(ind_der[3]) + tot_der[3] * np.conj(ind_der[16]) + 2 * tot_der[9] * np.conj(ind_der[9]))) * 2  # Gyyz Gz(i) + Gz Gyyz(i) + 2 Gyz Gyz(i)
+        dUzz = (pressure_coefficient * (tot_der[6] * np.conj(ind_der[0]) + tot_der[0] * np.conj(ind_der[6]) + 2 * tot_der[3] * np.conj(ind_der[3])) -  # Gzz G(i) + G Gzz(i) + 2 Gz Gz(i)
+                gradient_coefficient * (tot_der[17] * np.conj(ind_der[1]) + tot_der[1] * np.conj(ind_der[17]) + 2 * tot_der[8] * np.conj(ind_der[8])) -  # Gzzx Gx(i) + Gx Gzzx(i) + 2 Gxz Gxz(i)
+                gradient_coefficient * (tot_der[18] * np.conj(ind_der[2]) + tot_der[2] * np.conj(ind_der[18]) + 2 * tot_der[9] * np.conj(ind_der[9])) -  # Gzzy Gy(i) + Gy Gzzy(i) + 2 Gyz Gyz(i)
+                gradient_coefficient * (tot_der[12] * np.conj(ind_der[3]) + tot_der[3] * np.conj(ind_der[12]) + 2 * tot_der[6] * np.conj(ind_der[6]))) * 2  # Gzzz Gz(i) + Gz Gzzz(i) + 2 Gzz Gzz(i)
         return np.array((dUxx, dUyy, dUzz))
 
     if weights is None:
         def gorkov_laplacian(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
             complex_coeff = amplitudes * np.exp(1j * phases)
-            tot_der = {}
-            for key, value in spatial_derivatives.items():
-                tot_der[key] = np.sum(complex_coeff * value)
-
+            tot_der = np.einsum('i,ji...->j...', complex_coeff, spatial_derivatives)
             return calc_values(tot_der)
     elif weights is False:
         def gorkov_laplacian(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
             complex_coeff = amplitudes * np.exp(1j * phases)
-            ind_der = {}
-            tot_der = {}
-            for key, value in spatial_derivatives.items():
-                ind_der[key] = complex_coeff * value
-                tot_der[key] = np.sum(ind_der[key])
-
+            ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
+            tot_der = np.sum(ind_der, axis=1)
             value = calc_values(tot_der)
             jacobian = calc_jacobian(tot_der, ind_der)
 
             if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes), axis=-1)
+                return value, np.concatenate((jacobian.imag, np.einsum('i,ji...->ji...', 1 / amplitudes, jacobian.real)), axis=1)
             else:
                 return value, jacobian.imag
     else:
@@ -609,11 +593,8 @@ def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_
         def gorkov_laplacian(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
             complex_coeff = amplitudes * np.exp(1j * phases)
-            ind_der = {}
-            tot_der = {}
-            for key, value in spatial_derivatives.items():
-                ind_der[key] = complex_coeff * value
-                tot_der[key] = np.sum(ind_der[key])
+            ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
+            tot_der = np.sum(ind_der, axis=1)
 
             # Tried to keep values and jacobian as single arrays and converting
             # weights to an array, but this seems to be the fastest implementation.
@@ -623,7 +604,7 @@ def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_
             jacobian = wx * dUxx + wy * dUyy + wz * dUzz
 
             if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
+                return value, np.concatenate((jacobian.imag, np.einsum('i,i...->i...', 1 / amplitudes, jacobian.real)), axis=0)
             else:
                 return value, jacobian.imag
 
@@ -683,44 +664,44 @@ def second_order_force(array, location, weights=None, spatial_derivatives=None, 
     force_coeff = -np.pi / array.k**5 * compressibility_air
 
     def calc_values(tot_der):
-        Fx = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(tot_der['x']) +
-                                 psi_1 * tot_der['x'] * np.conj(tot_der[''])) +
-              1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['xx']) +
-                                tot_der['y'] * np.conj(tot_der['xy']) +
-                                tot_der['z'] * np.conj(tot_der['xz']))
+        Fx = (1j * array.k**2 * (psi_0 * tot_der[0] * np.conj(tot_der[1]) +  # G Gx
+                                 psi_1 * tot_der[1] * np.conj(tot_der[0])) +  # Gx G
+              1j * 3 * psi_1 * (tot_der[1] * np.conj(tot_der[4]) +  # Gx Gxx
+                                tot_der[2] * np.conj(tot_der[7]) +  # Gy Gxy
+                                tot_der[3] * np.conj(tot_der[8]))  # Gz Gxz
               ).real * force_coeff
-        Fy = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(tot_der['y']) +
-                                 psi_1 * tot_der['y'] * np.conj(tot_der[''])) +
-              1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['xy']) +
-                                tot_der['y'] * np.conj(tot_der['yy']) +
-                                tot_der['z'] * np.conj(tot_der['yz']))
+        Fy = (1j * array.k**2 * (psi_0 * tot_der[0] * np.conj(tot_der[2]) +  # G Gy
+                                 psi_1 * tot_der[2] * np.conj(tot_der[0])) +  # Gy G
+              1j * 3 * psi_1 * (tot_der[1] * np.conj(tot_der[7]) +  # Gx Gxy
+                                tot_der[2] * np.conj(tot_der[5]) +  # Gy Gyy
+                                tot_der[3] * np.conj(tot_der[9]))  # Gz Gyz
               ).real * force_coeff
-        Fz = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(tot_der['z']) +
-                                 psi_1 * tot_der['z'] * np.conj(tot_der[''])) +
-              1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['xz']) +
-                                tot_der['y'] * np.conj(tot_der['yz']) +
-                                tot_der['z'] * np.conj(tot_der['zz']))
+        Fz = (1j * array.k**2 * (psi_0 * tot_der[0] * np.conj(tot_der[3]) +  # G Gz
+                                 psi_1 * tot_der[3] * np.conj(tot_der[0])) +  # Gz G
+              1j * 3 * psi_1 * (tot_der[1] * np.conj(tot_der[8]) +  # Gx Gxz
+                                tot_der[2] * np.conj(tot_der[9]) +  # Gy Gyz
+                                tot_der[3] * np.conj(tot_der[6]))  # Gz Gzz
               ).real * force_coeff
         return np.array((Fx, Fy, Fz))
 
     def calc_jacobian(tot_der, ind_der):
-        dFx = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(ind_der['x']) - np.conj(psi_0) * tot_der['x'] * np.conj(ind_der['']) +
-                                  psi_1 * tot_der['x'] * np.conj(ind_der['']) - np.conj(psi_1) * tot_der[''] * np.conj(ind_der['x'])) +
-               1j * 3 * (psi_1 * tot_der['x'] * np.conj(ind_der['xx']) - np.conj(psi_1) * tot_der['xx'] * np.conj(ind_der['x']) +
-                         psi_1 * tot_der['y'] * np.conj(ind_der['xy']) - np.conj(psi_1) * tot_der['xy'] * np.conj(ind_der['y']) +
-                         psi_1 * tot_der['z'] * np.conj(ind_der['xz']) - np.conj(psi_1) * tot_der['xz'] * np.conj(ind_der['z']))
+        dFx = (1j * array.k**2 * (psi_0 * tot_der[0] * np.conj(ind_der[1]) - np.conj(psi_0) * tot_der[1] * np.conj(ind_der[0]) +  # G Gx(i) - Gx G(i)
+                                  psi_1 * tot_der[1] * np.conj(ind_der[0]) - np.conj(psi_1) * tot_der[0] * np.conj(ind_der[1])) +  # Gx G(i) - G Gx(i)
+               1j * 3 * (psi_1 * tot_der[1] * np.conj(ind_der[4]) - np.conj(psi_1) * tot_der[4] * np.conj(ind_der[1]) +  # Gx Gxz(i) - Gxz Gx(i)
+                         psi_1 * tot_der[2] * np.conj(ind_der[7]) - np.conj(psi_1) * tot_der[7] * np.conj(ind_der[2]) +  # Gy Gxy(i) - Gxy Gy(i)
+                         psi_1 * tot_der[3] * np.conj(ind_der[8]) - np.conj(psi_1) * tot_der[8] * np.conj(ind_der[3]))  # Gz Gxz(i) - Gxz Gz(i)
                ) * force_coeff
-        dFy = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(ind_der['y']) - np.conj(psi_0) * tot_der['y'] * np.conj(ind_der['']) +
-                                  psi_1 * tot_der['y'] * np.conj(ind_der['']) - np.conj(psi_1) * tot_der[''] * np.conj(ind_der['y'])) +
-               1j * 3 * (psi_1 * tot_der['x'] * np.conj(ind_der['xy']) - np.conj(psi_1) * tot_der['xy'] * np.conj(ind_der['x']) +
-                         psi_1 * tot_der['y'] * np.conj(ind_der['yy']) - np.conj(psi_1) * tot_der['yy'] * np.conj(ind_der['y']) +
-                         psi_1 * tot_der['z'] * np.conj(ind_der['yz']) - np.conj(psi_1) * tot_der['yz'] * np.conj(ind_der['z']))
+        dFy = (1j * array.k**2 * (psi_0 * tot_der[0] * np.conj(ind_der[2]) - np.conj(psi_0) * tot_der[2] * np.conj(ind_der[0]) +  # G Gy(i) - Gy G(i)
+                                  psi_1 * tot_der[2] * np.conj(ind_der[0]) - np.conj(psi_1) * tot_der[0] * np.conj(ind_der[2])) +  # Gy G(i) - G Gy(i)
+               1j * 3 * (psi_1 * tot_der[1] * np.conj(ind_der[7]) - np.conj(psi_1) * tot_der[7] * np.conj(ind_der[1]) +  # Gx Gxy(i) - Gxy Gx(i)
+                         psi_1 * tot_der[2] * np.conj(ind_der[5]) - np.conj(psi_1) * tot_der[5] * np.conj(ind_der[2]) +  # Gy Gyy(i) - Gyy Gy(i)
+                         psi_1 * tot_der[3] * np.conj(ind_der[9]) - np.conj(psi_1) * tot_der[9] * np.conj(ind_der[3]))  # Gz Gyz(i) - Gyz Gz(i)
                ) * force_coeff
-        dFz = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(ind_der['z']) - np.conj(psi_0) * tot_der['z'] * np.conj(ind_der['']) +
-                                  psi_1 * tot_der['z'] * np.conj(ind_der['']) - np.conj(psi_1) * tot_der[''] * np.conj(ind_der['z'])) +
-               1j * 3 * (psi_1 * tot_der['x'] * np.conj(ind_der['xz']) - np.conj(psi_1) * tot_der['xz'] * np.conj(ind_der['x']) +
-                         psi_1 * tot_der['y'] * np.conj(ind_der['yz']) - np.conj(psi_1) * tot_der['yz'] * np.conj(ind_der['y']) +
-                         psi_1 * tot_der['z'] * np.conj(ind_der['zz']) - np.conj(psi_1) * tot_der['zz'] * np.conj(ind_der['z']))
+        dFz = (1j * array.k**2 * (psi_0 * tot_der[0] * np.conj(ind_der[3]) - np.conj(psi_0) * tot_der[3] * np.conj(ind_der[0]) +   # G Gz(i) - Gz G(i)
+                                  psi_1 * tot_der[3] * np.conj(ind_der[0]) - np.conj(psi_1) * tot_der[0] * np.conj(ind_der[3])) +   # Gz G(i) - G Gz(i)
+               1j * 3 * (psi_1 * tot_der[1] * np.conj(ind_der[8]) - np.conj(psi_1) * tot_der[8] * np.conj(ind_der[1]) +   # Gx Gxz(i) - Gxz Gx(i)
+                         psi_1 * tot_der[2] * np.conj(ind_der[9]) - np.conj(psi_1) * tot_der[9] * np.conj(ind_der[2]) +   # Gy Gyz(i) - Gyz Gy(i)
+                         psi_1 * tot_der[3] * np.conj(ind_der[6]) - np.conj(psi_1) * tot_der[6] * np.conj(ind_der[3]))   # Gz Gzz(i) - Gzz Gz(i)
                ) * force_coeff
         return np.array((dFx, dFy, dFz))
 
@@ -728,25 +709,20 @@ def second_order_force(array, location, weights=None, spatial_derivatives=None, 
         def second_order_force(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
             complex_coeff = amplitudes * np.exp(1j * phases)
-            tot_der = {}
-            for key, value in spatial_derivatives.items():
-                tot_der[key] = np.sum(complex_coeff * value)
+            tot_der = np.einsum('i,ji...->j...', complex_coeff, spatial_derivatives)
             return calc_values(tot_der)
     elif weights is False:
         def second_order_force(phases_amplitudes):
-            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
+            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
             complex_coeff = amplitudes * np.exp(1j * phases)
-            ind_der = {}
-            tot_der = {}
-            for key, value in spatial_derivatives.items():
-                ind_der[key] = complex_coeff * value
-                tot_der[key] = np.sum(ind_der[key])
+            ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
+            tot_der = np.sum(ind_der, axis=1)
 
             value = calc_values(tot_der)
             jacobian = calc_jacobian(tot_der, ind_der)
 
             if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
+                return value, np.concatenate((jacobian.imag, np.einsum('i,ji...->ji...', 1 / amplitudes, jacobian.real)), axis=1)
             else:
                 return value, jacobian.imag
     else:
@@ -755,11 +731,8 @@ def second_order_force(array, location, weights=None, spatial_derivatives=None, 
         def second_order_force(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
             complex_coeff = amplitudes * np.exp(1j * phases)
-            ind_der = {}
-            tot_der = {}
-            for key, value in spatial_derivatives.items():
-                ind_der[key] = complex_coeff * value
-                tot_der[key] = np.sum(ind_der[key])
+            ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
+            tot_der = np.sum(ind_der, axis=1)
 
             # Tried to keep values and jacobian as single arrays and converting
             # weights to an array, but this seems to be the fastest implementation.
@@ -769,7 +742,7 @@ def second_order_force(array, location, weights=None, spatial_derivatives=None, 
             jacobian = wx * dFx + wy * dFy + wz * dFz
 
             if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
+                return value, np.concatenate((jacobian.imag, np.einsum('i,i...->i...', 1 / amplitudes, jacobian.real)), axis=0)
             else:
                 return value, jacobian.imag
     return second_order_force
@@ -828,44 +801,44 @@ def second_order_stiffness(array, location, weights=None, spatial_derivatives=No
     force_coeff = -np.pi / array.k**5 * compressibility_air
 
     def calc_values(tot_der):
-        Fxx = (1j * array.k**2 * (psi_0 * (tot_der[''] * np.conj(tot_der['xx']) + tot_der['x'] * np.conj(tot_der['x'])) +
-                                  psi_1 * (tot_der['xx'] * np.conj(tot_der['']) + tot_der['x'] * np.conj(tot_der['x']))) +
-               1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['xxx']) + tot_der['xx'] * np.conj(tot_der['xx']) +
-                                 tot_der['y'] * np.conj(tot_der['xxy']) + tot_der['xy'] * np.conj(tot_der['xy']) +
-                                 tot_der['z'] * np.conj(tot_der['xxz']) + tot_der['xz'] * np.conj(tot_der['xz']))
+        Fxx = (1j * array.k**2 * (psi_0 * (tot_der[0] * np.conj(tot_der[4]) + tot_der[1] * np.conj(tot_der[1])) +  # G Gxx + Gx Gx
+                                  psi_1 * (tot_der[4] * np.conj(tot_der[0]) + tot_der[1] * np.conj(tot_der[1]))) +  # Gxx G + Gx Gx
+               1j * 3 * psi_1 * (tot_der[1] * np.conj(tot_der[10]) + tot_der[4] * np.conj(tot_der[4]) +  # Gx Gxxx + Gxx Gxx
+                                 tot_der[2] * np.conj(tot_der[13]) + tot_der[7] * np.conj(tot_der[7]) +  # Gy Gxxy + Gxy Gxy
+                                 tot_der[3] * np.conj(tot_der[14]) + tot_der[8] * np.conj(tot_der[8]))  # Gz Gxxz + Gxz Gxz
                ).real * force_coeff
-        Fyy = (1j * array.k**2 * (psi_0 * (tot_der[''] * np.conj(tot_der['yy']) + tot_der['y'] * np.conj(tot_der['y'])) +
-                                  psi_1 * (tot_der['yy'] * np.conj(tot_der['']) + tot_der['y'] * np.conj(tot_der['y']))) +
-               1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['yyx']) + tot_der['xy'] * np.conj(tot_der['xy']) +
-                                 tot_der['y'] * np.conj(tot_der['yyy']) + tot_der['yy'] * np.conj(tot_der['yy']) +
-                                 tot_der['z'] * np.conj(tot_der['yyz']) + tot_der['yz'] * np.conj(tot_der['yz']))
+        Fyy = (1j * array.k**2 * (psi_0 * (tot_der[0] * np.conj(tot_der[5]) + tot_der[2] * np.conj(tot_der[2])) +  # G Gyy + Gy Gy
+                                  psi_1 * (tot_der[5] * np.conj(tot_der[0]) + tot_der[2] * np.conj(tot_der[2]))) +  # Gyy G + Gy Gy
+               1j * 3 * psi_1 * (tot_der[1] * np.conj(tot_der[15]) + tot_der[7] * np.conj(tot_der[7]) +  # Gx Gyyx + Gxy Gxy
+                                 tot_der[2] * np.conj(tot_der[11]) + tot_der[5] * np.conj(tot_der[5]) +  # Gy Gyyy + Gyy Gyy
+                                 tot_der[3] * np.conj(tot_der[16]) + tot_der[9] * np.conj(tot_der[9]))  # Gz Gyyz + Gyz Gyz
                ).real * force_coeff
-        Fzz = (1j * array.k**2 * (psi_0 * (tot_der[''] * np.conj(tot_der['zz']) + tot_der['z'] * np.conj(tot_der['z'])) +
-                                  psi_1 * (tot_der['zz'] * np.conj(tot_der['']) + tot_der['z'] * np.conj(tot_der['z']))) +
-               1j * 3 * psi_1 * (tot_der['x'] * np.conj(tot_der['zzx']) + tot_der['xz'] * np.conj(tot_der['xz']) +
-                                 tot_der['y'] * np.conj(tot_der['zzy']) + tot_der['yz'] * np.conj(tot_der['yz']) +
-                                 tot_der['z'] * np.conj(tot_der['zzz']) + tot_der['zz'] * np.conj(tot_der['zz']))
+        Fzz = (1j * array.k**2 * (psi_0 * (tot_der[0] * np.conj(tot_der[6]) + tot_der[3] * np.conj(tot_der[3])) +  # G Gzz + Gz Gz
+                                  psi_1 * (tot_der[6] * np.conj(tot_der[0]) + tot_der[3] * np.conj(tot_der[3]))) +  # Gzz G + Gz Gz
+               1j * 3 * psi_1 * (tot_der[1] * np.conj(tot_der[17]) + tot_der[8] * np.conj(tot_der[8]) +  # Gx Gzzx + Gxz Gxz
+                                 tot_der[2] * np.conj(tot_der[18]) + tot_der[9] * np.conj(tot_der[9]) +  # Gy Gzzy + Gyz Gyz
+                                 tot_der[3] * np.conj(tot_der[12]) + tot_der[6] * np.conj(tot_der[6]))  # Gz Gzzx + Gzz Gzz
                ).real * force_coeff
         return np.array((Fxx, Fyy, Fzz))
 
     def calc_jacobian(tot_der, ind_der):
-        dFxx = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(ind_der['xx']) - np.conj(psi_0) * tot_der['xx'] * np.conj(ind_der['']) + (psi_0 - np.conj(psi_0)) * tot_der['x'] * np.conj(ind_der['x']) +
-                                   psi_1 * tot_der['xx'] * np.conj(ind_der['']) - np.conj(psi_1) * tot_der[''] * np.conj(ind_der['xx']) + (psi_1 - np.conj(psi_1)) * tot_der['x'] * np.conj(ind_der['x'])) +
-                1j * 3 * (psi_1 * tot_der['x'] * np.conj(ind_der['xxx']) - np.conj(psi_1) * tot_der['xxx'] * np.conj(ind_der['x']) + (psi_1 - np.conj(psi_1)) * tot_der['xx'] * np.conj(ind_der['xx']) +
-                          psi_1 * tot_der['y'] * np.conj(ind_der['xxy']) - np.conj(psi_1) * tot_der['xxy'] * np.conj(ind_der['y']) + (psi_1 - np.conj(psi_1)) * tot_der['xy'] * np.conj(ind_der['xy']) +
-                          psi_1 * tot_der['z'] * np.conj(ind_der['xxz']) - np.conj(psi_1) * tot_der['xxz'] * np.conj(ind_der['z']) + (psi_1 - np.conj(psi_1)) * tot_der['xz'] * np.conj(ind_der['xz']))
+        dFxx = (1j * array.k**2 * (psi_0 * tot_der[0] * np.conj(ind_der[4]) - np.conj(psi_0) * tot_der[4] * np.conj(ind_der[0]) + (psi_0 - np.conj(psi_0)) * tot_der[1] * np.conj(ind_der[1]) +  # G Gxx(i) - Gxx G(i) + Gx Gx(i)
+                                   psi_1 * tot_der[4] * np.conj(ind_der[0]) - np.conj(psi_1) * tot_der[0] * np.conj(ind_der[4]) + (psi_1 - np.conj(psi_1)) * tot_der[1] * np.conj(ind_der[1])) +  # Gxx G(i) - G Gxx(i) + Gx Gx(i)
+                1j * 3 * (psi_1 * tot_der[1] * np.conj(ind_der[10]) - np.conj(psi_1) * tot_der[10] * np.conj(ind_der[1]) + (psi_1 - np.conj(psi_1)) * tot_der[4] * np.conj(ind_der[4]) +  # Gx Gxxx(i) - Gxxx Gx(i) + Gxx Gxx(i)
+                          psi_1 * tot_der[2] * np.conj(ind_der[13]) - np.conj(psi_1) * tot_der[13] * np.conj(ind_der[2]) + (psi_1 - np.conj(psi_1)) * tot_der[7] * np.conj(ind_der[7]) +  # Gy Gxxy(i) - Gxxy Gy(i) + Gxy Gxy(i)
+                          psi_1 * tot_der[3] * np.conj(ind_der[14]) - np.conj(psi_1) * tot_der[14] * np.conj(ind_der[3]) + (psi_1 - np.conj(psi_1)) * tot_der[8] * np.conj(ind_der[8]))  # Gz Gxxz(i) - Gxxz Gz(i) + Gxz Gxz(i)
                 ) * force_coeff
-        dFyy = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(ind_der['yy']) - np.conj(psi_0) * tot_der['yy'] * np.conj(ind_der['']) + (psi_0 - np.conj(psi_0)) * tot_der['y'] * np.conj(ind_der['y']) +
-                                   psi_1 * tot_der['yy'] * np.conj(ind_der['']) - np.conj(psi_1) * tot_der[''] * np.conj(ind_der['yy']) + (psi_1 - np.conj(psi_1)) * tot_der['y'] * np.conj(ind_der['y'])) +
-                1j * 3 * (psi_1 * tot_der['x'] * np.conj(ind_der['yyx']) - np.conj(psi_1) * tot_der['yyx'] * np.conj(ind_der['x']) + (psi_1 - np.conj(psi_1)) * tot_der['xy'] * np.conj(ind_der['xy']) +
-                          psi_1 * tot_der['y'] * np.conj(ind_der['yyy']) - np.conj(psi_1) * tot_der['yyy'] * np.conj(ind_der['y']) + (psi_1 - np.conj(psi_1)) * tot_der['yy'] * np.conj(ind_der['yy']) +
-                          psi_1 * tot_der['z'] * np.conj(ind_der['yyz']) - np.conj(psi_1) * tot_der['yyz'] * np.conj(ind_der['z']) + (psi_1 - np.conj(psi_1)) * tot_der['yz'] * np.conj(ind_der['yz']))
+        dFyy = (1j * array.k**2 * (psi_0 * tot_der[0] * np.conj(ind_der[5]) - np.conj(psi_0) * tot_der[5] * np.conj(ind_der[0]) + (psi_0 - np.conj(psi_0)) * tot_der[2] * np.conj(ind_der[2]) +  # G Gyy(i) - Gyy G(i) + Gy Gy(i)
+                                   psi_1 * tot_der[5] * np.conj(ind_der[0]) - np.conj(psi_1) * tot_der[0] * np.conj(ind_der[5]) + (psi_1 - np.conj(psi_1)) * tot_der[2] * np.conj(ind_der[2])) +  # Gyy G(i) - G Gyy(i) + Gy Gy(i)
+                1j * 3 * (psi_1 * tot_der[1] * np.conj(ind_der[15]) - np.conj(psi_1) * tot_der[15] * np.conj(ind_der[1]) + (psi_1 - np.conj(psi_1)) * tot_der[7] * np.conj(ind_der[7]) +  # Gx Gyyx(i) - Gyyx Gx(i) + Gxy Gxy(i)
+                          psi_1 * tot_der[2] * np.conj(ind_der[11]) - np.conj(psi_1) * tot_der[11] * np.conj(ind_der[2]) + (psi_1 - np.conj(psi_1)) * tot_der[5] * np.conj(ind_der[5]) +  # Gy Gyyy(i) - Gyyy Gy(i) + Gyy Gyy(i)
+                          psi_1 * tot_der[3] * np.conj(ind_der[16]) - np.conj(psi_1) * tot_der[16] * np.conj(ind_der[3]) + (psi_1 - np.conj(psi_1)) * tot_der[9] * np.conj(ind_der[9]))  # Gz Gyyz(i) - Gyyz Gz(i) + Gyz Gyz(i)
                 ) * force_coeff
-        dFzz = (1j * array.k**2 * (psi_0 * tot_der[''] * np.conj(ind_der['zz']) - np.conj(psi_0) * tot_der['zz'] * np.conj(ind_der['']) + (psi_0 - np.conj(psi_0)) * tot_der['z'] * np.conj(ind_der['z']) +
-                                   psi_1 * tot_der['zz'] * np.conj(ind_der['']) - np.conj(psi_1) * tot_der[''] * np.conj(ind_der['zz']) + (psi_1 - np.conj(psi_1)) * tot_der['z'] * np.conj(ind_der['z'])) +
-                1j * 3 * (psi_1 * tot_der['x'] * np.conj(ind_der['zzx']) - np.conj(psi_1) * tot_der['zzx'] * np.conj(ind_der['x']) + (psi_1 - np.conj(psi_1)) * tot_der['xz'] * np.conj(ind_der['xz']) +
-                          psi_1 * tot_der['y'] * np.conj(ind_der['zzy']) - np.conj(psi_1) * tot_der['zzy'] * np.conj(ind_der['y']) + (psi_1 - np.conj(psi_1)) * tot_der['yz'] * np.conj(ind_der['yz']) +
-                          psi_1 * tot_der['z'] * np.conj(ind_der['zzz']) - np.conj(psi_1) * tot_der['zzz'] * np.conj(ind_der['z']) + (psi_1 - np.conj(psi_1)) * tot_der['zz'] * np.conj(ind_der['zz']))
+        dFzz = (1j * array.k**2 * (psi_0 * tot_der[0] * np.conj(ind_der[6]) - np.conj(psi_0) * tot_der[6] * np.conj(ind_der[0]) + (psi_0 - np.conj(psi_0)) * tot_der[3] * np.conj(ind_der[3]) +  # G Gzz(i) - Gzz G(i) + Gz Gz(i)
+                                   psi_1 * tot_der[6] * np.conj(ind_der[0]) - np.conj(psi_1) * tot_der[0] * np.conj(ind_der[6]) + (psi_1 - np.conj(psi_1)) * tot_der[3] * np.conj(ind_der[3])) +  # Gzz G(i) - G Gzz(i) + Gz Gz(i)
+                1j * 3 * (psi_1 * tot_der[1] * np.conj(ind_der[17]) - np.conj(psi_1) * tot_der[17] * np.conj(ind_der[1]) + (psi_1 - np.conj(psi_1)) * tot_der[8] * np.conj(ind_der[8]) +  # Gx Gzzx(i) - Gzzx Gx(i) + Gxz Gxz(i)
+                          psi_1 * tot_der[2] * np.conj(ind_der[18]) - np.conj(psi_1) * tot_der[18] * np.conj(ind_der[2]) + (psi_1 - np.conj(psi_1)) * tot_der[9] * np.conj(ind_der[9]) +  # Gy Gzzy(i) - Gzzy Gy(i) + Gyz Gyz(i)
+                          psi_1 * tot_der[3] * np.conj(ind_der[12]) - np.conj(psi_1) * tot_der[12] * np.conj(ind_der[3]) + (psi_1 - np.conj(psi_1)) * tot_der[6] * np.conj(ind_der[6]))  # Gz Gzzz(i) - Gzzz Gz(i) + Gzz Gzz(i)
                 ) * force_coeff
         return np.array((dFxx, dFyy, dFzz))
 
@@ -873,26 +846,19 @@ def second_order_stiffness(array, location, weights=None, spatial_derivatives=No
         def second_order_stiffness(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
             complex_coeff = amplitudes * np.exp(1j * phases)
-            tot_der = {}
-            for key, value in spatial_derivatives.items():
-                tot_der[key] = np.sum(complex_coeff * value)
-
+            tot_der = np.einsum('i,ji...->j...', complex_coeff, spatial_derivatives)
             return calc_values(tot_der)
     elif weights is False:
         def second_order_stiffness(phases_amplitudes):
-            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
+            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
             complex_coeff = amplitudes * np.exp(1j * phases)
-            ind_der = {}
-            tot_der = {}
-            for key, value in spatial_derivatives.items():
-                ind_der[key] = complex_coeff * value
-                tot_der[key] = np.sum(ind_der[key])
-
+            ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
+            tot_der = np.sum(ind_der, axis=1)
             value = calc_values(tot_der)
             jacobian = calc_jacobian(tot_der, ind_der)
 
             if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
+                return value, np.concatenate((jacobian.imag, np.einsum('i,ji...->ji...', 1 / amplitudes, jacobian.real)), axis=1)
             else:
                 return value, jacobian.imag
     else:
@@ -901,11 +867,8 @@ def second_order_stiffness(array, location, weights=None, spatial_derivatives=No
         def second_order_stiffness(phases_amplitudes):
             phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
             complex_coeff = amplitudes * np.exp(1j * phases)
-            ind_der = {}
-            tot_der = {}
-            for key, value in spatial_derivatives.items():
-                ind_der[key] = complex_coeff * value
-                tot_der[key] = np.sum(ind_der[key])
+            ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
+            tot_der = np.sum(ind_der, axis=1)
 
             # Tried to keep values and jacobian as single arrays and converting
             # weights to an array, but this seems to be the fastest implementation.
@@ -915,7 +878,7 @@ def second_order_stiffness(array, location, weights=None, spatial_derivatives=No
             jacobian = wx * dFxx + wy * dFyy + wz * dFzz
 
             if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
+                return value, np.concatenate((jacobian.imag, np.einsum('i,i...->i...', 1 / amplitudes, jacobian.real)), axis=0)
             else:
                 return value, jacobian.imag
     return second_order_stiffness
@@ -1005,28 +968,13 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
     if spatial_derivatives is None:
         spatial_derivatives = array.spatial_derivatives(location, orders=1)
     else:
-        input_ders = spatial_derivatives
-        spatial_derivatives = {'': input_ders[''],
-                               'x': input_ders['x'],
-                               'y': input_ders['y'],
-                               'z': input_ders['z']}
+        spatial_derivatives = spatial_derivatives[:models.num_spatial_derivatives[1]]
 
     def calc_values(complex_coeff):
-        p = np.sum(complex_coeff * spatial_derivatives[''])
-        px = np.sum(complex_coeff * spatial_derivatives['x'])
-        py = np.sum(complex_coeff * spatial_derivatives['y'])
-        pz = np.sum(complex_coeff * spatial_derivatives['y'])
-
-        return np.array((p, px, py, pz))
+        return np.einsum('i,ji...->j...', complex_coeff, spatial_derivatives)  # Summation of transducers weighted with the complex coefficients, per derivative.
 
     def calc_jacobian(complex_coeff, values):
-        p, px, py, pz = values
-        dp = 2 * p * np.conj(complex_coeff * spatial_derivatives[''])
-        dpx = 2 * px * np.conj(complex_coeff * spatial_derivatives['x'])
-        dpy = 2 * py * np.conj(complex_coeff * spatial_derivatives['y'])
-        dpz = 2 * pz * np.conj(complex_coeff * spatial_derivatives['z'])
-
-        return np.array((dp, dpx, dpy, dpz))
+        return 2 * np.einsum('i..., j, ij... -> ij...', values, np.conj(complex_coeff), np.conj(spatial_derivatives))  # Multiplies the derivatives with the complex coefficient per transducer, and the summer values per derivative.
 
     if weights is None:
         def pressure_null(phases_amplitudes):
@@ -1042,7 +990,7 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
             jacobian = calc_jacobian(complex_coeff, complex_value)
             value = np.abs(complex_value)**2
             if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes), axis=-1)
+                return value, np.concatenate((jacobian.imag, np.einsum('i,ji...->ji...', 1 / amplitudes, jacobian.real)), axis=1)
             else:
                 return value, jacobian.imag
     else:
@@ -1059,10 +1007,10 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
             complex_coeff = amplitudes * np.exp(1j * phases)
 
             complex_vals = calc_values(complex_coeff)
-            jacobian = np.sum(calc_jacobian(complex_coeff, complex_vals) * weights[:, np.newaxis], axis=0)
-            value = np.sum(np.abs(complex_vals)**2 * weights)
+            jacobian = np.einsum('i, i...', weights, calc_jacobian(complex_coeff, complex_vals))
+            value = np.einsum('i, i...', weights, np.abs(complex_vals)**2)
             if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, jacobian.real / amplitudes))
+                return value, np.concatenate((jacobian.imag, np.einsum('i,i...->i...', 1 / amplitudes, jacobian.real)), axis=0)
             else:
                 return value, jacobian.imag
     return pressure_null
