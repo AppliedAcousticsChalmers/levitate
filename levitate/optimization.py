@@ -923,12 +923,12 @@ def amplitude_limiting(array, bounds=(1e-3, 1 - 1e-3), order=4, scaling=10):
         _, amplitudes, variable_amps = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
         if not variable_amps:
             return 0, np.zeros(num_transducers)
-        under_idx = amplitudes < lower_bound
-        over_idx = amplitudes > upper_bound
+        under_idx = np.where(amplitudes < lower_bound)[0]
+        over_idx = np.where(amplitudes > upper_bound)[0]
         under = scaling * (lower_bound - amplitudes[under_idx])
         over = scaling * (amplitudes[over_idx] - upper_bound)
 
-        value = (under**order + over**order).sum()
+        value = np.sum(under**order) + np.sum(over**order)
         jacobian = np.zeros(2 * num_transducers)
         jacobian[num_transducers + under_idx] = under**(order - 1) * order
         jacobian[num_transducers + over_idx] = over**(order - 1) * order
