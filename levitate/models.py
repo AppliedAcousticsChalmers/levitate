@@ -1,40 +1,9 @@
 import numpy as np
 import logging
 from scipy.special import j0, j1
-import warnings
-warnings.filterwarnings('default', category=DeprecationWarning, module='levitate.models')
+from .materials import Air
 
 logger = logging.getLogger(__name__)
-
-c_air = 343
-rho_air = 1.2
-
-
-def update_air_properties(temperature=None, pressure=None):
-    """ Updates the module level air properties
-
-    Will update the module properties `c_air` and `rho_air` according to the
-    temperature and static pressure given.
-
-    Parameters
-    ----------
-    temperature : float
-        The current temperature of the air, in degrees Celcius.
-    pressure : float
-        The ambient hydrostatic pressure, in Pascals.
-
-    Note
-    ----
-    This should be called immidiately after module import, since changes
-    will not propagate to previously created objects.
-
-    """
-    R_spec = 287.058
-    gamma = 1.4
-    if temperature is not None:
-        globals()['c_air'] = (gamma * R_spec * (temperature + 273.15))**0.5
-    if pressure is not None:
-        globals()['rho_air'] = pressure / R_spec / (temperature + 273.15)
 
 
 def rectangular_grid(shape=None, spread=None, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
@@ -178,7 +147,7 @@ class TransducerModel:
     @k.setter
     def k(self, value):
         self._k = value
-        self._omega = value * c_air
+        self._omega = value * Air.c
 
     @property
     def omega(self):
@@ -187,7 +156,7 @@ class TransducerModel:
     @omega.setter
     def omega(self, value):
         self._omega = value
-        self._k = value / c_air
+        self._k = value / Air.c
 
     @property
     def freq(self):
