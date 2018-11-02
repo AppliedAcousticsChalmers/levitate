@@ -271,20 +271,19 @@ def create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivative
     #     elif 'amplitudes' in kwargs and 'phases' in kwargs:
     #         # Keyword input
     #         return kwargs['phases'], kwargs['amplitudes']
-    import functools
     def wrapper(f):
         try:
             len(weights)
         except TypeError:
             if weights is None:
-                @functools.wraps(f)
                 def func(phases_amplitudes):
+                    """Returns the values as is."""
                     phases, amplitudes, _ = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
                     complex_coeff = amplitudes * np.exp(1j * phases)
                     return calc_values(np.einsum('i,ji...->j...', complex_coeff, spatial_derivatives))
             else:
-                @functools.wraps(f)
                 def func(phases_amplitudes):
+                    """Returns the unweighted values as well as the unweighted jacobian."""
                     phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
                     complex_coeff = amplitudes * np.exp(1j * phases)
                     ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
@@ -296,8 +295,8 @@ def create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivative
                     else:
                         return value, jacobian.imag
         else:
-            @functools.wraps(f)
             def func(phases_amplitudes):
+                """Returns the weighted sum of the values and the weighted sum of the jacobian."""
                 phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
                 complex_coeff = amplitudes * np.exp(1j * phases)
                 ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
@@ -313,6 +312,11 @@ def create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivative
                     return value, np.concatenate((jacobian.imag, np.einsum('i,i...->i...', 1 / amplitudes, jacobian.real)), axis=0)
                 else:
                     return value, jacobian.imag
+        func.__name__ = f.__name__
+        func.__qualname__ = f.__qualname__
+        func.__module__ = f.__module__
+        if f.__doc__ is not None:
+            func.__doc__ = f.__doc__ + '\n' + func.__doc__
         return func
     return wrapper
 
@@ -396,7 +400,9 @@ def gorkov_divergence(array, location=None, weights=None, spatial_derivatives=No
 
         return np.stack((dUx, dUy, dUz), axis=0)
     @create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights)
-    def gorkov_divergence(*args, **kwargs): pass
+    def gorkov_divergence(*args, **kwargs):
+        """ Calculate the divergence of the Gor'kov potential. """
+        pass
     return gorkov_divergence
 
 
@@ -477,7 +483,9 @@ def gorkov_laplacian(array, location=None, weights=None, spatial_derivatives=Non
         return np.array((dUxx, dUyy, dUzz))
 
     @create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights)
-    def gorkov_laplacian(*args, **kwargs): pass
+    def gorkov_laplacian(*args, **kwargs):
+        """ Calculates the cartesian parts of the Laplacian of the Gor'kov potential."""
+        pass
     return gorkov_laplacian
 
 
@@ -572,7 +580,9 @@ def second_order_force(array, location=None, weights=None, spatial_derivatives=N
                ) * force_coeff
         return np.array((dFx, dFy, dFz))
     @create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights)
-    def second_order_force(*args, **kwargs): pass
+    def second_order_force(*args, **kwargs):
+        """Calculates the radiation force accounting for both standing and travelling waves."""
+        pass
     return second_order_force
 
 
@@ -668,7 +678,9 @@ def second_order_stiffness(array, location=None, weights=None, spatial_derivativ
         return np.array((dFxx, dFyy, dFzz))
 
     @create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights)
-    def second_order_stiffness(*args, **kwargs): pass
+    def second_order_stiffness(*args, **kwargs):
+        """Calculates the radiation stiffness accounting for both standing and travelling waves."""
+        pass
     return second_order_stiffness
 
 
@@ -706,8 +718,11 @@ def amplitude_limiting(array, bounds=(1e-3, 1 - 1e-3), order=4, scaling=10):
     upper_bound = np.asarray(bounds).max()
 
     def amplitude_limiting(phases_amplitudes):
-        # Note that this only makes sense as a cost function, and only for variable amplitudes,
-        # so no implementation for complex inputs is needed.
+        """Cost function to limit the amplitudes of an array.
+=
+        Note that this only makes sense as a cost function for minimzation,
+        and only for variable amplitudes.
+        """
         _, amplitudes, variable_amps = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
         if not variable_amps:
             return 0, np.zeros(num_transducers)
@@ -778,5 +793,7 @@ def pressure_null(array, location=None, weights=None, spatial_derivatives=None):
         return 2 * np.einsum('i..., i... -> i...', tot_der, np.conj(ind_der))
 
     @create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights)
-    def pressure_null(*args, **kwargs): pass
+    def pressure_null(*args, **kwargs):
+        """Calculates the pressure and possibly pressure gradient in a sound field."""
+        pass
     return pressure_null
