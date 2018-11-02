@@ -204,6 +204,15 @@ def test_vector_target():
     np.testing.assert_allclose(val, 1.9891260692384784e-17)
     np.testing.assert_allclose(phase_jac, np.array([1.21709071e-19, -1.21709071e-19]))
     np.testing.assert_allclose(ampl_jac, np.array([-1.06543769e-19, -1.07736340e-19]))
+    val_cpx, phase_jac_cpx, ampl_jac_cpx = vector_func(array.complex_amplitudes)
+    np.testing.assert_allclose(val, val_cpx)
+    np.testing.assert_allclose(phase_jac, phase_jac_cpx)
+    np.testing.assert_allclose(ampl_jac, ampl_jac_cpx)
+    val_kwrd, phase_jac_kwrd, ampl_jac_kwrd = vector_func(amplitudes=array.amplitudes, phases=array.phases)
+    np.testing.assert_allclose(val, val_kwrd)
+    np.testing.assert_allclose(phase_jac, phase_jac_kwrd)
+    np.testing.assert_allclose(ampl_jac, ampl_jac_kwrd)
+
 
 def test_amplitude_limiting():
     func = levitate.cost_functions.amplitude_limiting(array)
@@ -220,5 +229,8 @@ def test_minimize():
     zero_pressure = levitate.cost_functions.pressure_null(array, pos, weights=1e-3)
     quiet_zone = levitate.cost_functions.pressure_null(array, np.array([-5, -2, 60]) * 1e-3, weights=(1, 1 / array.k**2, 1 / array.k**2, 1 / array.k**2))
     array.phases = array.focus_phases(pos) + array.twin_signature()
-    result = levitate.cost_functions.minimize([[stiffness, zero_pressure], [stiffness, zero_pressure, quiet_zone]], array, variable_amplitudes=[False, True])
- 
+    result = levitate.cost_functions.minimize(zero_pressure, array)
+    result = levitate.cost_functions.minimize([zero_pressure, stiffness], array, variable_amplitudes=True)
+    result = levitate.cost_functions.minimize([[stiffness, zero_pressure], [stiffness, zero_pressure, quiet_zone]], array)
+    result = levitate.cost_functions.minimize([[stiffness, zero_pressure], [stiffness, zero_pressure, quiet_zone]], array, constrain_transducers=[0, 3])
+    result, status = levitate.cost_functions.minimize([[stiffness, zero_pressure], [stiffness, zero_pressure, quiet_zone]], array, basinhopping=True, minimize_kwargs={'tol': 1e-6}, callback=lambda **kwargs: False, return_optim_status=True)
