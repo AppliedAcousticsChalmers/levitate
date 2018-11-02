@@ -204,7 +204,7 @@ def test_vector_target():
     np.testing.assert_allclose(val, 1.9891260692384784e-17)
     np.testing.assert_allclose(phase_jac, np.array([1.21709071e-19, -1.21709071e-19]))
     np.testing.assert_allclose(ampl_jac, np.array([-1.06543769e-19, -1.07736340e-19]))
-    val_cpx, phase_jac_cpx, ampl_jac_cpx = vector_func(array.complex_amplitudes)
+    val_cpx, phase_jac_cpx, ampl_jac_cpx = vector_func(complex_amplitudes=array.complex_amplitudes)
     np.testing.assert_allclose(val, val_cpx)
     np.testing.assert_allclose(phase_jac, phase_jac_cpx)
     np.testing.assert_allclose(ampl_jac, ampl_jac_cpx)

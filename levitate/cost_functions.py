@@ -252,9 +252,23 @@ def vector_target(vector_calculator, target_vector=(0, 0, 0), weights=(1, 1, 1))
 
 
 def create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights):
+    import textwrap
     num_transducers = spatial_derivatives.shape[1]
 
     def parse_inputs(*args, **kwargs):
+        """
+        The input argument should be eigher phases AND amplitudes, OR complex amplitudes.
+        The arguments can be passed as keywords or normal arguments.
+
+        Parameters
+        ----------
+        phases : ndarray
+            The phases of the transducer elements in the array.
+        amplitudes : ndarray
+            The amplitudes of the transducer elements in the array.
+        complrex_amplitudes : ndarray
+            The complex amplitudes, corresponding to `amplitudes * np.exp(1j * phases)`
+        """
         if len(args) == 1 and np.iscomplexobj(args[0]) and len(args[0]) == num_transducers:
             # Single input with complex value
             return np.angle(args[0]), np.abs(args[0])
@@ -263,7 +277,9 @@ def create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivative
             return args
         elif 'amplitudes' in kwargs and 'phases' in kwargs:
             # Keyword input
-            return kwargs['phases'], kwargs['amplitudes']
+            return parse_inputs(kwargs['phases'], kwargs['amplitudes'])
+        elif 'complex_amplitudes' in kwargs:
+            return parse_inputs(kwargs['complex_amplitudes'])
 
     def wrapper(f):
         try:
@@ -271,13 +287,33 @@ def create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivative
         except TypeError:
             if weights is None:
                 def func(*args, **kwargs):
-                    """Returns the values as is."""
+                    """
+                    Returns
+                    -------
+                    values : ndarray
+                        The calculated values, shape `(M, ...)` where M is the relevant number of values,
+                        see above, and `...` is the shape of the positions where to calculate.
+                    """
                     phases, amplitudes = parse_inputs(*args, **kwargs)
                     complex_coeff = amplitudes * np.exp(1j * phases)
                     return calc_values(np.einsum('i,ji...->j...', complex_coeff, spatial_derivatives))
             else:
                 def func(*args, **kwargs):
-                    """Returns the unweighted values as well as the unweighted jacobian."""
+                    """
+                    Returns
+                    -------
+                    values : ndarray
+                        The calculated values, shape `(M, ...)` where M is the relevant number of values,
+                        see above, and `...` is the shape of the positions where to calculate.
+                    phase_jacobian : ndarray
+                        The jacobian of the values w.r.t the phase, shape `(M, N...)`
+                        where M is the relevant number of values, see above, N is the number of transducers,
+                        and `...` is the shape of the positions where to calculate.
+                    amplitude_jacobian : ndarray
+                        The jacobian of the values w.r.t the amplitude, shape `(M, N...)`
+                        where M is the relevant number of values, see above, N is the number of transducers,
+                        and `...` is the shape of the positions where to calculate.
+                    """
                     phases, amplitudes = parse_inputs(*args, **kwargs)
                     complex_coeff = amplitudes * np.exp(1j * phases)
                     ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
@@ -287,7 +323,18 @@ def create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivative
                     return value, jacobian.imag, np.einsum('i,ji...->ji...', 1 / amplitudes, jacobian.real)
         else:
             def func(*args, **kwargs):
-                """Returns the weighted sum of the values and the weighted sum of the jacobian."""
+                """
+                Returns
+                -------
+                values : ndarray
+                    The weighted sum of the values, has the same as the positions where to calculate.
+                phase_jacobian : ndarray
+                    The jacobian of the weighted sum of the values w.r.t the phase, shape `(N...)`
+                    where N is the number of transducers, and `...` is the shape of the positions where to calculate.
+                amplitude_jacobian : ndarray
+                    The jacobian of the weighted sum of the values w.r.t the amplitude, shape `(N...)`
+                    where N is the number of transducers, and `...` is the shape of the positions where to calculate.
+                """
                 phases, amplitudes = parse_inputs(*args, **kwargs)
                 complex_coeff = amplitudes * np.exp(1j * phases)
                 ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
@@ -301,8 +348,9 @@ def create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivative
         func.__name__ = f.__name__
         func.__qualname__ = f.__qualname__
         func.__module__ = f.__module__
+        func.__doc__ = textwrap.dedent(parse_inputs.__doc__) + textwrap.dedent(func.__doc__)
         if f.__doc__ is not None:
-            func.__doc__ = f.__doc__ + '\n' + func.__doc__
+            func.__doc__ = textwrap.dedent(f.__doc__) + textwrap.dedent(func.__doc__)
         return func
     return wrapper
 
@@ -387,7 +435,9 @@ def gorkov_divergence(array, location=None, weights=None, spatial_derivatives=No
         return np.stack((dUx, dUy, dUz), axis=0)
     @create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights)
     def gorkov_divergence(*args, **kwargs):
-        """ Calculate the divergence of the Gor'kov potential. """
+        """
+        Calculates the cartesian divergence of the Gor'kov potential.
+        """
         pass
     return gorkov_divergence
 
@@ -470,7 +520,9 @@ def gorkov_laplacian(array, location=None, weights=None, spatial_derivatives=Non
 
     @create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights)
     def gorkov_laplacian(*args, **kwargs):
-        """ Calculates the cartesian parts of the Laplacian of the Gor'kov potential."""
+        """
+        Calculates the cartesian parts of the Laplacian of the Gor'kov potential.
+        """
         pass
     return gorkov_laplacian
 
@@ -567,7 +619,9 @@ def second_order_force(array, location=None, weights=None, spatial_derivatives=N
         return np.array((dFx, dFy, dFz))
     @create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights)
     def second_order_force(*args, **kwargs):
-        """Calculates the radiation force accounting for both standing and travelling waves."""
+        """
+        Calculates the radiation force accounting for both standing and travelling waves.
+        """
         pass
     return second_order_force
 
@@ -665,7 +719,9 @@ def second_order_stiffness(array, location=None, weights=None, spatial_derivativ
 
     @create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights)
     def second_order_stiffness(*args, **kwargs):
-        """Calculates the radiation stiffness accounting for both standing and travelling waves."""
+        """
+        Calculates the radiation stiffness accounting for both standing and travelling waves.
+        """
         pass
     return second_order_stiffness
 
@@ -777,6 +833,8 @@ def pressure_null(array, location=None, weights=None, spatial_derivatives=None):
 
     @create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights)
     def pressure_null(*args, **kwargs):
-        """Calculates the pressure and possibly pressure gradient in a sound field."""
+        """
+        Calculates the pressure and possibly pressure gradient in a sound field.
+        """
         pass
     return pressure_null
