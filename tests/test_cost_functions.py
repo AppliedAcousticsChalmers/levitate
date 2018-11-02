@@ -183,3 +183,14 @@ def test_amplitude_limiting():
     val, jac = func(array.phases_amplitudes)
     np.testing.assert_allclose(val, 2.000000000000007e-08)
     np.testing.assert_allclose(jac, np.array([0.e+00, 0.e+00, 4.e-06, 4.e-06]))
+
+
+def test_minimize():
+    pos = np.array([5, -2, 80]) * 1e-3
+    array = levitate.arrays.TransducerArray(shape=2)
+    stiffness = levitate.cost_functions.second_order_stiffness(array, pos, weights=(-1, -1, -1))
+    zero_pressure = levitate.cost_functions.pressure_null(array, pos, weights=1e-3)
+    quiet_zone = levitate.cost_functions.pressure_null(array, np.array([-5, -2, 60]) * 1e-3, weights=(1, 1 / array.k**2, 1 / array.k**2, 1 / array.k**2))
+    array.phases = array.focus_phases(pos) + array.twin_signature()
+    result = levitate.cost_functions.minimize([[stiffness, zero_pressure], [stiffness, zero_pressure, quiet_zone]], array, variable_amplitudes=[False, True])
+ 

@@ -274,7 +274,7 @@ def minimize(functions, array, variable_amplitudes=False,
 
         for idx, (function, var_amp, const_trans, basinhop, clbck, precl, min_kwarg) in enumerate(zip(functions, variable_amplitudes, constrain_transducers, basinhopping, callback, precall, minimize_kwargs)):
             array.phases, array.amplitudes = precl(array.phases, array.amplitudes, idx)
-            result, opt_res = minimize_objectives(function, array, variable_amplitudes=var_amp,
+            result, opt_res = minimize(function, array, variable_amplitudes=var_amp,
                 constrain_transducers=const_trans, basinhopping=basinhop, return_optim_status=True, minimize_kwargs=min_kwarg)
             results.append(result.copy())
             opt_results.append(opt_res)
