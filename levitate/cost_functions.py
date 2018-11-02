@@ -759,21 +759,19 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
     num_transducers = array.num_transducers
     if spatial_derivatives is None:
         spatial_derivatives = array.spatial_derivatives(location, orders=1)
-    else:
+    if weights is None or weights is False:
         spatial_derivatives = spatial_derivatives[:num_spatial_derivatives[1]]
-    try:
+    else:
+        weights = np.atleast_1d(weights)
         if len(weights) == 4:
-            weights = np.asarray(weights)
+            # weights = np.asarray(weights)
+            spatial_derivatives = spatial_derivatives[:num_spatial_derivatives[1]]
         elif len(weights) == 3:
-            weights = np.concatenate(([0], weights))
-            # spatial_derivatives = spatial_derivatives[1:num_spatial_derivatives[1]]
-    except TypeError:
-        if weights is None or weights is False:
-            # spatial_derivatives = spatial_derivatives[:num_spatial_derivatives[1]]
-            pass
-        else:
-            # spatial_derivatives = spatial_derivatives[0]
-            weights = np.array((weights, 0, 0, 0))
+            # weights = np.concatenate(([0], weights))
+            spatial_derivatives = spatial_derivatives[1:num_spatial_derivatives[1]]
+        elif len(weights):
+            spatial_derivatives = spatial_derivatives[np.newaxis, 0]
+            # weights = np.array((weights, 0, 0, 0))
 
     def calc_values(tot_der):
         if weights is None:
