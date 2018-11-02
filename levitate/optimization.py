@@ -4,8 +4,9 @@ import scipy.optimize
 import logging
 import itertools
 
-from . import models
+# from . import models
 from .materials import Air
+from . import num_spatial_derivatives
 
 logger = logging.getLogger(__name__)
 
@@ -961,7 +962,7 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
     if spatial_derivatives is None:
         spatial_derivatives = array.spatial_derivatives(location, orders=1)
     else:
-        spatial_derivatives = spatial_derivatives[:models.num_spatial_derivatives[1]]
+        spatial_derivatives = spatial_derivatives[:num_spatial_derivatives[1]]
 
     def calc_values(complex_coeff):
         return np.einsum('i,ji...->j...', complex_coeff, spatial_derivatives)  # Summation of transducers weighted with the complex coefficients, per derivative.

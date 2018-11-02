@@ -1,4 +1,4 @@
-import levitate.models
+import levitate.transducers
 import numpy as np
 
 # Tests created with these air properties
@@ -13,7 +13,7 @@ receiver_pos = np.stack(([0.1, 0.2, 0.3], [-0.15, 1.27, 0.001]), axis=0)
 
 
 def test_TransducerModel():
-    transducer = levitate.models.TransducerModel()
+    transducer = levitate.transducers.TransducerModel()
     expected_result = np.array([-15.10269228 + 8.46147216j, -4.76079297 + 2.00641887j])
     np.testing.assert_allclose(transducer.greens_function(source_pos, source_normal, receiver_pos), expected_result)
     expected_result = np.array([
@@ -40,7 +40,7 @@ def test_TransducerModel():
 
 
 def test_ReflectingTransducer():
-    transducer = levitate.models.ReflectingTransducer(levitate.models.TransducerModel, plane_distance=0.5, plane_normal=(3, -1, 9), reflection_coefficient=np.exp(1j))
+    transducer = levitate.transducers.ReflectingTransducer(levitate.transducers.TransducerModel, plane_distance=0.5, plane_normal=(3, -1, 9), reflection_coefficient=np.exp(1j))
     expected_result = np.array([-22.81413464 + 10.64739914j, -3.69589556 + 5.43218304j])
     np.testing.assert_allclose(transducer.greens_function(source_pos, source_normal, receiver_pos), expected_result)
     expected_result = np.array([
@@ -66,7 +66,7 @@ def test_ReflectingTransducer():
     np.testing.assert_allclose(transducer.spatial_derivatives(source_pos, source_normal, receiver_pos), expected_result)
 
 def test_PlaneWaveTransducer():
-    transducer = levitate.models.PlaneWaveTransducer()
+    transducer = levitate.transducers.PlaneWaveTransducer()
     expected_result = np.array([0.10009402 + 5.99916504j, 5.8662305 + 1.2598967j])
     np.testing.assert_allclose(transducer.greens_function(source_pos, source_normal, receiver_pos), expected_result)
     expected_result = np.array([
@@ -93,7 +93,7 @@ def test_PlaneWaveTransducer():
 
 
 def test_CircularPiston():
-    transducer = levitate.models.CircularPiston(effective_radius=3e-3)
+    transducer = levitate.transducers.CircularPiston(effective_radius=3e-3)
     expected_result = np.array([-13.76846639 + 7.71395542j, -2.94292484 + 1.24028496j])
     np.testing.assert_allclose(transducer.greens_function(source_pos, source_normal, receiver_pos), expected_result)
     expected_result = np.array([
@@ -120,7 +120,7 @@ def test_CircularPiston():
 
 
 def test_CircularRing():
-    transducer = levitate.models.CircularRing(effective_radius=3e-3)
+    transducer = levitate.transducers.CircularRing(effective_radius=3e-3)
     expected_result = np.array([-12.47473964 + 6.98912884j, -1.39288579 + 0.58702665j])
     np.testing.assert_allclose(transducer.greens_function(source_pos, source_normal, receiver_pos), expected_result)
     expected_result = np.array([

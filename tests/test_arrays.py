@@ -1,4 +1,4 @@
-import levitate.models
+import levitate.arrays
 import levitate.hardware
 import numpy as np
 
@@ -9,7 +9,7 @@ Air.rho = 1.2
 
 
 def test_rectangular_grid():
-    positions, normals = levitate.models.rectangular_grid(shape=(5, 3), spread=10e-3)
+    positions, normals = levitate.arrays.rectangular_grid(shape=(5, 3), spread=10e-3)
     expected_positions = np.array([
         [-0.02, -0.01,  0.  ],
         [-0.01, -0.01,  0.  ],
@@ -47,7 +47,7 @@ def test_rectangular_grid():
 
 
 def test_double_sided_grid():
-    positions, normals = levitate.models.double_sided_grid(separation=0.5, shape=(2, 2), spread=5e-3, offset=(0.1, -0.2, 1.4), normal=(0.2, -1.4, 2), rotation=1, grid_generator=levitate.models.rectangular_grid)
+    positions, normals = levitate.arrays.double_sided_grid(separation=0.5, shape=(2, 2), spread=5e-3, offset=(0.1, -0.2, 1.4), normal=(0.2, -1.4, 2), rotation=1, grid_generator=levitate.arrays.rectangular_grid)
     expected_positions = np.array([
         [ 0.10066141, -0.20281387,  1.39796415],
         [ 0.1034611 , -0.19929373,  1.40014828],
@@ -72,7 +72,7 @@ def test_double_sided_grid():
 
 def test_Array_basics():
     grid = levitate.hardware.dragonfly_grid()
-    array = levitate.models.TransducerArray(grid=grid)
+    array = levitate.arrays.TransducerArray(grid=grid)
     array.omega = 200000
     np.testing.assert_allclose(2 * np.pi * array.freq, array.omega)
     array.k = 730
@@ -82,7 +82,8 @@ def test_Array_basics():
     array.freq = 41e3
     np.testing.assert_allclose(array.transducer_model.freq, 41e3)
 
-    array = levitate.models.TransducerArray(shape=(4, 4), transducer_model=levitate.models.PlaneWaveTransducer)
+    from levitate.transducers import PlaneWaveTransducer
+    array = levitate.arrays.TransducerArray(shape=(4, 4), transducer_model=PlaneWaveTransducer)
     pos = np.array([0.1, -0.2, 0.3])
     np.testing.assert_allclose(array.focus_phases(pos), np.array([-1.4782875, 0.70451472, 2.70433793, -1.76613547, 1.07535199, -3.05482743, -1.08272084, 0.70451472, -2.79668059, -0.67375749, 1.27038374, 3.03192953, -0.52217161, 1.57048339, -2.79668059, -1.0609514]))
     np.testing.assert_allclose(array.twin_signature(pos), np.array([-1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633]))
@@ -91,7 +92,7 @@ def test_Array_basics():
 
 
 def test_Array_calculations():
-    array = levitate.models.TransducerArray(shape=2)
+    array = levitate.arrays.TransducerArray(shape=2)
     expected_result = np.array([[
         [-198.36128871 + 541.993168j, -198.36128871 + 541.993168j],
         [1533.56189163 - 3027.90157115j, 1533.56189163 - 3027.90157115j],

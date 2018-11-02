@@ -6,7 +6,7 @@ from levitate.materials import Air
 Air.c = 343
 Air.rho = 1.2
 
-array = levitate.models.TransducerArray(shape=(2, 1))
+array = levitate.arrays.TransducerArray(shape=(2, 1))
 pos_1 = np.array([0.1, 0.2, 0.3])
 pos_2 = np.array([-0.15, 1.27, 0.001])
 both_pos = np.stack((pos_1, pos_2), axis=0)
