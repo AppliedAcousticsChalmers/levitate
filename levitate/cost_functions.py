@@ -258,6 +258,65 @@ def vector_target(vector_calculator, target_vector=(0, 0, 0), weights=(1, 1, 1))
     return vector_target
 
 
+def create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights):
+    num_transducers = spatial_derivatives.shape[1]
+
+    # def parse_inputs(*args, **kwargs):
+    #     if len(args) == 1 and np.iscomplexobj(args[0]) and len(args[0]) == num_transducers:
+    #         # Single input with complex value
+    #         return np.angle(args[0]), np.abs(args[0])
+    #     elif len(args) == 2 and len(args[0]) == num_transducers and len(args[1]) == num_transducers:
+    #         # Two inputs, should be phase, amplitude
+    #         return args
+    #     elif 'amplitudes' in kwargs and 'phases' in kwargs:
+    #         # Keyword input
+    #         return kwargs['phases'], kwargs['amplitudes']
+    import functools
+    def wrapper(f):
+        try:
+            len(weights)
+        except TypeError:
+            if weights is None:
+                @functools.wraps(f)
+                def func(phases_amplitudes):
+                    phases, amplitudes, _ = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
+                    complex_coeff = amplitudes * np.exp(1j * phases)
+                    return calc_values(np.einsum('i,ji...->j...', complex_coeff, spatial_derivatives))
+            else:
+                @functools.wraps(f)
+                def func(phases_amplitudes):
+                    phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
+                    complex_coeff = amplitudes * np.exp(1j * phases)
+                    ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
+                    tot_der = np.sum(ind_der, axis=1)
+                    value = calc_values(tot_der)
+                    jacobian = calc_jacobian(tot_der, ind_der)
+                    if variable_amplitudes:
+                        return value, np.concatenate((jacobian.imag, np.einsum('i,ji...->ji...', 1 / amplitudes, jacobian.real)), axis=1)
+                    else:
+                        return value, jacobian.imag
+        else:
+            @functools.wraps(f)
+            def func(phases_amplitudes):
+                phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
+                complex_coeff = amplitudes * np.exp(1j * phases)
+                ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
+                tot_der = np.sum(ind_der, axis=1)
+
+                values = calc_values(tot_der)
+                jacobians = calc_jacobian(tot_der, ind_der)
+                value = np.einsum('i, i...', weights, values)
+                jacobian = np.einsum('i, i...', weights, jacobians)
+                # value, jacobian = f(np.einsum('i, i...', weights, values), np.einsum('i, i...', weights, jacobians))
+
+                if variable_amplitudes:
+                    return value, np.concatenate((jacobian.imag, np.einsum('i,i...->i...', 1 / amplitudes, jacobian.real)), axis=0)
+                else:
+                    return value, jacobian.imag
+        return func
+    return wrapper
+
+
 def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
     """
     Creates a function, which calculates the divergence and the jacobian of the field
@@ -337,47 +396,8 @@ def gorkov_divergence(array, location, weights=None, spatial_derivatives=None, c
                gradient_coefficient * (tot_der[6] * np.conj(ind_der[3]) + tot_der[3] * np.conj(ind_der[6]))) * 2  # Gzz Gz(i) + Gz Gzz(i)
 
         return np.stack((dUx, dUy, dUz), axis=0)
-
-    if weights is None:
-        def gorkov_divergence(phases_amplitudes):
-            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
-            complex_coeff = amplitudes * np.exp(1j * phases)
-            tot_der = np.einsum('i,ji...->j...', complex_coeff, spatial_derivatives)
-            return calc_values(tot_der)
-    elif weights is False:
-        def gorkov_divergence(phases_amplitudes):
-            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
-            complex_coeff = amplitudes * np.exp(1j * phases)
-            ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
-            tot_der = np.sum(ind_der, axis=1)
-            value = calc_values(tot_der)
-            jacobian = calc_jacobian(tot_der, ind_der)
-
-            if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, np.einsum('i,ji...->ji...', 1 / amplitudes, jacobian.real)), axis=1)
-            else:
-                return value, jacobian.imag
-    else:
-        wx, wy, wz = weights
-
-        def gorkov_divergence(phases_amplitudes):
-            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
-            complex_coeff = amplitudes * np.exp(1j * phases)
-            ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
-            tot_der = np.sum(ind_der, axis=1)
-
-            # Tried to keep values and jacobian as single arrays and converting
-            # weights to an array, but this seems to be the fastest implementation.
-            Ux, Uy, Uz = calc_values(tot_der)
-            dUx, dUy, dUz = calc_jacobian(tot_der, ind_der)
-            value = wx * Ux + wy * Uy + wz * Uz
-            jacobian = wx * dUx + wy * dUy + wz * dUz
-
-            if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, np.einsum('i,i...->i...', 1 / amplitudes, jacobian.real)), axis=0)
-            else:
-                return value, jacobian.imag
-
+    @create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights)
+    def gorkov_divergence(*args, **kwargs): pass
     return gorkov_divergence
 
 
@@ -458,46 +478,8 @@ def gorkov_laplacian(array, location, weights=None, spatial_derivatives=None, c_
                 gradient_coefficient * (tot_der[12] * np.conj(ind_der[3]) + tot_der[3] * np.conj(ind_der[12]) + 2 * tot_der[6] * np.conj(ind_der[6]))) * 2  # Gzzz Gz(i) + Gz Gzzz(i) + 2 Gzz Gzz(i)
         return np.array((dUxx, dUyy, dUzz))
 
-    if weights is None:
-        def gorkov_laplacian(phases_amplitudes):
-            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
-            complex_coeff = amplitudes * np.exp(1j * phases)
-            tot_der = np.einsum('i,ji...->j...', complex_coeff, spatial_derivatives)
-            return calc_values(tot_der)
-    elif weights is False:
-        def gorkov_laplacian(phases_amplitudes):
-            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
-            complex_coeff = amplitudes * np.exp(1j * phases)
-            ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
-            tot_der = np.sum(ind_der, axis=1)
-            value = calc_values(tot_der)
-            jacobian = calc_jacobian(tot_der, ind_der)
-
-            if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, np.einsum('i,ji...->ji...', 1 / amplitudes, jacobian.real)), axis=1)
-            else:
-                return value, jacobian.imag
-    else:
-        wx, wy, wz = weights
-
-        def gorkov_laplacian(phases_amplitudes):
-            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
-            complex_coeff = amplitudes * np.exp(1j * phases)
-            ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
-            tot_der = np.sum(ind_der, axis=1)
-
-            # Tried to keep values and jacobian as single arrays and converting
-            # weights to an array, but this seems to be the fastest implementation.
-            Uxx, Uyy, Uzz = calc_values(tot_der)
-            dUxx, dUyy, dUzz = calc_jacobian(tot_der, ind_der)
-            value = wx * Uxx + wy * Uyy + wz * Uzz
-            jacobian = wx * dUxx + wy * dUyy + wz * dUzz
-
-            if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, np.einsum('i,i...->i...', 1 / amplitudes, jacobian.real)), axis=0)
-            else:
-                return value, jacobian.imag
-
+    @create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights)
+    def gorkov_laplacian(*args, **kwargs): pass
     return gorkov_laplacian
 
 
@@ -592,47 +574,8 @@ def second_order_force(array, location, weights=None, spatial_derivatives=None, 
                          psi_1 * tot_der[3] * np.conj(ind_der[6]) - np.conj(psi_1) * tot_der[6] * np.conj(ind_der[3]))   # Gz Gzz(i) - Gzz Gz(i)
                ) * force_coeff
         return np.array((dFx, dFy, dFz))
-
-    if weights is None:
-        def second_order_force(phases_amplitudes):
-            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
-            complex_coeff = amplitudes * np.exp(1j * phases)
-            tot_der = np.einsum('i,ji...->j...', complex_coeff, spatial_derivatives)
-            return calc_values(tot_der)
-    elif weights is False:
-        def second_order_force(phases_amplitudes):
-            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
-            complex_coeff = amplitudes * np.exp(1j * phases)
-            ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
-            tot_der = np.sum(ind_der, axis=1)
-
-            value = calc_values(tot_der)
-            jacobian = calc_jacobian(tot_der, ind_der)
-
-            if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, np.einsum('i,ji...->ji...', 1 / amplitudes, jacobian.real)), axis=1)
-            else:
-                return value, jacobian.imag
-    else:
-        wx, wy, wz = weights
-
-        def second_order_force(phases_amplitudes):
-            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
-            complex_coeff = amplitudes * np.exp(1j * phases)
-            ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
-            tot_der = np.sum(ind_der, axis=1)
-
-            # Tried to keep values and jacobian as single arrays and converting
-            # weights to an array, but this seems to be the fastest implementation.
-            Fx, Fy, Fz = calc_values(tot_der)
-            dFx, dFy, dFz = calc_jacobian(tot_der, ind_der)
-            value = wx * Fx + wy * Fy + wz * Fz
-            jacobian = wx * dFx + wy * dFy + wz * dFz
-
-            if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, np.einsum('i,i...->i...', 1 / amplitudes, jacobian.real)), axis=0)
-            else:
-                return value, jacobian.imag
+    @create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights)
+    def second_order_force(*args, **kwargs): pass
     return second_order_force
 
 
@@ -728,45 +671,8 @@ def second_order_stiffness(array, location, weights=None, spatial_derivatives=No
                 ) * force_coeff
         return np.array((dFxx, dFyy, dFzz))
 
-    if weights is None:
-        def second_order_stiffness(phases_amplitudes):
-            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
-            complex_coeff = amplitudes * np.exp(1j * phases)
-            tot_der = np.einsum('i,ji...->j...', complex_coeff, spatial_derivatives)
-            return calc_values(tot_der)
-    elif weights is False:
-        def second_order_stiffness(phases_amplitudes):
-            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
-            complex_coeff = amplitudes * np.exp(1j * phases)
-            ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
-            tot_der = np.sum(ind_der, axis=1)
-            value = calc_values(tot_der)
-            jacobian = calc_jacobian(tot_der, ind_der)
-
-            if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, np.einsum('i,ji...->ji...', 1 / amplitudes, jacobian.real)), axis=1)
-            else:
-                return value, jacobian.imag
-    else:
-        wx, wy, wz = weights
-
-        def second_order_stiffness(phases_amplitudes):
-            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
-            complex_coeff = amplitudes * np.exp(1j * phases)
-            ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
-            tot_der = np.sum(ind_der, axis=1)
-
-            # Tried to keep values and jacobian as single arrays and converting
-            # weights to an array, but this seems to be the fastest implementation.
-            Fxx, Fyy, Fzz = calc_values(tot_der)
-            dFxx, dFyy, dFzz = calc_jacobian(tot_der, ind_der)
-            value = wx * Fxx + wy * Fyy + wz * Fzz
-            jacobian = wx * dFxx + wy * dFyy + wz * dFzz
-
-            if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, np.einsum('i,i...->i...', 1 / amplitudes, jacobian.real)), axis=0)
-            else:
-                return value, jacobian.imag
+    @create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights)
+    def second_order_stiffness(*args, **kwargs): pass
     return second_order_stiffness
 
 
@@ -855,48 +761,29 @@ def pressure_null(array, location, weights=None, spatial_derivatives=None):
         spatial_derivatives = array.spatial_derivatives(location, orders=1)
     else:
         spatial_derivatives = spatial_derivatives[:num_spatial_derivatives[1]]
-
-    def calc_values(complex_coeff):
-        return np.einsum('i,ji...->j...', complex_coeff, spatial_derivatives)  # Summation of transducers weighted with the complex coefficients, per derivative.
-
-    def calc_jacobian(complex_coeff, values):
-        return 2 * np.einsum('i..., j, ij... -> ij...', values, np.conj(complex_coeff), np.conj(spatial_derivatives))  # Multiplies the derivatives with the complex coefficient per transducer, and the summer values per derivative.
-
-    if weights is None:
-        def pressure_null(phases_amplitudes):
-            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
-            complex_coeff = amplitudes * np.exp(1j * phases)
-            return calc_values(complex_coeff)
-    elif weights is False:
-        def pressure_null(phases_amplitudes):
-            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
-            complex_coeff = amplitudes * np.exp(1j * phases)
-
-            complex_value = calc_values(complex_coeff)
-            jacobian = calc_jacobian(complex_coeff, complex_value)
-            value = np.abs(complex_value)**2
-            if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, np.einsum('i,ji...->ji...', 1 / amplitudes, jacobian.real)), axis=1)
-            else:
-                return value, jacobian.imag
-    else:
-        try:
-            if len(weights) == 4:
-                weights = np.asarray(weights)
-            elif len(weights) == 3:
-                weights = np.concatenate(([0], weights))
-        except TypeError:
+    try:
+        if len(weights) == 4:
+            weights = np.asarray(weights)
+        elif len(weights) == 3:
+            weights = np.concatenate(([0], weights))
+            # spatial_derivatives = spatial_derivatives[1:num_spatial_derivatives[1]]
+    except TypeError:
+        if weights is None or weights is False:
+            # spatial_derivatives = spatial_derivatives[:num_spatial_derivatives[1]]
+            pass
+        else:
+            # spatial_derivatives = spatial_derivatives[0]
             weights = np.array((weights, 0, 0, 0))
 
-        def pressure_null(phases_amplitudes):
-            phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
-            complex_coeff = amplitudes * np.exp(1j * phases)
+    def calc_values(tot_der):
+        if weights is None:
+            return tot_der
+        else:
+            return np.abs(tot_der)**2
 
-            complex_vals = calc_values(complex_coeff)
-            jacobian = np.einsum('i, i...', weights, calc_jacobian(complex_coeff, complex_vals))
-            value = np.einsum('i, i...', weights, np.abs(complex_vals)**2)
-            if variable_amplitudes:
-                return value, np.concatenate((jacobian.imag, np.einsum('i,i...->i...', 1 / amplitudes, jacobian.real)), axis=0)
-            else:
-                return value, jacobian.imag
+    def calc_jacobian(tot_der, ind_der):
+        return 2 * np.einsum('i..., i... -> i...', tot_der, np.conj(ind_der))
+
+    @create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights)
+    def pressure_null(*args, **kwargs): pass
     return pressure_null
