@@ -28,11 +28,6 @@ class TransducerArray:
         The amplitudes of the transduder elements
     complex_amplitudes : complex numpy.ndarray
         Transducer controls, complex form
-    phases_amplitudes : numpy.ndarray
-        Transducer controls, concatenated phase-amplitude form.
-        This contains an array with two parts; first all phases, then all amplitudes.
-        As a setter this accepts either the concatenated form, complex values,
-        or just phases (amplitudes unchanged).
     num_transducers : int
         The number of transducers.
     k : float
@@ -111,23 +106,6 @@ class TransducerArray:
     def complex_amplitudes(self, value):
         self.amplitudes = np.abs(value)
         self.phases = np.angle(value)
-
-    @property
-    def phases_amplitudes(self):
-        return np.concatenate((self.phases, self.amplitudes))
-
-    @phases_amplitudes.setter
-    def phases_amplitudes(self, value):
-        if len(value) == 2 * self.num_transducers:
-            self.phases = value[:self.num_transducers]
-            self.amplitudes = value[self.num_transducers:]
-        elif len(value) == self.num_transducers:
-            if np.iscomplexobj(value):
-                self.complex_amplitudes = value
-            else:
-                self.phases = value
-        else:
-            raise ValueError('Cannot set {} phases and amplitudes with {} values!'.format(self.num_transducers, len(value)))
 
     def focus_phases(self, focus):
         """ Focuses the phases to create a focus point
