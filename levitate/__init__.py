@@ -2,7 +2,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-__all__ = ['transducers', 'arrays', 'optimization', 'hardware', 'materials']
+__all__ = ['transducers', 'arrays', 'cost_functions', 'hardware', 'materials']
 __version__ = '0.3.3dev'
 
 spatial_derivative_order = ['', 'x', 'y', 'z', 'xx', 'yy', 'zz', 'xy', 'xz', 'yz', 'xxx', 'yyy', 'zzz', 'xxy', 'xxz', 'yyx', 'yyz', 'zzx', 'zzy']

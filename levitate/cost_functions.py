@@ -118,10 +118,10 @@ class Optimizer:
         # method='BFGS', options={'return_all': True, 'gtol': 1e-5, 'norm': 2})
 
 
-def minimize_objectives(functions, array, variable_amplitudes=False,
-                        constrain_transducers=None, callback=None, precall=None,
-                        basinhopping=False, return_optim_status=False, minimize_kwargs=None,
-                        ):
+def minimize(functions, array, variable_amplitudes=False,
+             constrain_transducers=None, callback=None, precall=None,
+             basinhopping=False, return_optim_status=False, minimize_kwargs=None,
+             ):
     """
     Minimizes a set of cost functions.
 
