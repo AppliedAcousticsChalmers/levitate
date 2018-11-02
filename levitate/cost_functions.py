@@ -95,10 +95,18 @@ def minimize(functions, array, variable_amplitudes=False,
         if opt_args['jac']:
             def func(phases_amplitudes):
                 call_values[unconstrained_variables] = phases_amplitudes
-                results = [f(call_values) for f in functions]
-                value = np.sum(result[0] for result in results)
-                jacobian = np.sum(result[1] for result in results)[unconstrained_variables]
+                
+                # results = [f(call_values) for f in functions]
+                # value = np.sum(result[0] for result in results)
+                # jacobian = np.sum(result[1] for result in results)[unconstrained_variables]
 
+                phases = call_values[:array.num_transducers]
+                amplitudes = call_values[array.num_transducers:]
+                results = [f(phases, amplitudes) for f in functions]
+                value = np.sum(result[0] for result in results)
+                phase_jacobian = np.sum(result[1] for result in results)
+                amplitude_jacobian = np.sum(result[2] for result in results)
+                jacobian = np.concatenate([phase_jacobian, amplitude_jacobian])[unconstrained_variables]
                 return value, jacobian
         else:
             def func(phases_amplitudes):
@@ -198,25 +206,6 @@ class RadndomDisplacer:
         return x
 
 
-def _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False):
-    if np.iscomplexobj(phases_amplitudes):
-        if allow_complex:
-            phases = np.angle(phases_amplitudes)
-            amplitudes = np.abs(phases_amplitudes)
-            variable_amplitudes = None
-        else:
-            raise NotImplementedError('Jacobian does not exist for complex inputs!')
-    elif phases_amplitudes.size == num_transducers:
-        phases = phases_amplitudes
-        amplitudes = np.ones(num_transducers)
-        variable_amplitudes = False
-    elif phases_amplitudes.size == 2 * num_transducers:
-        phases = phases_amplitudes.ravel()[:num_transducers]
-        amplitudes = phases_amplitudes.ravel()[num_transducers:]
-        variable_amplitudes = True
-    return phases, amplitudes, variable_amplitudes
-
-
 def vector_target(vector_calculator, target_vector=(0, 0, 0), weights=(1, 1, 1)):
     """
     Creates a function which calculates the weighted squared difference between a
@@ -249,55 +238,61 @@ def vector_target(vector_calculator, target_vector=(0, 0, 0), weights=(1, 1, 1))
     target_vector = np.asarray(target_vector)
     weights = np.asarray(weights)
 
-    def vector_target(phases_amplitudes):
-        v, dv = vector_calculator(phases_amplitudes)
+    def vector_target(*args, **kwargs):
+        v, dv_phase, dv_ampl = vector_calculator(*args, **kwargs)
         difference = v - target_vector
         value = np.sum(np.abs(difference)**2 * weights)
-        jacobian = (2 * weights * difference).dot(dv)
-        return value, jacobian
+        jacobian_phase = (2 * weights * difference).dot(dv_phase)
+        jacobian_ampl = (2 * weights * difference).dot(dv_ampl)
+        return value, jacobian_phase, jacobian_ampl
     return vector_target
 
 
 def create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights):
     num_transducers = spatial_derivatives.shape[1]
 
-    # def parse_inputs(*args, **kwargs):
-    #     if len(args) == 1 and np.iscomplexobj(args[0]) and len(args[0]) == num_transducers:
-    #         # Single input with complex value
-    #         return np.angle(args[0]), np.abs(args[0])
-    #     elif len(args) == 2 and len(args[0]) == num_transducers and len(args[1]) == num_transducers:
-    #         # Two inputs, should be phase, amplitude
-    #         return args
-    #     elif 'amplitudes' in kwargs and 'phases' in kwargs:
-    #         # Keyword input
-    #         return kwargs['phases'], kwargs['amplitudes']
+    def parse_inputs(*args, **kwargs):
+        if len(args) == 1 and np.iscomplexobj(args[0]) and len(args[0]) == num_transducers:
+            # Single input with complex value
+            return np.angle(args[0]), np.abs(args[0])
+        elif len(args) == 2 and len(args[0]) == num_transducers and len(args[1]) == num_transducers:
+            # Two inputs, should be phase, amplitude
+            return args
+        elif 'amplitudes' in kwargs and 'phases' in kwargs:
+            # Keyword input
+            return kwargs['phases'], kwargs['amplitudes']
+
     def wrapper(f):
         try:
             len(weights)
         except TypeError:
             if weights is None:
-                def func(phases_amplitudes):
+                def func(*args, **kwargs):
                     """Returns the values as is."""
-                    phases, amplitudes, _ = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
+                    # phases, amplitudes, _ = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=True)
+                    phases, amplitudes = parse_inputs(*args, **kwargs)
                     complex_coeff = amplitudes * np.exp(1j * phases)
                     return calc_values(np.einsum('i,ji...->j...', complex_coeff, spatial_derivatives))
             else:
-                def func(phases_amplitudes):
+                def func(*args, **kwargs):
                     """Returns the unweighted values as well as the unweighted jacobian."""
-                    phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
+                    # phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
+                    phases, amplitudes = parse_inputs(*args, **kwargs)
                     complex_coeff = amplitudes * np.exp(1j * phases)
                     ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
                     tot_der = np.sum(ind_der, axis=1)
                     value = calc_values(tot_der)
                     jacobian = calc_jacobian(tot_der, ind_der)
-                    if variable_amplitudes:
-                        return value, np.concatenate((jacobian.imag, np.einsum('i,ji...->ji...', 1 / amplitudes, jacobian.real)), axis=1)
-                    else:
-                        return value, jacobian.imag
+                    return value, jacobian.imag, np.einsum('i,ji...->ji...', 1 / amplitudes, jacobian.real)
+                    # if variable_amplitudes:
+                    #     return value, np.concatenate((jacobian.imag, np.einsum('i,ji...->ji...', 1 / amplitudes, jacobian.real)), axis=1)
+                    # else:
+                    #     return value, jacobian.imag
         else:
-            def func(phases_amplitudes):
+            def func(*args, **kwargs):
                 """Returns the weighted sum of the values and the weighted sum of the jacobian."""
-                phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
+                # phases, amplitudes, variable_amplitudes = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
+                phases, amplitudes = parse_inputs(*args, **kwargs)
                 complex_coeff = amplitudes * np.exp(1j * phases)
                 ind_der = np.einsum('i,ji...->ji...', complex_coeff, spatial_derivatives)
                 tot_der = np.sum(ind_der, axis=1)
@@ -308,10 +303,11 @@ def create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivative
                 jacobian = np.einsum('i, i...', weights, jacobians)
                 # value, jacobian = f(np.einsum('i, i...', weights, values), np.einsum('i, i...', weights, jacobians))
 
-                if variable_amplitudes:
-                    return value, np.concatenate((jacobian.imag, np.einsum('i,i...->i...', 1 / amplitudes, jacobian.real)), axis=0)
-                else:
-                    return value, jacobian.imag
+                return value, jacobian.imag, np.einsum('i,i...->i...', 1 / amplitudes, jacobian.real)
+                # if variable_amplitudes:
+                #     return value, np.concatenate((jacobian.imag, np.einsum('i,i...->i...', 1 / amplitudes, jacobian.real)), axis=0)
+                # else:
+                #     return value, jacobian.imag
         func.__name__ = f.__name__
         func.__qualname__ = f.__qualname__
         func.__module__ = f.__module__
@@ -717,26 +713,23 @@ def amplitude_limiting(array, bounds=(1e-3, 1 - 1e-3), order=4, scaling=10):
     lower_bound = np.asarray(bounds).min()
     upper_bound = np.asarray(bounds).max()
 
-    def amplitude_limiting(phases_amplitudes):
+    def amplitude_limiting(phases, amplitudes):
         """Cost function to limit the amplitudes of an array.
-=
+
         Note that this only makes sense as a cost function for minimzation,
         and only for variable amplitudes.
         """
-        _, amplitudes, variable_amps = _phase_and_amplitude_input(phases_amplitudes, num_transducers, allow_complex=False)
-        if not variable_amps:
-            return 0, np.zeros(num_transducers)
         under_idx = np.where(amplitudes < lower_bound)[0]
         over_idx = np.where(amplitudes > upper_bound)[0]
         under = scaling * (lower_bound - amplitudes[under_idx])
         over = scaling * (amplitudes[over_idx] - upper_bound)
 
         value = np.sum(under**order) + np.sum(over**order)
-        jacobian = np.zeros(2 * num_transducers)
-        jacobian[num_transducers + under_idx] = under**(order - 1) * order
-        jacobian[num_transducers + over_idx] = over**(order - 1) * order
+        jacobian = np.zeros(num_transducers)
+        jacobian[under_idx] = under**(order - 1) * order
+        jacobian[over_idx] = over**(order - 1) * order
 
-        return value, jacobian
+        return value, np.zeros(num_transducers), jacobian
     return amplitude_limiting
 
 
