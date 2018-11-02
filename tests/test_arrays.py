@@ -2,6 +2,11 @@ import levitate.models
 import levitate.hardware
 import numpy as np
 
+# Tests created with these air properties
+from levitate.materials import Air
+Air.c = 343
+Air.rho = 1.2
+
 
 def test_rectangular_grid():
     positions, normals = levitate.models.rectangular_grid(shape=(5, 3), spread=10e-3)
@@ -73,7 +78,7 @@ def test_Array_basics():
     array.k = 730
     np.testing.assert_allclose(2 * np.pi / array.k, array.wavelength)
     array.wavelength = 8.5e-3
-    np.testing.assert_allclose(levitate.models.c_air, array.wavelength * array.freq)
+    np.testing.assert_allclose(Air.c, array.wavelength * array.freq)
     array.freq = 41e3
     np.testing.assert_allclose(array.transducer_model.freq, 41e3)
 

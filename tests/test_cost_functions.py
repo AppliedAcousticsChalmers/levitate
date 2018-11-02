@@ -1,6 +1,11 @@
 import levitate
 import numpy as np
 
+# Tests created with these air properties
+from levitate.materials import Air
+Air.c = 343
+Air.rho = 1.2
+
 array = levitate.models.TransducerArray(shape=(2, 1))
 pos_1 = np.array([0.1, 0.2, 0.3])
 pos_2 = np.array([-0.15, 1.27, 0.001])
