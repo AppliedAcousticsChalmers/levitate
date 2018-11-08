@@ -296,7 +296,10 @@ def create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivative
                     """
                     phases, amplitudes = parse_inputs(*args, **kwargs)
                     complex_coeff = amplitudes * np.exp(1j * phases)
-                    return calc_values(np.einsum('i,ji...->j...', complex_coeff, spatial_derivatives))
+                    values = calc_values(np.einsum('i,ji...->j...', complex_coeff, spatial_derivatives))
+                    if values.shape[0] == 1:
+                        values = values[0]
+                    return values
             else:
                 def func(*args, **kwargs):
                     """

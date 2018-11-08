@@ -54,14 +54,8 @@ class TransducerArray:
         else:
             self.transducer_model = transducer_model
 
-        # if not hasattr(shape, '__len__') or len(shape) == 1:
-            # self.shape = (shape, shape)
-        # else:
-            # self.shape = shape
-        # if grid is None:
-            # self.transducer_positions, self.transducer_normals = rectangular_grid(self.shape, self.transducer_size)
-        # else:
-            # self.transducer_positions, self.transducer_normals = grid
+        self.calculate = PersistentFieldEvaluator(self)
+
         self.transducer_positions = transducer_positions
         self.num_transducers = self.transducer_positions.shape[0]
         if transducer_normals.ndim == 1:
@@ -136,45 +130,6 @@ class TransducerArray:
             phases = self.phases
         focus_phases = self.focus_phases(focus)
         return np.mod(phases - focus_phases + np.pi, 2 * np.pi) - np.pi
-
-    def calculate_pressure(self, point, transducer=None):
-        """ Calculates the complex pressure amplitude created by the array.
-
-        Parameters
-        ----------
-        point : numpy.ndarray or tuple
-            Either a Nx3 ndarray with [x,y,z] as rows or a tuple with three matrices for x, y, z.
-        transducer : int, optional
-            Calculate only the pressure for the transducer with this index.
-            If None (default) the sum from all transducers is calculated.
-
-        Returns
-        -------
-        out : numpy.ndarray
-            The calculated pressures, on the same form as the input with the last dimention removed
-        """
-        if type(point) is tuple:
-            reshape = True
-            shape = point[0].shape
-            raveled = [pi.ravel() for pi in point]
-            point = np.stack(raveled, axis=1)
-        else:
-            reshape = False
-
-        if transducer is None:
-            # Calculate for the sum of all transducers
-            p = 0
-            for idx in range(self.num_transducers):
-                p += self.amplitudes[idx] * np.exp(1j * self.phases[idx]) * self.transducer_model.greens_function(
-                    self.transducer_positions[idx], self.transducer_normals[idx], point)
-        else:
-            p = self.amplitudes[transducer] * np.exp(1j * self.phases[transducer]) * self.transducer_model.greens_function(
-                    self.transducer_positions[transducer], self.transducer_normals[transducer], point)
-
-        if reshape:
-            return p.reshape(shape)
-        else:
-            return p
 
     def spatial_derivatives(self, receiver_position, orders=3):
         """ Calculates the spatial derivatives for all the transducers
@@ -374,3 +329,39 @@ class DoublesidedArray:
         pos_1, norm_1 = super().grid_generator(offset=offset - 0.5 * separation * normal, normal=normal, rotation=rotation, **kwargs)
         pos_2, norm_2 = super().grid_generator(offset=offset + 0.5 * separation * normal, normal=-normal, rotation=-rotation, **kwargs)
         return np.concatenate([pos_1, pos_2], axis=0), np.concatenate([norm_1, norm_2], axis=0)
+
+
+class PersistentFieldEvaluator:
+    from . import cost_functions
+
+    def __init__(self, array):
+        self.array = array
+        self._last_positions = None
+        self._spatial_derivatives = None
+        self._existing_orders = -1
+
+    def spatial_derivatives(self, positions, orders=3):
+        if (
+            self._spatial_derivatives is not None and
+            self._existing_orders >= orders and
+            positions.shape == self._last_positions.shape and
+            np.allclose(positions, self._last_positions)
+        ):
+            return self._spatial_derivatives
+
+        self._spatial_derivatives = self.array.spatial_derivatives(positions, orders)
+        self._existing_orders = orders
+        self._last_positions = positions
+        return self._spatial_derivatives
+
+    def pressure(self, positions):
+        return self.cost_functions.pressure(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=0))(self.array.phases, self.array.amplitudes)
+
+    def velocity(self, positions):
+        return self.cost_functions.velocity(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=1))(self.array.phases, self.array.amplitudes)
+
+    def force(self, positions):
+        return self.cost_functions.second_order_force(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=2))(self.array.phases, self.array.amplitudes)
+
+    def stiffness(self, positions):
+        return self.cost_functions.second_order_stiffness(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=3))(self.array.phases, self.array.amplitudes)
