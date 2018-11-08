@@ -9,23 +9,24 @@ Air.rho = 1.2
 
 
 def test_rectangular_grid():
-    positions, normals = levitate.arrays.rectangular_grid(shape=(5, 3), spread=10e-3)
+    # positions, normals = levitate.arrays.rectangular_grid(shape=(5, 3), spread=10e-3)
+    array = levitate.arrays.RectangularArray(shape=(5, 3), transducer_size=10e-3)
     expected_positions = np.array([
-        [-0.02, -0.01,  0.  ],
-        [-0.01, -0.01,  0.  ],
-        [ 0.  , -0.01,  0.  ],
-        [ 0.01, -0.01,  0.  ],
-        [ 0.02, -0.01,  0.  ],
-        [-0.02,  0.  ,  0.  ],
-        [-0.01,  0.  ,  0.  ],
-        [ 0.  ,  0.  ,  0.  ],
-        [ 0.01,  0.  ,  0.  ],
-        [ 0.02,  0.  ,  0.  ],
-        [-0.02,  0.01,  0.  ],
-        [-0.01,  0.01,  0.  ],
-        [ 0.  ,  0.01,  0.  ],
-        [ 0.01,  0.01,  0.  ],
-        [ 0.02,  0.01,  0.  ]])
+        [-0.02, -0.01, 0.],
+        [-0.01, -0.01, 0.],
+        [0.   , -0.01, 0.],
+        [ 0.01, -0.01, 0.],
+        [ 0.02, -0.01, 0.],
+        [-0.02,  0.  , 0.],
+        [-0.01,  0.  , 0.],
+        [ 0.  ,  0.  , 0.],
+        [ 0.01,  0.  , 0.],
+        [ 0.02,  0.  , 0.],
+        [-0.02,  0.01, 0.],
+        [-0.01,  0.01, 0.],
+        [ 0.  ,  0.01, 0.],
+        [ 0.01,  0.01, 0.],
+        [ 0.02,  0.01, 0.]])
     expected_normals = np.array([
         [0., 0., 1.],
         [0., 0., 1.],
@@ -42,37 +43,38 @@ def test_rectangular_grid():
         [0., 0., 1.],
         [0., 0., 1.],
         [0., 0., 1.]])
-    np.testing.assert_allclose(positions, expected_positions)
-    np.testing.assert_allclose(normals, expected_normals)
+    np.testing.assert_allclose(array.transducer_positions, expected_positions)
+    np.testing.assert_allclose(array.transducer_normals, expected_normals)
 
 
 def test_double_sided_grid():
-    positions, normals = levitate.arrays.double_sided_grid(separation=0.5, shape=(2, 2), spread=5e-3, offset=(0.1, -0.2, 1.4), normal=(0.2, -1.4, 2), rotation=1, grid_generator=levitate.arrays.rectangular_grid)
+    # positions, normals = levitate.arrays.double_sided_grid(separation=0.5, shape=(2, 2), spread=5e-3, offset=(0.1, -0.2, 1.4), normal=(0.2, -1.4, 2), rotation=1, grid_generator=levitate.arrays.rectangular_grid)
+    array = levitate.arrays.DoublesidedArray(levitate.arrays.RectangularArray, separation=0.5, shape=(2, 2), spread=5e-3, offset=(0.1, -0.2, 1.4), normal=(0.2, -1.4, 2), rotation=1)
     expected_positions = np.array([
-        [ 0.10066141, -0.20281387,  1.39796415],
-        [ 0.1034611 , -0.19929373,  1.40014828],
-        [ 0.0965389 , -0.20070627,  1.39985172],
-        [ 0.09933859, -0.19718613,  1.40203585],
-        [ 0.13768737, -0.4872397 ,  1.80753591],
-        [ 0.13922077, -0.48327024,  1.81016119],
-        [ 0.14242889, -0.48827736,  1.80633539],
-        [ 0.14396229, -0.4843079 ,  1.80896067]])
+        [+0.08024900, -0.05992697, +1.19384001],
+        [+0.08304868, -0.05640683, +1.19602413],
+        [+0.07612649, -0.05781937, +1.19572758],
+        [+0.07892617, -0.05429923, +1.19791170],
+        [+0.11727496, -0.34435280, +1.60341176],
+        [+0.11880835, -0.34038334, +1.60603704],
+        [+0.12201648, -0.34539046, +1.60221125],
+        [+0.12354987, -0.34142100, +1.60483653]])
     expected_normals = np.array([
-        [ 0.08164966, -0.57154761,  0.81649658],
-        [ 0.08164966, -0.57154761,  0.81649658],
-        [ 0.08164966, -0.57154761,  0.81649658],
-        [ 0.08164966, -0.57154761,  0.81649658],
-        [-0.08164966,  0.57154761, -0.81649658],
-        [-0.08164966,  0.57154761, -0.81649658],
-        [-0.08164966,  0.57154761, -0.81649658],
-        [-0.08164966,  0.57154761, -0.81649658]])
-    np.testing.assert_allclose(positions, expected_positions)
-    np.testing.assert_allclose(normals, expected_normals)
+        [+0.08164966, -0.57154761, +0.81649658],
+        [+0.08164966, -0.57154761, +0.81649658],
+        [+0.08164966, -0.57154761, +0.81649658],
+        [+0.08164966, -0.57154761, +0.81649658],
+        [-0.08164966, +0.57154761, -0.81649658],
+        [-0.08164966, +0.57154761, -0.81649658],
+        [-0.08164966, +0.57154761, -0.81649658],
+        [-0.08164966, +0.57154761, -0.81649658]])
+    np.testing.assert_allclose(array.transducer_positions, expected_positions)
+    np.testing.assert_allclose(array.transducer_normals, expected_normals)
 
 
 def test_Array_basics():
-    grid = levitate.hardware.dragonfly_grid()
-    array = levitate.arrays.TransducerArray(grid=grid)
+    pos, norm = levitate.hardware.dragonfly_grid()
+    array = levitate.arrays.TransducerArray(pos, norm)
     array.omega = 200000
     np.testing.assert_allclose(2 * np.pi * array.freq, array.omega)
     array.k = 730
@@ -83,7 +85,7 @@ def test_Array_basics():
     np.testing.assert_allclose(array.transducer_model.freq, 41e3)
 
     from levitate.transducers import PlaneWaveTransducer
-    array = levitate.arrays.TransducerArray(shape=(4, 4), transducer_model=PlaneWaveTransducer)
+    array = levitate.arrays.RectangularArray(shape=(4, 4), transducer_model=PlaneWaveTransducer)
     pos = np.array([0.1, -0.2, 0.3])
     np.testing.assert_allclose(array.focus_phases(pos), np.array([-1.4782875, 0.70451472, 2.70433793, -1.76613547, 1.07535199, -3.05482743, -1.08272084, 0.70451472, -2.79668059, -0.67375749, 1.27038374, 3.03192953, -0.52217161, 1.57048339, -2.79668059, -1.0609514]))
     np.testing.assert_allclose(array.twin_signature(pos), np.array([-1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633]))
@@ -92,7 +94,7 @@ def test_Array_basics():
 
 
 def test_Array_calculations():
-    array = levitate.arrays.TransducerArray(shape=2)
+    array = levitate.arrays.RectangularArray(shape=2)
     expected_result = np.array([[
         [-198.36128871 + 541.993168j, -198.36128871 + 541.993168j],
         [1533.56189163 - 3027.90157115j, 1533.56189163 - 3027.90157115j],

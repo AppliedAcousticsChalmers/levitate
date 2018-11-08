@@ -5,7 +5,7 @@ from levitate.materials import Air
 Air.c = 343
 Air.rho = 1.2
 
-array = levitate.arrays.TransducerArray(shape=(2, 1))
+array = levitate.arrays.RectangularArray(shape=(2, 1))
 pos_1 = np.array([0.1, 0.2, 0.3])
 pos_2 = np.array([-0.15, 1.27, 0.001])
 both_pos = np.stack((pos_1, pos_2), axis=0)
@@ -261,7 +261,7 @@ def test_amplitude_limiting():
 
 def test_minimize():
     pos = np.array([5, -2, 80]) * 1e-3
-    array = levitate.arrays.TransducerArray(shape=2)
+    array = levitate.arrays.RectangularArray(shape=2)
     stiffness = levitate.cost_functions.second_order_stiffness(array, pos, weights=(-1, -1, -1))
     zero_pressure = levitate.cost_functions.pressure(array, pos, weight=1e-3)
     quiet_zone_p = levitate.cost_functions.pressure(array, np.array([-5, -2, 60]) * 1e-3, weight=1)
