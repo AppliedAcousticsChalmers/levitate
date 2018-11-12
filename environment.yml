@@ -2,9 +2,15 @@ name: levitate_dev
 dependencies:
   - numpy
   - scipy
-  - matplotlib
   - jupyter
   - snakeviz
   - line_profiler
+  - ipdb
+  - sphinx
+  - pytest
+  - pytest-cov
+  - flake8
+  - pip
   - pip:
     - -e .
+    - sphinx-rtd-theme

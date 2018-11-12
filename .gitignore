@@ -1,4 +1,5 @@
 levitate.egg-info
-docs/_build
+build
 *.npy
 *.dat
+.logs
