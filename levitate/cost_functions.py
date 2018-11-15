@@ -185,7 +185,7 @@ def minimize(functions, array, variable_amplitudes=False,
             if clbck(array=array, retult=result, optim_status=opt_res, idx=idx) is False:
                 break
 
-        array.phases_amplitudes = initial_array_state
+        array.complex_amplitudes = initial_array_state
         if return_optim_status:
             return np.asarray(results), opt_results
         else:
