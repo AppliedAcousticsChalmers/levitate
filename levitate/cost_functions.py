@@ -99,9 +99,9 @@ def minimize(functions, array, variable_amplitudes=False,
                     call_amplitudes[unconstrained_transducers] = phases_amplitudes[num_unconstrained_transducers:]
 
                 results = [f(call_phases, call_amplitudes) for f in functions]
-                value = np.sum(result[0] for result in results)
-                phase_jacobian = np.sum(result[1] for result in results)
-                amplitude_jacobian = np.sum(result[2] for result in results)
+                value = sum(result[0] for result in results)
+                phase_jacobian = sum(result[1] for result in results)
+                amplitude_jacobian = sum(result[2] for result in results)
 
                 if variable_amplitudes:
                     jacobian = np.concatenate([phase_jacobian[unconstrained_transducers], amplitude_jacobian[unconstrained_transducers]])
@@ -113,7 +113,7 @@ def minimize(functions, array, variable_amplitudes=False,
                 call_phases[unconstrained_transducers] = phases_amplitudes[:num_unconstrained_transducers]
                 if variable_amplitudes:
                     call_amplitudes[unconstrained_transducers] = phases_amplitudes[num_unconstrained_transducers:]
-                value = np.sum([f(call_phases, call_amplitudes) for f in functions])
+                value = sum([f(call_phases, call_amplitudes) for f in functions])
                 return value
 
         if basinhopping:
