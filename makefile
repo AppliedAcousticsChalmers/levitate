@@ -81,7 +81,7 @@ clean_tests :
 	rm -rdf .pytest_cache
 
 $(BUILDDIR)/$(TESTSDIR)/testresult.txt : $(LOGDIR)/$(TESTSDIR) $(BUILDDIR)/$(TESTSDIR) $(tests_files) $(package_files)
-	@pytest --cache-clear --cov $(PACKAGE_NAME) --cov-report term-missing | tee $(BUILDDIR)/$(TESTSDIR)/testresult.txt
+	@pytest --color=yes --cache-clear --cov $(PACKAGE_NAME) --cov-report term-missing | tee $(BUILDDIR)/$(TESTSDIR)/testresult.txt
 
 $(BUILDDIR)/$(TESTSDIR)/formatresult.txt : $(LOGDIR)/$(TESTSDIR) $(BUILDDIR)/$(TESTSDIR) $(package_files)
 	$(info ============================= Formatting summary ==============================)
