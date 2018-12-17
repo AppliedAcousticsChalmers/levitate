@@ -95,12 +95,18 @@ $(LOGDIR)/$(TESTSDIR) : $(TESTSDIR)/requirements.txt $(LOGDIR)
 # =====
 # Docs
 # =====
-.PHONY: docs
-docs: $(BUILDDIR)/$(DOCSDIR) ## Build the documentation
+.PHONY: docs pdfdocs
+docs: $(BUILDDIR)/$(DOCSDIR)/html ## Build the documentation
+pdfdocs: $(BUILDDIR)/$(DOCSDIR)/*.pdf ## Build the documentation
 
-$(BUILDDIR)/$(DOCSDIR) : $(LOGDIR)/$(DOCSDIR) $(docs_files) $(package_files)
+$(BUILDDIR)/$(DOCSDIR)/html: $(LOGDIR)/$(DOCSDIR) $(docs_files) $(package_files)
 	$(info ============================= Building docs ==============================)
-	sphinx-build -b html $(DOCSDIR) $(BUILDDIR)/$(DOCSDIR)
+	sphinx-build -M html $(DOCSDIR) $(BUILDDIR)/$(DOCSDIR)
+
+$(BUILDDIR)/$(DOCSDIR)/*.pdf: $(LOGDIR)/$(DOCSDIR) $(docs_files) $(package_files)
+	$(info ============================= Building docs ==============================)
+	sphinx-build -M latexpdf $(DOCSDIR) $(BUILDDIR)/$(DOCSDIR)
+	mv $(BUILDDIR)/$(DOCSDIR)/latex/*.pdf $(BUILDDIR)/$(DOCSDIR)
 
 $(LOGDIR)/$(DOCSDIR) : $(DOCSDIR)/requirements.txt $(LOGDIR)
 	pip install -r $(DOCSDIR)/requirements.txt | tee $(LOGDIR)/$(DOCSDIR)
