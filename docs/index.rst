@@ -9,6 +9,7 @@ Contents
     :maxdepth: 2
 
     introduction
+    package
     api_docs
 
 .. only:: html

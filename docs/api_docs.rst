@@ -1,4 +1,6 @@
-User API Documentation
+.. _api_docs:
+
+API Documentation
 ======================
 .. default-role:: py:obj
 
