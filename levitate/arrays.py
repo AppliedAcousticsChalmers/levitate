@@ -1,56 +1,71 @@
+"""Handling of transducer arrays.
+
+The primary base class is the `TransducerArray` class, which contains the most
+frequently used methods.
+"""
+
 import numpy as np
 from . import num_spatial_derivatives
 
 
 class TransducerArray:
-    """ Class to handle transducer arrays
+    """Base class to handle transducer arrays.
+
+    This class has no notion of the layout. If possible, try to use a more specific
+    implementation instead.
 
     Parameters
     ----------
-    freq : float
-        The frequency at which to emit
+    transducer_positions : numpy.ndarray
+        The positions of the transducer elements in the array, shape Nx3.
+    transducer_normals : numpy.ndarray
+        The normals of the transducer elements in the array, shape Nx3.
     transducer_model
-        An object of `TransducerModel` or a subclass. If passed a class it will instantiate an object with default parameters.
-    grid : (numpy.ndarray, numpy.ndarray)
-        Tuple of ndarrays to define the transducer layout.
-        The first emelent should be the transducer positions, shape Nx3.
-        The second emelent should be the transducer normals, shape Nx3.
+        An object of `levitate.transducers.TransducerModel` or a subclass. If passed a class it will create a new instance.
     transducer_size : float
         Fallback transducer size if no transducer model object is given, or if no grid is given.
-    shape : int or (int, int)
-        Fallback specificaiton if the transducer grid is not supplied. Assumes a rectangular grid.
+    transducer_kwargs : dict
+        Extra keyword arguments used when instantiating a new transducer model.
 
     Attributes
     ----------
     phases : numpy.ndarray
-        The phases of the transducer elements
+        The phases of the transducer elements.
     amplitudes : numpy.ndarray
-        The amplitudes of the transduder elements
-    complex_amplitudes : complex numpy.ndarray
-        Transducer controls, complex form
+        The amplitudes of the transducer elements.
+    complex_amplitudes : numpy.ndarray
+        Transducer element controls on complex form.
     num_transducers : int
-        The number of transducers.
-    k : float
-        Wavenumber in air
-    wavelength : float
-        Wavelength in air
-    omega : float
-        Angular frequency
+        The number of transducers used.
+    transducer_positions : numpy.ndarray
+        As above.
+    transducer_normals : numpy.ndarray
+        As above.
+    transducer_model : `levitate.transducers.TransducerModel`
+        An instance of a specific transducer model implementation.
+    calculate : PersistentFieldEvaluator
+        Use to perform cashed field calculations.
     freq : float
-        Wave frequency
-
+        Frequency of the transducer model.
+    omega : float
+        Angular frequency of the transducer model.
+    k : float
+        Wavenumber in air, corresponding to `freq`.
+    wavelength : float
+        Wavelength in air, corresponding to `freq`.
     """
 
     def __init__(self, transducer_positions, transducer_normals,
-                 freq=40e3, transducer_model=None, transducer_size=10e-3, **kwargs
+                 transducer_model=None, transducer_size=10e-3, transducer_kwargs=None, **kwargs
                  ):
         self.transducer_size = transducer_size
+        transducer_kwargs = transducer_kwargs or {}
 
         if transducer_model is None:
             from .transducers import TransducerModel
-            self.transducer_model = TransducerModel(freq=freq)
+            self.transducer_model = TransducerModel(**transducer_kwargs)
         elif type(transducer_model) is type:
-            self.transducer_model = transducer_model(freq=freq)
+            self.transducer_model = transducer_model(**transducer_kwargs)
         else:
             self.transducer_model = transducer_model
 
@@ -98,6 +113,16 @@ class TransducerArray:
 
     @property
     def complex_amplitudes(self):
+        """Transducer element controls on complex form.
+
+        The complex form of the transducer element controls is a convenience form.
+        The returned value will be calculated from the normal phases and amplitudes.
+
+        Note
+        ----
+            Do not try to set a single complex element as `array.complex_amplitudes[0] = 1 + 1j`.
+            It will not change the underlining phases and amplitudes, only the temporary complex numpy array.
+        """
         return self.amplitudes * np.exp(1j * self.phases)
 
     @complex_amplitudes.setter
@@ -106,7 +131,7 @@ class TransducerArray:
         self.phases = np.angle(value)
 
     def focus_phases(self, focus):
-        """ Focuses the phases to create a focus point
+        """Focuses the phases to create a focus point.
 
         Parameters
         ----------
@@ -126,18 +151,37 @@ class TransducerArray:
         return phase
 
     def signature(self, focus, phases=None):
+        """Calculate the phase signature of the array.
+
+        The signature of an array if the phase of the transducer elements
+        when the phase required to focus all elements to a specific point
+        has been removed.
+
+        Parameters
+        ----------
+        focus : array_like
+            Three element array with a location for where the signature is relative to.
+        phases : numpy.ndarray, optional
+            The phases of which to calculate the signature.
+            Will default to the current phases in the array.
+
+        Returns
+        -------
+        signature : numpy.ndarray
+            The signature wrapped to the interval [-pi, pi].
+        """
         if phases is None:
             phases = self.phases
         focus_phases = self.focus_phases(focus)
         return np.mod(phases - focus_phases + np.pi, 2 * np.pi) - np.pi
 
     def spatial_derivatives(self, receiver_position, orders=3):
-        """ Calculates the spatial derivatives for all the transducers
+        """Calculate the spatial derivatives for all the transducers.
 
         Parameters
         ----------
         receiver_position : numpy.ndarray
-            The location(s) at which to evaluate the derivatives. The last dimention must have length 3 and represent the coordinates of the points.
+            The location(s) at which to evaluate the derivatives. The last dimension must have length 3 and represent the coordinates of the points.
         orders : int
             How many orders of derivatives to calculate. Currently three orders are supported.
 
@@ -145,8 +189,8 @@ class TransducerArray:
         -------
         derivatives : ndarray
             Array with the calculated derivatives. Has the shape (M, N, ...) M is the number of spatial derivatives,
-            where N is the numer of transducers, see `num_spatial_derivatives` and `spatial_derivative_order`,
-            and the remaining dimentions are the same as the `receiver_position` input with the last dimention removed.
+            where N is the number of transducers, see `num_spatial_derivatives` and `spatial_derivative_order`,
+            and the remaining dimensions are the same as the `receiver_position` input with the last dimension removed.
         """
         derivatives = np.empty((num_spatial_derivatives[orders], self.num_transducers) + receiver_position.shape[:-1], dtype=np.complex128)
 
@@ -156,6 +200,32 @@ class TransducerArray:
 
 
 class RectangularArray(TransducerArray):
+    """TransducerArray implementation for rectangular arrays.
+
+    Defines the locations and normals of elements (transducers) in an array.
+    For rotated arrays, the rotations is a follows:
+
+        1) A grid of the correct layout is crated in the xy-plane
+        2) The grid is rotated to the disired plane, as defined by the normal.
+        3) The grid is rotated around the normal.
+
+    The rotation to the disired plane is arount the line where the desired
+    plane intersects with the xy-plane.
+
+    Parameters
+    ----------
+    shape : int or (int, int), default 16
+        The number of transducer elements. Passing a single int will create a square array.
+    spread : float, default=10e-3
+        The distance between the array elements.
+    offset : 3 element array_like, default (0,0,0)
+        The location of the center of the array.
+    normal : 3 element array_like, default (0,0,1)
+        The normal of all elements in the array.
+    rotation : float, default 0
+        The in-plane rotation of the array around the normal.
+    """
+
     def __init__(self, shape=16, spread=10e-3, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
         positions, normals = self.grid_generator(shape=shape, spread=spread, offset=offset, normal=normal, rotation=rotation, **kwargs)
         kwargs.setdefault('transducer_size', spread)
@@ -163,37 +233,16 @@ class RectangularArray(TransducerArray):
 
     @classmethod
     def grid_generator(cls, shape=None, spread=None, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
-        """ Creates a grid with positions and normals
+        """Create a grid with positions and normals.
 
-        Defines the locations and normals of elements (transducers) in an array.
-        For rotated arrays, the rotations is a follows:
-
-            1) A grid of the correct layout is crated in the xy-plane
-            2) The grid is rotated to the disired plane, as defined by the normal.
-            3) The grid is rotated around the normal.
-
-        The rotation to the disired plane is arount the line where the desired
-        plane intersects with the xy-plane.
-
-        Parameters
-        ----------
-        shape : (int, int)
-            The number of grid points in each dimention.
-        spread : float
-            The separation between grid points, in meters.
-        offset : 3 element array_like, optional, default (0,0,0).
-            The location of the middle of the array, in meters.
-        normal : 3 element array_like, optional, default (0,0,1).
-            The normal direction of the resulting array.
-        rotation : float, optional, default 0.
-            The in-plane rotation of the array.
+        See `RectangularArray` for parameters and description.
 
         Returns
         -------
         positions : numpy.ndarray
-            nx3 array with the positions of the elements.
+            The positions of the array elements, shape Nx3.
         normals : numpy.ndarray
-            nx3 array with normals of the elements.
+            The normals of the array elements, shape Nx3.
         """
         if not hasattr(shape, '__len__') or len(shape) == 1:
             shape = (shape, shape)
@@ -230,6 +279,22 @@ class RectangularArray(TransducerArray):
         return positions, normals
 
     def twin_signature(self, position=(0, 0), angle=None):
+        """Get the twin trap signature.
+
+        The twin trap signature should be added to focusing phases for a specific point
+        in order to create a twin trap at that location. The twin signature shifts the
+        phase of half of the elements by pi, splitting the array along a straight line.
+
+        Parameters
+        ----------
+        angle : float
+            The angle with which to rotate the signature.
+
+        Returns
+        -------
+        signature : numpy.ndarray
+            The twin signature.
+        """
         x = position[0]
         y = position[1]
 
@@ -265,6 +330,17 @@ class RectangularArray(TransducerArray):
         return signature
 
     def vortex_signature(self, position=(0, 0), angle=0):
+        """Get the vortex trap signature.
+
+        The vortex trap signature should be added to focusing phases for a specific point
+        in order to create a vortex trap at that location. The vortex signature phase shifts
+        the elements in the array according to their angle in the coordinate plane.
+
+        Returns
+        -------
+        signature : numpy.ndarray
+            The vortex signature.
+        """
         x = position[0]
         y = position[1]
         # TODO: Rotate, shift, and make sure that the calculation below actually works
@@ -274,6 +350,18 @@ class RectangularArray(TransducerArray):
         return signature
 
     def bottle_signature(self, position=(0, 0), radius=None):
+        """Get the bottle trap signature.
+
+        The bottle trap signature should be added to focusing phases for a specific point
+        in order to create a bottle trap at that location. The bottle signature phase shifts
+        the elements in the array according to their distance from the center, creating
+        an inner zone and an outer zone of equal area with a relative shift of pi.
+
+        Returns
+        -------
+        signature : numpy.ndarray
+            The bottle signature.
+        """
         position = np.asarray(position)[:2]
         if radius is None:
             A = self.num_transducers * self.transducer_size**2
@@ -289,7 +377,28 @@ class RectangularArray(TransducerArray):
 
 
 class DoublesidedArray:
+    """TransducerArray implementation for doublesided arrays.
+
+    Creates a doublesided array based on mirroring a singlesided array.
+
+    Parameters
+    ----------
+    ctype : Subclass of `TransducerArray`
+        A class representing a singlesided array. Needs to implement `grid_generator`.
+    separation : float
+        The distance between the two halves, along the normal.
+    offset : array_like, 3 elements
+        The placement of the center between the two arrays.
+    normal : array_like, 3 elements
+        The normal of the first half.
+    rotation : float, default 0
+        The rotation around the normal of the first half.
+    **kwargs
+        Remaining arguments will be passed to the initializer for the singlesided array.
+    """
+
     def __new__(cls, ctype, *args, **kwargs):
+        """Create a new instance of the metaclass."""
         obj = ctype.__new__(ctype)
         obj.__class__ = type('Doublesided{}'.format(ctype.__name__), (DoublesidedArray, ctype), {})
         return obj
@@ -301,27 +410,16 @@ class DoublesidedArray:
 
     @classmethod
     def grid_generator(cls, separation=None, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
-        """ Creates a double sided transducer grid
+        """Create a double sided transducer grid.
 
-        Parameters
-        ----------
-        separation : float
-            The distance between the two halves, along the normal.
-        offset : array_like, 3 elements
-            The placement of the center of the first half.
-        normal : array_like, 3 elements
-            The normal of the first half.
-        grid_generator : callable
-            A callable which should return a tuple (positions, normals) for a single sided grid
-        **kwargs
-            All arguments will be passed to the generator
+        See `DoublesidedArray`.
 
         Returns
         -------
         positions : numpy.ndarray
-            nx3 array with the positions of the elements.
+            Nx3 array with the positions of the elements.
         normals : numpy.ndarray
-            nx3 array with normals of tge elements.
+            Nx3 array with the normals of the elements.
         """
         normal = np.asarray(normal, dtype='float64')
         normal /= (normal**2).sum()**0.5
@@ -332,6 +430,15 @@ class DoublesidedArray:
 
 
 class PersistentFieldEvaluator:
+    """Implementation of cashed field calculations.
+
+    Parameters
+    ----------
+    array : `TransducerArray`
+        The array of which to calculate the fields.
+
+    """
+
     from . import cost_functions
 
     def __init__(self, array):
@@ -341,6 +448,7 @@ class PersistentFieldEvaluator:
         self._existing_orders = -1
 
     def spatial_derivatives(self, positions, orders=3):
+        """Cashed wrapper around `TransducerArray.spatial_derivatives`."""
         if (
             self._spatial_derivatives is not None and
             self._existing_orders >= orders and
@@ -355,13 +463,17 @@ class PersistentFieldEvaluator:
         return self._spatial_derivatives
 
     def pressure(self, positions):
+        """Calculate the pressure field."""
         return self.cost_functions.pressure(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=0))(self.array.phases, self.array.amplitudes)
 
     def velocity(self, positions):
+        """Calculate the velocity field."""
         return self.cost_functions.velocity(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=1))(self.array.phases, self.array.amplitudes)
 
     def force(self, positions):
+        """Calculate the force field."""
         return self.cost_functions.second_order_force(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=2))(self.array.phases, self.array.amplitudes)
 
     def stiffness(self, positions):
+        """Calculate the stiffness field."""
         return self.cost_functions.second_order_stiffness(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=3))(self.array.phases, self.array.amplitudes)
