@@ -8,7 +8,8 @@ Contents
 .. toctree::
     :maxdepth: 2
 
-    user_api
+    introduction
+    api_docs
 
 .. only:: html
 
