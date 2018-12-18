@@ -4,17 +4,14 @@ User API Documentation
 
 Models
 ------
-.. automodule:: levitate.models
+.. automodule:: levitate.arrays
     :members:
-    :exclude-members: update_air_properties, rectangular_grid, double_sided_grid
+
+.. automodule:: levitate.transducers
+    :members:
+
 
 Cost Functions
 --------------
-.. automodule:: levitate.optimization
+.. automodule:: levitate.cost_functions
     :members:
-
-Utilities
----------
-.. autofunction:: levitate.models.update_air_properties
-.. autofunction:: levitate.models.rectangular_grid
-.. autofunction:: levitate.models.double_sided_grid

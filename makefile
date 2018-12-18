@@ -6,7 +6,7 @@ TESTSDIR = tests
 LOGDIR = .logs
 
 package_files := $(shell find $(PACKAGE_NAME) -name '*.py')
-docs_files := $(shell find $(DOCSDIR) -name '*.rst') $(DOCSDIR)/conf.py
+docs_files := $(shell find $(DOCSDIR) -name '*.rst') $(DOCSDIR)/conf.py README.rst
 tests_files := $(shell find $(TESTSDIR) -name '*.py')
 
 
@@ -96,8 +96,8 @@ $(LOGDIR)/$(TESTSDIR) : $(TESTSDIR)/requirements.txt $(LOGDIR)
 # Docs
 # =====
 .PHONY: docs pdfdocs
-docs: $(BUILDDIR)/$(DOCSDIR)/html ## Build the documentation
-pdfdocs: $(BUILDDIR)/$(DOCSDIR)/*.pdf ## Build the documentation
+docs: $(BUILDDIR)/$(DOCSDIR)/html ## Build the documentation to html (recommended for reading)
+pdfdocs: $(BUILDDIR)/$(DOCSDIR)/*.pdf ## Build the documentation to pdf (recommended for official deliverables)
 
 $(BUILDDIR)/$(DOCSDIR)/html: $(LOGDIR)/$(DOCSDIR) $(docs_files) $(package_files)
 	$(info ============================= Building docs ==============================)

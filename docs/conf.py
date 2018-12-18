@@ -19,15 +19,20 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'Levitate'
+project = 'Levitate Python Toolbox'
 copyright = '2018, Carl Andersson'
 author = 'Carl Andersson'
 
 # The short X.Y version
 version = ''
 # The full version, including alpha/beta/rc tags
-release = '0.0.1'
 
+release = 'Unknown'
+for line in open('../levitate/__init__.py'):
+    if line.startswith('__version__'):
+        release = line.split('=')[-1].strip().strip('\'"')
+        break
+version = release.rsplit('.', 1)[0]
 
 # -- General configuration ---------------------------------------------------
 
@@ -129,7 +134,7 @@ htmlhelp_basename = 'Levitatedoc'
 latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
     #
-    # 'papersize': 'letterpaper',
+    'papersize': 'a4paper',
 
     # The font size ('10pt', '11pt' or '12pt').
     #
@@ -142,16 +147,34 @@ latex_elements = {
     # Latex figure (float) alignment
     #
     # 'figure_align': 'htbp',
+    'printindex': '',
+    'extraclassoptions': 'openany,oneside',
+    # 'fncychap': '',
+    'maketitle': r'''
+        \maketitle
+        \vfill
+        \begin{minipage}{0.2\linewidth}
+            \includegraphics[width=\linewidth]{eu_logo.jpg}
+        \end{minipage}
+        \hspace{1cm}
+        \begin{minipage}{0.7\linewidth}
+        ''' + open('Funding_reference.rst').read() + r'''
+        \end{minipage}
+        \clearpage''',
+    # 'tableofcontents': '\\tableofcontents\\clearpage'
+    'tableofcontents': '',
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'Levitate.tex', 'Levitate Documentation',
-     'Carl Andersson', 'manual'),
+    (master_doc, 'Levitate.tex', project,
+     author, 'howto'),
 ]
-
+latex_toplevel_sectioning = 'section'
+latex_logo = 'levitate_logo.png'
+latex_domain_indices = False
 
 # -- Options for manual page output ------------------------------------------
 
