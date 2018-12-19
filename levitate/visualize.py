@@ -165,9 +165,9 @@ class Visualizer:
     resolution : numeric, default 10
         Resolution of the plots, in elements per wavelength.
     constant_axis : tuple or str
-        `(axis, value)` or `axis` where `axis` is in ['x', 'y', 'z'] and indicates
+        `(axis, value)` or `axis` where `axis` is in `['x', 'y', 'z']` and indicates
         which axis to keep constant in the plots. The value indicates at which value
-        the slice is taken. Default to ('y', 0).
+        the slice is taken. Default to `('y', 0)`.
     """
 
     def __init__(self, array, xlimits=None, ylimits=None, zlimits=None, resolution=10, constant_axis=('y', 0)):

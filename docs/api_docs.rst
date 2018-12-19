@@ -18,3 +18,8 @@ Cost Functions
 --------------
 .. automodule:: levitate.cost_functions
     :members:
+
+Visualization
+-------------
+.. automodule:: levitate.visualize
+    :members:
