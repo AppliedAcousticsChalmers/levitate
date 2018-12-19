@@ -69,7 +69,7 @@ class TransducerArray:
         else:
             self.transducer_model = transducer_model
 
-        self.calculate = PersistentFieldEvaluator(self)
+        self.calculate = self.PersistentFieldEvaluator(self)
 
         self.transducer_positions = transducer_positions
         self.num_transducers = self.transducer_positions.shape[0]
@@ -197,6 +197,55 @@ class TransducerArray:
         for idx in range(self.num_transducers):
             derivatives[:, idx] = self.transducer_model.spatial_derivatives(self.transducer_positions[idx], self.transducer_normals[idx], receiver_position, orders)
         return derivatives
+
+    class PersistentFieldEvaluator:
+        """Implementation of cashed field calculations.
+
+        Parameters
+        ----------
+        array : `TransducerArray`
+            The array of which to calculate the fields.
+
+        """
+
+        from . import cost_functions
+
+        def __init__(self, array):
+            self.array = array
+            self._last_positions = None
+            self._spatial_derivatives = None
+            self._existing_orders = -1
+
+        def spatial_derivatives(self, positions, orders=3):
+            """Cashed wrapper around `TransducerArray.spatial_derivatives`."""
+            if (
+                self._spatial_derivatives is not None and
+                self._existing_orders >= orders and
+                positions.shape == self._last_positions.shape and
+                np.allclose(positions, self._last_positions)
+            ):
+                return self._spatial_derivatives
+
+            self._spatial_derivatives = self.array.spatial_derivatives(positions, orders)
+            self._existing_orders = orders
+            self._last_positions = positions
+            return self._spatial_derivatives
+
+        def pressure(self, positions):
+            """Calculate the pressure field."""
+            return self.cost_functions.pressure(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=0))(self.array.phases, self.array.amplitudes)
+
+        def velocity(self, positions):
+            """Calculate the velocity field."""
+            return self.cost_functions.velocity(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=1))(self.array.phases, self.array.amplitudes)
+
+        def force(self, positions):
+            """Calculate the force field."""
+            return self.cost_functions.second_order_force(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=2))(self.array.phases, self.array.amplitudes)
+
+        def stiffness(self, positions):
+            """Calculate the stiffness field."""
+            return self.cost_functions.second_order_stiffness(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=3))(self.array.phases, self.array.amplitudes)
 
 
 class RectangularArray(TransducerArray):
@@ -429,51 +478,3 @@ class DoublesidedArray:
         return np.concatenate([pos_1, pos_2], axis=0), np.concatenate([norm_1, norm_2], axis=0)
 
 
-class PersistentFieldEvaluator:
-    """Implementation of cashed field calculations.
-
-    Parameters
-    ----------
-    array : `TransducerArray`
-        The array of which to calculate the fields.
-
-    """
-
-    from . import cost_functions
-
-    def __init__(self, array):
-        self.array = array
-        self._last_positions = None
-        self._spatial_derivatives = None
-        self._existing_orders = -1
-
-    def spatial_derivatives(self, positions, orders=3):
-        """Cashed wrapper around `TransducerArray.spatial_derivatives`."""
-        if (
-            self._spatial_derivatives is not None and
-            self._existing_orders >= orders and
-            positions.shape == self._last_positions.shape and
-            np.allclose(positions, self._last_positions)
-        ):
-            return self._spatial_derivatives
-
-        self._spatial_derivatives = self.array.spatial_derivatives(positions, orders)
-        self._existing_orders = orders
-        self._last_positions = positions
-        return self._spatial_derivatives
-
-    def pressure(self, positions):
-        """Calculate the pressure field."""
-        return self.cost_functions.pressure(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=0))(self.array.phases, self.array.amplitudes)
-
-    def velocity(self, positions):
-        """Calculate the velocity field."""
-        return self.cost_functions.velocity(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=1))(self.array.phases, self.array.amplitudes)
-
-    def force(self, positions):
-        """Calculate the force field."""
-        return self.cost_functions.second_order_force(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=2))(self.array.phases, self.array.amplitudes)
-
-    def stiffness(self, positions):
-        """Calculate the stiffness field."""
-        return self.cost_functions.second_order_stiffness(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=3))(self.array.phases, self.array.amplitudes)
