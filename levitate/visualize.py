@@ -143,8 +143,163 @@ def find_trap(array, start_pos, tolerance=10e-6, time_interval=50, return_path=F
 
 
 class Visualizer:
-    def __init__(self, array):
+    """Handle array visualizations.
+
+    Two different style of plots are currently implemented: scalar field
+    visualizations and transducer visualizations. The methods return
+    plotly compatible dictionaries corresponding to a single trace.
+    The calculations are buffered, so the first plots are always slower
+    than successive plots. This also means that the memory usage is very large
+    for high-resolution plots.
+
+    Parameters
+    ----------
+    array : `TransducerArray`
+        The transducer array to visualize.
+    xlimits : 2 element array_like
+        Override for the default x limits
+    ylimits : 2 element array_like
+        Override for the default y limits
+    zlimits : 2 element array_like
+        Override for the default z limits
+    resolution : numeric, default 10
+        Resolution of the plots, in elements per wavelength.
+    constant_axis : tuple or str
+        `(axis, value)` or `axis` where `axis` is in ['x', 'y', 'z'] and indicates
+        which axis to keep constant in the plots. The value indicates at which value
+        the slice is taken. Default to ('y', 0).
+    """
+
+    def __init__(self, array, xlimits=None, ylimits=None, zlimits=None, resolution=10, constant_axis=('y', 0)):
         self.array = array
+        xlimits = xlimits or (np.min(array.transducer_positions[:, 0]), np.max(array.transducer_positions[:, 0]))
+        ylimits = ylimits or (np.min(array.transducer_positions[:, 1]), np.max(array.transducer_positions[:, 1]))
+        if 'Doublesided' not in type(array).__name__:
+            # Singlesided array, one of the limits will give a zero range.
+            # Assuming that the array is in the xy-plane, pointing up
+            zlimits = zlimits or (np.min(array.transducer_positions[:, 2]) + 1e-3, 20 * array.wavelength)
+        else:
+            zlimits = zlimits or (np.min(array.transducer_positions[:, 2]), np.max(array.transducer_positions[:, 2]))
+
+        self._xlimits = xlimits
+        self._ylimits = ylimits
+        self._zlimits = zlimits
+        self._constant_axis = constant_axis
+        self.resolution = resolution
+        self.calculate = array.PersistentFieldEvaluator(array)
+
+    @property
+    def xlimits(self):
+        return self._xlimits
+
+    @xlimits.setter
+    def xlimits(self, val):
+        self._xlimits = val
+        self._update_mesh()
+
+    @property
+    def ylimits(self):
+        return self._ylimits
+
+    @ylimits.setter
+    def ylimits(self, val):
+        self._ylimits = val
+        self._update_mesh()
+
+    @property
+    def zlimits(self):
+        return self._zlimits
+
+    @zlimits.setter
+    def zlimits(self, val):
+        self._zlimits = val
+        self._update_mesh()
+
+    @property
+    def constant_axis(self):
+        try:
+            axis, value = self._constant_axis
+        except ValueError:
+            axis, value = self._constant_axis, 0
+        return axis, value
+
+    @constant_axis.setter
+    def constant_axis(self, val):
+        try:
+            axis = val[0]
+            value = val[1]
+        except TypeError:
+            axis = val
+            value = 0
+        self._constant_axis = (axis, value)
+        self._update_mesh()
+
+    @property
+    def resolution(self):
+        return self.array.wavelength / self._resolution
+
+    @resolution.setter
+    def resolution(self, val):
+        self._resolution = self.array.wavelength / val
+        self._update_mesh()
+
+    def _update_mesh(self):
+        axis, value = self.constant_axis
+        x = np.mgrid[self.xlimits[0]:self.xlimits[1]:self._resolution]
+        y = np.mgrid[self.ylimits[0]:self.ylimits[1]:self._resolution]
+        z = np.mgrid[self.zlimits[0]:self.zlimits[1]:self._resolution]
+        if axis is 'x':
+            self._x, self._y, self._z = np.mgrid[value:value:1j, self.ylimits[0]:self.ylimits[1]:self._resolution, self.zlimits[0]:self.zlimits[1]:self._resolution]
+        if axis is 'y':
+            self._x, self._y, self._z = np.mgrid[self.xlimits[0]:self.xlimits[1]:self._resolution, value:value:1j, self.zlimits[0]:self.zlimits[1]:self._resolution]
+        if axis is 'z':
+            self._x, self._y, self._z = np.mgrid[self.xlimits[0]:self.xlimits[1]:self._resolution, self.ylimits[0]:self.ylimits[1]:self._resolution, value:value:1j]
+
+    @property
+    def _mesh(self):
+        return np.stack([self._x, self._y, self._z], axis=-1)
+
+    def scalar_field(self, calculator, **kwargs):
+        """Evaluate and prepare a scalar field visualization.
+
+        Parameters
+        ----------
+        calculator : callable or iterable of callables
+            Callable which takes a mesh as input and returns data values for every point.
+            If an iterable is passed, the callables will be called with the output from the
+            previous callable, the first one called with the mesh.
+        **kwargs
+            Remaining keyword arguments will be added to the trace dictionary, replacing defaults.
+
+        Returns
+        -------
+        trace : dict
+            A plotly style dictionary with the trace for the field.
+        """
+        try:
+            data = self._mesh
+            for f in calculator:
+                data = f(data)
+        except TypeError:
+            data = calculator(self._mesh)
+        trace = dict(
+            type='surface', surfacecolor=np.squeeze(data),
+            x=np.squeeze(self._x),
+            y=np.squeeze(self._y),
+            z=np.squeeze(self._z),
+        )
+        trace.update(kwargs)
+        return trace
+
+    def pressure(self, min=130, max=170):
+        """Visualize pressure field."""
+        return self.scalar_field(calculator=[self.calculate.pressure, SPL],
+                                 cmin=min, cmax=max, colorscale='Viridis')
+
+    def velocity(self, min=130, max=170):
+        """Visualize velocity field."""
+        return self.scalar_field(calculator=[self.calculate.velocity, SVL],
+                                 cmin=min, cmax=max, colorscale='Viridis')
 
     def transducers(self, data='phases'):
         """Create transducer visualization.
@@ -184,11 +339,10 @@ class Visualizer:
             colorscale = 'Viridis'
 
         marker = dict(color=data, colorscale=colorscale, size=16, colorbar={'title': title, 'x': -0.02}, cmin=cmin, cmax=cmax)
-        trace = dict(
+        return dict(
             type='scatter3d', mode='markers',
             x=self.array.transducer_positions[:, 0],
             y=self.array.transducer_positions[:, 1],
             z=self.array.transducer_positions[:, 2],
             marker=marker
         )
-        return trace
