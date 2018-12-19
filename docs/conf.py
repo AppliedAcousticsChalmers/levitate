@@ -22,6 +22,8 @@
 project = 'Levitate Python Toolbox'
 copyright = '2018, Carl Andersson'
 author = 'Carl Andersson'
+subtitle = ''
+subtitle = 'D1.2 (D2): Python toolbox of sound field/beamformer design methods'
 
 # The short X.Y version
 version = ''
@@ -152,6 +154,8 @@ latex_elements = {
     # 'fncychap': '',
     'maketitle': r'''
         \maketitle
+        \vspace{3cm}
+        {\Large\textbf{\textsf{''' + subtitle + r'''}}
         \vfill
         \begin{minipage}{0.2\linewidth}
             \includegraphics[width=\linewidth]{eu_logo.jpg}
