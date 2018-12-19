@@ -6,6 +6,7 @@ frequently used methods.
 
 import numpy as np
 from . import num_spatial_derivatives
+from .visualize import Visualizer
 
 
 class TransducerArray:
@@ -78,6 +79,8 @@ class TransducerArray:
         self.transducer_normals = transducer_normals
         self.amplitudes = np.ones(self.num_transducers)
         self.phases = np.zeros(self.num_transducers)
+
+        self.visualize = Visualizer(self)
 
     @property
     def k(self):
