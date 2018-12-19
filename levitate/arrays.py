@@ -211,7 +211,7 @@ class TransducerArray:
 
         """
 
-        from . import cost_functions
+        from . import cost_functions as _cost_functions
 
         def __init__(self, array):
             self.array = array
@@ -236,26 +236,26 @@ class TransducerArray:
 
         def pressure(self, positions):
             """Calculate the pressure field."""
-            return self.cost_functions.pressure(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=0))(self.array.phases, self.array.amplitudes)
+            return self._cost_functions.pressure(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=0))(self.array.phases, self.array.amplitudes)
 
         def velocity(self, positions):
             """Calculate the velocity field."""
-            return self.cost_functions.velocity(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=1))(self.array.phases, self.array.amplitudes)
+            return self._cost_functions.velocity(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=1))(self.array.phases, self.array.amplitudes)
 
         def force(self, positions):
             """Calculate the force field."""
-            return self.cost_functions.second_order_force(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=2))(self.array.phases, self.array.amplitudes)
+            return self._cost_functions.second_order_force(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=2))(self.array.phases, self.array.amplitudes)
 
         def stiffness(self, positions):
             """Calculate the stiffness field."""
-            return self.cost_functions.second_order_stiffness(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=3))(self.array.phases, self.array.amplitudes)
+            return self._cost_functions.second_order_stiffness(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=3))(self.array.phases, self.array.amplitudes)
 
 
 class RectangularArray(TransducerArray):
     """TransducerArray implementation for rectangular arrays.
 
     Defines the locations and normals of elements (transducers) in an array.
-    For rotated arrays, the rotations is a follows:
+    For rotated arrays, the rotation is as follows:
 
         1) A grid of the correct layout is crated in the xy-plane
         2) The grid is rotated to the desired plane, as defined by the normal.

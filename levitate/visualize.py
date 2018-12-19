@@ -53,7 +53,7 @@ def SVL(u):
     """Convert sound particle velocity to sound velocity level.
 
     Uses the standard reference value for airborne acoustics: 20µPa
-    and the material properties of air in the materials module.
+    and the material properties of air from the materials module.
     Note that the input is the complex rms amplitude.
 
     If the first axis of the velocity input has length 3, it will be assumed to
@@ -83,8 +83,8 @@ def find_trap(array, start_pos, tolerance=10e-6, time_interval=50, return_path=F
 
     Find an approximate position of a acoustic levitation trap close to a starting point.
     This is done by following the radiation force in the sound field using an differential
-    equation solver. The differential equation is question is the unphysical equation
-    :math:`d\vec x/dt  = \vec F(x,t)`, i.e. interpreting the force field as a velocity field.
+    equation solver. The differential equation is the unphysical equation :math:`d\vec x/dt  = \vec F(x,t)`,
+    i.e. interpreting the force field as a velocity field.
     This works for finding the location of a trap and the field line from the starting position
     to the trap position, but it can not be seen as a proper kinematic simulation of the system.
 

@@ -155,7 +155,7 @@ latex_elements = {
     'maketitle': r'''
         \maketitle
         \vspace{3cm}
-        {\Large\textbf{\textsf{''' + subtitle + r'''}}
+        {\Large\textbf{\textsf{''' + subtitle + r'''}}}
         \vfill
         \begin{minipage}{0.2\linewidth}
             \includegraphics[width=\linewidth]{eu_logo.jpg}

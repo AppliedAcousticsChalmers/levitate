@@ -1,6 +1,6 @@
 """Incorporating transducer models, reflectors, and doublesided arrays.
 
-The setup show here is a doublesided array where the two halves
+The setup shown here is a doublesided array where the two halves
 are standing vertically 3 cm above a reflecting surface.
 The two halves are separated by 20 cm, and each side has 50 elements.
 The transducers are modeled as circular pistons, and the reflection is
@@ -18,7 +18,8 @@ transducer = levitate.transducers.ReflectingTransducer(
     plane_distance=0, plane_normal=(0, 0, 1))
 
 array = levitate.arrays.DoublesidedArray(
-    levitate.arrays.RectangularArray, separation=200e-3, normal=(1, 0, 0), offset=(0, 0, 50e-3),
+    levitate.arrays.RectangularArray, separation=200e-3,
+    normal=(1, 0, 0), offset=(0, 0, 50e-3),
     shape=(5, 10), transducer_model=transducer)
 
 array.phases = array.focus_phases((25e-3, 0, 40e-3))
