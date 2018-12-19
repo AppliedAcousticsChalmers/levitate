@@ -10,6 +10,7 @@ Contents
 
     introduction
     package
+    examples
     api_docs
 
 .. only:: html
