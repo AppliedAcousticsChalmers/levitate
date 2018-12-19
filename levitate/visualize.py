@@ -140,3 +140,51 @@ def find_trap(array, start_pos, tolerance=10e-6, time_interval=50, return_path=F
         return outs.sol(np.linspace(0, outs.sol.t_max, return_path))
     else:
         return outs.y[:, -1]
+
+
+def transducers(array, data='phases'):
+    """Create transducer visualization.
+
+    A 3d scatter trace of the transducer elements in an array.
+    Uses the color of the elements to show data.
+
+    Parameters
+    ----------
+    array : `TransducerArray`
+        The array to visualize.
+    data : 'phase', 'amplitude', or numeric
+        Which data to color the transducers with.
+
+    Returns
+    -------
+    trace : dict
+        A plotly style dictionary with the trace for the transducers.
+    """
+    if type(data) == str:
+        if 'phase' in data:
+            title = 'Transducer phase in rad/π'
+            data = array.phases / np.pi
+            cmin = -1
+            cmax = 1
+            colorscale = [[0.0, 'hsv(0,255,255)'], [0.25, 'hsv(90,255,255)'], [0.5, 'hsv(180,255,255)'], [0.75, 'hsv(270,255,255)'], [1.0, 'hsv(360,255,255)']]
+        elif 'amp' in data:
+            title = 'Transducer amplitude'
+            data = array.amplitudes
+            cmin = 0
+            cmax = 1
+            colorscale = 'Viridis'
+    else:
+        title = 'Transducer data'
+        cmin = np.min(data)
+        cmax = np.max(data)
+        colorscale = 'Viridis'
+
+    marker = dict(color=data, colorscale=colorscale, size=16, colorbar={'title': title, 'x': -0.02}, cmin=cmin, cmax=cmax)
+    trace = dict(
+        type='scatter3d', mode='markers',
+        x=array.transducer_positions[:, 0],
+        y=array.transducer_positions[:, 1],
+        z=array.transducer_positions[:, 2],
+        marker=marker
+    )
+    return trace
