@@ -255,10 +255,10 @@ class RectangularArray(TransducerArray):
     For rotated arrays, the rotations is a follows:
 
         1) A grid of the correct layout is crated in the xy-plane
-        2) The grid is rotated to the disired plane, as defined by the normal.
+        2) The grid is rotated to the desired plane, as defined by the normal.
         3) The grid is rotated around the normal.
 
-    The rotation to the disired plane is arount the line where the desired
+    The rotation to the desired plane is around the line where the desired
     plane intersects with the xy-plane.
 
     Parameters
