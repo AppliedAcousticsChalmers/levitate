@@ -3,11 +3,13 @@ BUILDDIR = build
 DISTDIR = dist
 DOCSDIR = docs
 TESTSDIR = tests
+EXAMPLESDIR = examples
 LOGDIR = .logs
 
 package_files := $(shell find $(PACKAGE_NAME) -name '*.py')
 docs_files := $(shell find $(DOCSDIR) -name '*.rst') $(DOCSDIR)/conf.py README.rst
 tests_files := $(shell find $(TESTSDIR) -name '*.py')
+examples_files := $(shell find $(EXAMPLESDIR) -name '*.py')
 
 
 .PHONY: help
@@ -99,11 +101,11 @@ $(LOGDIR)/$(TESTSDIR) : $(TESTSDIR)/requirements.txt $(LOGDIR)
 docs: $(BUILDDIR)/$(DOCSDIR)/html ## Build the documentation to html (recommended for reading)
 pdfdocs: $(BUILDDIR)/$(DOCSDIR)/*.pdf ## Build the documentation to pdf (recommended for official deliverables)
 
-$(BUILDDIR)/$(DOCSDIR)/html: $(LOGDIR)/$(DOCSDIR) $(docs_files) $(package_files)
+$(BUILDDIR)/$(DOCSDIR)/html: $(LOGDIR)/$(DOCSDIR) $(docs_files) $(package_files) $(examples_files)
 	$(info ============================= Building docs ==============================)
 	sphinx-build -M html $(DOCSDIR) $(BUILDDIR)/$(DOCSDIR)
 
-$(BUILDDIR)/$(DOCSDIR)/*.pdf: $(LOGDIR)/$(DOCSDIR) $(docs_files) $(package_files)
+$(BUILDDIR)/$(DOCSDIR)/*.pdf: $(LOGDIR)/$(DOCSDIR) $(docs_files) $(package_files) $(examples_files)
 	$(info ============================= Building docs ==============================)
 	sphinx-build -M latexpdf $(DOCSDIR) $(BUILDDIR)/$(DOCSDIR)
 	mv $(BUILDDIR)/$(DOCSDIR)/latex/*.pdf $(BUILDDIR)/$(DOCSDIR)
