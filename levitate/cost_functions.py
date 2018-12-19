@@ -1,5 +1,6 @@
+"""A collection of cost functions, and a minimizer for them."""
+
 import numpy as np
-# from scipy.optimize import minimize, basinhopping
 import scipy.optimize
 import logging
 import itertools
@@ -14,37 +15,54 @@ def minimize(functions, array, variable_amplitudes=False,
              constrain_transducers=None, callback=None, precall=None,
              basinhopping=False, return_optim_status=False, minimize_kwargs=None,
              ):
-    """
-    Minimizes a set of cost functions.
+    """Minimizes a set of cost functions.
 
-    This function supports minimization sequeces. Pass an iterable of iterables
-    of cost functions to start sequenced minimization.
+    Each cost function should have the signature `f(phases, amplitudes)`
+    where `phases` is an ndarray with the phase of each element in the array,
+    and `amplitudes` is an array with the amplitude of each element in the array.
+    The functions should return `value, phase_jacobian, amplitude_jacobian`
+    where the two jacobians are the derivative of the value w.r.t each input.
+    If the jacobians does not exist, set `minimize_kwargs['jac'] = False` and
+    return only `value`.
+
+    This function supports minimization sequences. Pass an iterable of iterables
+    of cost functions to start sequenced minimization, e.g. a list of lists of
+    functions.
+    When using multiple cost functions, either all functions return the
+    jacobians, or no functions return jacobians.
+    The arguments: `variable_amplitudes`, `constrain_transducers`, `callback`,
+    `precall`, `basinhopping`, and  `minimize_kwargs` can be given as single
+    values or as iterables of the same length as `functions`.
 
     Parameters
     ----------
     functions
-        The const functions that should be minimized. A single callable, an
+        The cost functions that should be minimized. A single callable, an
         iterable of callables, or an iterable of iterables of callables, as
         described above.
     array : `TransducerArray`
-        The array from which the const functions are created.
+        The array from which the cost functions are created.
     variable_amplitudes : bool
         Toggles the usage of varying amplitudes in the minimization.
     constrain_transducers : array_like
         Specifies a number of transducers which are constant elements in the
         minimization. Will be used as the second argument in `np.delete`
-    callback : callable, ``callback(array=array, retult=result, optim_status=opt_res, idx=idx)``
+    callback : callable
         A callback function which will be called after each step in sequenced
         minimization. Return false from the callback to break the sequence.
-    precall : callable, ``precall(phases, amplitudes, idx)``
+        Should have the signature :
+        `callback(array=array, result=result, optim_status=opt_res, idx=idx)`
+    precall : callable
         Initialization function which will be called with the array phases,
         amplitudes, and the sequence index before each sequence step.
         Must return the initial phases and amplitudes for the sequence step.
         Default sets the phases and amplitudes to the solution of the previous
         sequence step, or the original state for the first iteration.
+        Should have the signature :
+        `precall(phases, amplitudes, idx)`
     basinhopping : bool or int
         Specifies if basinhopping should be used. Pass an int to specify the
-        number of basinhopping interations, or True to use default value.
+        number of basinhopping iterations, or True to use default value.
     return_optim_status : bool
         Toggles the `optim_status` output.
     minimize_kwargs : dict
@@ -56,7 +74,7 @@ def minimize(functions, array, variable_amplitudes=False,
         The array phases and amplitudes after minimization.
         Stacks sequenced result in the first dimension.
     optim_status : `OptimizeResult`
-        Scipy optimization result structure. Optional ourput,
+        Scipy optimization result structure. Optional output,
         toggle with the corresponding input argument.
 
 
@@ -210,23 +228,22 @@ class RadndomDisplacer:
 
 
 def vector_target(vector_calculator, target_vector=(0, 0, 0), weights=(1, 1, 1)):
-    """
-    Creates a function which calculates the weighted squared difference between a
-    target vector and a varying vector.
+    """Create a function which calculates the weighted squared difference between a target vector and a varying vector.
 
     This can create cost functions representing :math:`||(v - v_0)||^2_w`, i.e.
     the weighted square norm between a varying vector and a fixed vector.
-    Note that the values in the weights will not be squared.
+    Note that the values in the weights will be squared, i.e. have the inverse
+    unit compared to the vectors.
 
     Parameters
     ----------
     vector_calculator : callable
         A function which calculates the varying vector from array phases and
-        optional amplitudes, along with the jacobian of said varying vector.
-        This function must return `(v, dv)`, where `v` is a 3 element ndarray,
-        and `dv` is a shape 3xn ndarray.
-        Suitable functions can be created by passing `False` as weights to other
-        cost function generators in this module.
+        amplitudes, along with the jacobian of said varying vector.
+        This function must return `(v, dv_p, dv_a)`, where `v` is a 3 element ndarray,
+        and `dv_p` and `dv_a` are shape 3xn ndarrays with the phase and amplitude
+        jacobians. Suitable functions can be created by passing `False` as weights
+        to other cost function generators in this module.
     target_vector : 3 element numeric, default (0, 0, 0)
         The fixed target vector, should be a 3 element ndarray or a scalar.
     weights : 3 element numeric, default (1, 1, 1)
@@ -242,6 +259,11 @@ def vector_target(vector_calculator, target_vector=(0, 0, 0), weights=(1, 1, 1))
     weights = np.asarray(weights)
 
     def vector_target(*args, **kwargs):
+        """Weighted squared magnitude difference.
+
+        Calculates the weighted square magnitude difference between
+        a varying vector and a fixed vector.
+        """
         v, dv_phase, dv_ampl = vector_calculator(*args, **kwargs)
         difference = v - target_vector
         value = np.sum(np.abs(difference * weights)**2)
@@ -252,12 +274,45 @@ def vector_target(vector_calculator, target_vector=(0, 0, 0), weights=(1, 1, 1))
 
 
 def create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights):
+    """Create weighted cost function.
+
+    Utility function for creating cost functions based on common conventions for
+    the weights and output formats. The `weights` argument specifies what the
+    new function should output.
+
+    1. `weights=None`: No weighting is done, and no calculation of the jacobians.
+       The function will return the unweighted parts of the cost function.
+    2. `weights=False`: No weighting is done, but the jacobians are calculated.
+       The function will return `(values, phase_jacobians, amplitudes_jacobians)`
+       where each part of the cost function is separated.
+    3. weights is numeric array_like: The parts of the cost function and the
+       jacobians are weighted and summed with their corresponding weights.
+       Otherwise the outputs are as in 2).
+
+    Parameters
+    ----------
+    calc_values : callable
+        Function accepting the total derivatives in the field, returning
+        the unweighted parts of the cost function.
+    calc_jacobian : callable
+        Function accepting the individual and total derivatives in the field,
+        returning the unweighted jacobians of the cost function.
+    spatial_derivatives : ndarray
+        The spatial derivatives needed for the calculations.
+    weights : array_like
+        The weights for the individual parts in the cost function.
+
+    Returns
+    -------
+    cost_function : callable
+        A function with variable return according to weights.
+    """
     import textwrap
     num_transducers = spatial_derivatives.shape[1]
 
     def parse_inputs(*args, **kwargs):
         """
-        The input argument should be eigher phases AND amplitudes, OR complex amplitudes.
+        The input argument should be either phases AND amplitudes, OR complex amplitudes.
         The arguments can be passed as keywords or normal arguments.
 
         Parameters
@@ -359,7 +414,8 @@ def create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivative
 
 
 def gorkov_divergence(array, location=None, weights=None, spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
-    """
+    """Create a gorkov_divergence calculation function.
+
     Creates a function, which calculates the divergence and the jacobian of the field
     generated by the array at the given location when given the phases and optional
     the amplitudes and return them according to mode.
@@ -439,22 +495,23 @@ def gorkov_divergence(array, location=None, weights=None, spatial_derivatives=No
     @create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights)
     def gorkov_divergence(*args, **kwargs):
         """
-        Calculates the cartesian divergence of the Gor'kov potential.
+        Calculates the Cartesian divergence of the Gor'kov potential.
         """
         pass
     return gorkov_divergence
 
 
 def gorkov_laplacian(array, location=None, weights=None, spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
-    """
-    Creates a function, which calculates the laplacian and the jacobian of the field
+    """Create a gorkov_laplacian calculation function.
+
+    Creates a function, which calculates the Laplacian and the jacobian of the field
     generated by the array at the given location when given the phases and optional
     the amplitudes and return them according to mode.
 
     Modes:
         1) weights = None: returns the x, y and z second derivatives as a numpy array
         2) weights = False: returns the second derivatives as an array and the jacobian as a 3 x num_transducers 2darray as a tuple
-        3) else: returns the weighted laplacian and the corresponding jacobian
+        3) else: returns the weighted Laplacian and the corresponding jacobian
 
     Parameters
     ----------
@@ -531,7 +588,8 @@ def gorkov_laplacian(array, location=None, weights=None, spatial_derivatives=Non
 
 
 def second_order_force(array, location=None, weights=None, spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
-    """
+    """Create a second_order_force calculation function.
+
     Creates a function, which calculates the radiation force on a sphere
     generated by the array at the given location when given the phases and optional
     the amplitudes and return them according to mode.
@@ -630,7 +688,8 @@ def second_order_force(array, location=None, weights=None, spatial_derivatives=N
 
 
 def second_order_stiffness(array, location=None, weights=None, spatial_derivatives=None, c_sphere=2350, rho_sphere=25, radius_sphere=1e-3):
-    """
+    """Create a second_order_stiffness calculation function.
+
     Creates a function, which calculates the radiation stiffness on a sphere
     generated by the array at the given location when given the phases and optional
     the amplitudes and return them according to mode.
@@ -723,18 +782,18 @@ def second_order_stiffness(array, location=None, weights=None, spatial_derivativ
     @create_weighted_cost_function(calc_values, calc_jacobian, spatial_derivatives, weights)
     def second_order_stiffness(*args, **kwargs):
         """
-        Calculates the radiation stiffness accounting for both standing and travelling waves.
+        Calculates the radiation stiffness accounting for both standing and traveling waves.
         """
         pass
     return second_order_stiffness
 
 
 def amplitude_limiting(array, bounds=(1e-3, 1 - 1e-3), order=4, scaling=10):
-    """
+    """Create an amplitude limiting cost function.
+
     Creates a function which can apply additional cost for amplitudes outside
     a certain range. This can be used with unbounded optimizers to enforce
     virtual bounds.
-
     The limiting is implemented as a polynomial soft-limiter. Amplitudes
     outside the specified range will be multiplied with a scaling, then
     raised to a certain order. The total cost is evaluated over all transducer
@@ -765,7 +824,7 @@ def amplitude_limiting(array, bounds=(1e-3, 1 - 1e-3), order=4, scaling=10):
     def amplitude_limiting(phases, amplitudes):
         """Cost function to limit the amplitudes of an array.
 
-        Note that this only makes sense as a cost function for minimzation,
+        Note that this only makes sense as a cost function for minimization,
         and only for variable amplitudes.
         """
         under_idx = np.where(amplitudes < lower_bound)[0]
@@ -783,7 +842,8 @@ def amplitude_limiting(array, bounds=(1e-3, 1 - 1e-3), order=4, scaling=10):
 
 
 def pressure(array, location=None, weight=None, spatial_derivatives=None):
-    """
+    """Create a pressure calculation function.
+
     Creates a function, which calculates the pressure and the jacobian of the field
     generated by the array at the given location when given the phases and optional
     the amplitudes and return them according to mode.
@@ -835,7 +895,8 @@ def pressure(array, location=None, weight=None, spatial_derivatives=None):
 
 
 def velocity(array, location=None, weights=None, spatial_derivatives=None):
-    """
+    """Create a velocity calculation function.
+
     Creates a function, which calculates the sound particle velocity and the
     jacobian of the field generated by the array at the given location when
     given the phases and optional the amplitudes and return them according to mode.
@@ -883,4 +944,3 @@ def velocity(array, location=None, weights=None, spatial_derivatives=None):
         """
         pass
     return velocity
-

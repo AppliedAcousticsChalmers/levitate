@@ -4,14 +4,15 @@ API Documentation
 ======================
 .. default-role:: py:obj
 
-Models
+Arrays
 ------
 .. automodule:: levitate.arrays
     :members:
 
+Transducers
+-----------
 .. automodule:: levitate.transducers
     :members:
-
 
 Cost Functions
 --------------
