@@ -236,7 +236,7 @@ def test_velocity():
 
 def test_vector_target():
     calc_func = levitate.cost_functions.gorkov_divergence(array, pos_1, weights=False)
-    vector_func = levitate.cost_functions.vector_target(calc_func, target_vector=(1e-9, 2e-9, 3e-9), weights=(3, 2, 1))
+    vector_func = levitate.cost_functions.vector_target(calc_func, target_vector=(1e-9, 2e-9, 3e-9), weights=(3**0.5, 2**0.5, 1))
     val, phase_jac, ampl_jac = vector_func(array.phases, array.amplitudes)
     np.testing.assert_allclose(val, 1.9891260692384784e-17)
     np.testing.assert_allclose(phase_jac, np.array([1.21709071e-19, -1.21709071e-19]))

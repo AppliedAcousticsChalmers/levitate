@@ -244,9 +244,9 @@ def vector_target(vector_calculator, target_vector=(0, 0, 0), weights=(1, 1, 1))
     def vector_target(*args, **kwargs):
         v, dv_phase, dv_ampl = vector_calculator(*args, **kwargs)
         difference = v - target_vector
-        value = np.sum(np.abs(difference)**2 * weights)
-        jacobian_phase = (2 * weights * difference).dot(dv_phase)
-        jacobian_ampl = (2 * weights * difference).dot(dv_ampl)
+        value = np.sum(np.abs(difference * weights)**2)
+        jacobian_phase = (2 * weights**2 * difference).dot(dv_phase)
+        jacobian_ampl = (2 * weights**2 * difference).dot(dv_ampl)
         return value, jacobian_phase, jacobian_ampl
     return vector_target
 
