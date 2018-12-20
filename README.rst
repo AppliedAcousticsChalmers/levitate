@@ -1,5 +1,7 @@
 |levitate_logo|
 ===============
+.. image:: https://travis-ci.com/AppliedAcousticsChalmers/levitate.svg?branch=master
+    :target: https://travis-ci.com/AppliedAcousticsChalmers/levitate
 
 Welcome to the Levitate_ research project python toolbox.
 

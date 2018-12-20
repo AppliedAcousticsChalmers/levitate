@@ -1,8 +1,21 @@
 language: python
 python:
+  - "3.4"
+  - "3.5"
   - "3.6"
 
-jobs:
-    include:
-      - stage: test
-        script: pytest --cov levitate --cov-report term-missing
+script: 
+  - pytest --cov levitate --cov-report term-missing
+
+before_deploy:
+  - sphinx_build -M html docs .
+
+deploy: 
+  provider: pages
+  skip-cleanup: true
+  keep-history: true
+  target-branch: gh-pages
+  github-token: $GITHUB_TOKEN
+  on:
+    branch: master
+
