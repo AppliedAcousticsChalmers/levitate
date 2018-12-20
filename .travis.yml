@@ -8,14 +8,16 @@ script:
   - pytest --cov levitate --cov-report term-missing
 
 install:
-  - pip install -e . tests/requirements.txt
+  - pip install -e . 
+  - pip install tests/requirements.txt
 
 jobs:
-  - include:
-    - stage: tests
+  include:
     - stage: deploy
       python: "3.6"
-      install: pip install -e . docs/requirements.txt
+      install: 
+          - pip install -e . 
+          - pip install docs/requirements.txt
       script: sphinx-build -M html docs .
       deploy: 
         provider: pages
