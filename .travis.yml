@@ -9,7 +9,7 @@ script:
 
 install:
   - pip install -e . 
-  - pip install tests/requirements.txt
+  - pip install -r tests/requirements.txt
 
 jobs:
   include:
@@ -17,7 +17,7 @@ jobs:
       python: "3.6"
       install: 
           - pip install -e . 
-          - pip install docs/requirements.txt
+          - pip install -r docs/requirements.txt
       script: sphinx-build -M html docs .
       deploy: 
         provider: pages
