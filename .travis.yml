@@ -7,15 +7,22 @@ python:
 script: 
   - pytest --cov levitate --cov-report term-missing
 
-before_deploy:
-  - sphinx_build -M html docs .
+install:
+  - pip install -e . tests/requirements.txt
 
-deploy: 
-  provider: pages
-  skip-cleanup: true
-  keep-history: true
-  target-branch: gh-pages
-  github-token: $GITHUB_TOKEN
-  on:
-    branch: master
+jobs:
+  - include:
+    - stage: tests
+    - stage: deploy
+      python: "3.6"
+      install: pip install -e . docs/requirements.txt
+      script: sphinx-build -M html docs .
+      deploy: 
+        provider: pages
+        skip-cleanup: true
+        keep-history: true
+        target-branch: gh-pages
+        github-token: $GITHUB_TOKEN
+        on:
+          branch: master
 
