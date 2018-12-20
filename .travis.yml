@@ -11,12 +11,11 @@ install:
 script: 
   - pytest --cov levitate --cov-report term-missing
 
-after_success:
-  - bash < (curl -s https://codecov.io/bash)
-
 jobs:
   include:
-    - stage: converage
+    - stage: coverage
+      python: "3.6"
+      script: bash <(curl -s https://codecov.io/bash)
     - stage: deploy
       python: "3.6"
       install: 
