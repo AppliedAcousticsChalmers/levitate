@@ -14,15 +14,12 @@ script:
 
 jobs:
   include:
-    - name: "3.4 tests"
-      python: "3.4"
-    - name: "3.5 tests"
-      python: "3.5"
-    - name: "3.6 tests, converage"
-      python: "3.6"
+    - python: "3.4"
+    - python: "3.5"
+    - python: "3.6"
       script: pytest --cov levitate --cov-report term-missing
       after_success: bash <(curl -s https://codecov.io/bash)
-    - name: "3.7"
+    - python: "3.7"
       <<: *xenial-mixin
     - stage: deploy
       python: "3.6"
