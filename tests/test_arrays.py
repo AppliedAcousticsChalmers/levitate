@@ -93,6 +93,19 @@ def test_Array_basics():
     np.testing.assert_allclose(array.bottle_signature(), np.array([3.14159265, 0., 0., 3.14159265, 0., 0., 0., 0., 0., 0., 0., 0., 3.14159265, 0., 0., 3.14159265]))
 
 
+def test_Array_visualizer():
+    array = levitate.arrays.RectangularArray(shape=2)
+    v_trace = array.visualize.velocity()
+    p_trace = array.visualize.pressure()
+    t_trace = array.visualize.transducers()
+    pos = np.array([0, 0, 0.05])
+    signature = array.twin_signature(angle=np.pi)
+    array.phases = array.focus_phases(pos) + signature
+    trap_pos = array.visualize.find_trap(pos)
+    np.testing.assert_allclose(pos, trap_pos, atol=0.1e-3)
+    np.testing.assert_allclose(signature, array.signature(pos))
+
+
 def test_Array_calculations():
     array = levitate.arrays.RectangularArray(shape=2)
     pos = np.array([0.1, -0.2, 0.3])
