@@ -9,13 +9,14 @@ install:
   - pip install -r tests/requirements.txt
 
 script: 
-  - pytest --cov levitate --cov-report term-missing
+  - pytest
 
 jobs:
   include:
     - stage: coverage
       python: "3.6"
-      script: bash <(curl -s https://codecov.io/bash)
+      script: pytest --cov levitate --cov-report term-missing
+      after_success: bash <(curl -s https://codecov.io/bash)
     - stage: deploy
       python: "3.6"
       install: 
@@ -30,4 +31,3 @@ jobs:
         github-token: $GITHUB_TOKEN
         on:
           branch: master
-
