@@ -1,6 +1,10 @@
 language: python
 
+python:
+  - "3.6"
+  - "3.7"
+
 jobs:
     include:
       - stage: test
-        script: make tests
+        script: pytest --cov levitate --cov-report term-missing

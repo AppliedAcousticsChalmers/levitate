@@ -5,3 +5,4 @@ pytest-cov
 flake8
 sphinx
 sphinx-rtd-theme
+. -e
