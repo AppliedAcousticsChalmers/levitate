@@ -3,6 +3,9 @@
 .. image:: https://travis-ci.com/AppliedAcousticsChalmers/levitate.svg?branch=master
     :target: https://travis-ci.com/AppliedAcousticsChalmers/levitate
 
+.. image:: https://codecov.io/gh/AppliedAcousticsChalmers/levitate/branch/master/graph/badge.svg
+    :target: https://codecov.io/gh/AppliedAcousticsChalmers/levitate
+
 Welcome to the Levitate_ research project python toolbox.
 
 .. image:: https://raw.githubusercontent.com/AppliedAcousticsChalmers/levitate/master/docs/eu_logo.jpg

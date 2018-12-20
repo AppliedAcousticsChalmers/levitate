@@ -1,8 +1,4 @@
 language: python
-python:
-  - "3.4"
-  - "3.5"
-  - "3.6"
 
 install:
   - pip install -e . 
@@ -11,18 +7,32 @@ install:
 script: 
   - pytest
 
+.mixins:
+- &xenial-mixin
+  dist: xenial
+  sudo: true
+
 jobs:
   include:
-    - stage: coverage
+    - name: "3.4 tests"
+      python: "3.4"
+    - name: "3.5 tests"
+      python: "3.5"
+    - name: "3.6 tests, converage"
       python: "3.6"
       script: pytest --cov levitate --cov-report term-missing
       after_success: bash <(curl -s https://codecov.io/bash)
+    - name: "3.7"
+      <<: *xenial-mixin
     - stage: deploy
       python: "3.6"
       install: 
           - pip install -e . 
           - pip install -r docs/requirements.txt
-      script: sphinx-build -M html docs .
+      script: 
+        - sphinx-build -M html docs .
+        - echo '<html>\n<head>\n<meta http-equiv="refresh" content="0; url=html/index.html" />\n</head>\n<body></body>\n</html>' > index.html
+        - touch .nojekyll
       deploy: 
         provider: pages
         skip-cleanup: true
