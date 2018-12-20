@@ -1,0 +1,4 @@
+jobs:
+    include:
+      - stage: test
+        script: make tests

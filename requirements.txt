@@ -1,0 +1,7 @@
+numpy
+scipy
+pytest
+pytest-cov
+flake8
+sphinx
+sphinx-rtd-theme
