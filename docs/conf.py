@@ -23,7 +23,7 @@ project = 'Levitate Python Toolbox'
 copyright = '2018, Carl Andersson'
 author = 'Carl Andersson'
 subtitle = ''
-subtitle = 'D1.2 (D2): Python toolbox of sound field/beamformer design methods'
+# subtitle = 'D1.2 (D2): Python toolbox of sound field/beamformer design methods'
 
 # The short X.Y version
 version = ''
@@ -162,7 +162,7 @@ latex_elements = {
         \end{minipage}
         \hspace{1cm}
         \begin{minipage}{0.7\linewidth}
-        ''' + open('Funding_reference.rst').read() + r'''
+        This project has received funding from the European Union’s Horizon 2020 research and innovation programme under grant agreement No 737087.
         \end{minipage}
         \clearpage''',
     'tableofcontents': r'\tableofcontents\clearpage'
@@ -179,6 +179,7 @@ latex_documents = [
 latex_toplevel_sectioning = 'section'
 latex_logo = 'levitate_logo.png'
 latex_domain_indices = False
+latex_additional_files = ['eu_logo.jpg']
 
 # -- Options for manual page output ------------------------------------------
 
