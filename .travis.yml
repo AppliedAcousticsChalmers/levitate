@@ -4,15 +4,19 @@ python:
   - "3.5"
   - "3.6"
 
-script: 
-  - pytest --cov levitate --cov-report term-missing
-
 install:
   - pip install -e . 
   - pip install -r tests/requirements.txt
 
+script: 
+  - pytest --cov levitate --cov-report term-missing
+
+after_success:
+  - bash < (curl -s https://codecov.io/bash)
+
 jobs:
   include:
+    - stage: converage
     - stage: deploy
       python: "3.6"
       install: 
