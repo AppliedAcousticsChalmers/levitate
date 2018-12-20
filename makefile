@@ -27,6 +27,7 @@ clean: clean_tests clean_docs clean_dist clean_install  ## Clean the build direc
 	find . -name '*.pyc' -exec rm {} \;
 	find . -name "*.DS_Store" -exec rm {} \;
 	find . -name '__pycache__' -prune -exec rm -d "{}" \;
+	find . -name "*.html" -exec rm {} \;
 	rm -df $(BUILDDIR)
 
 $(LOGDIR):
