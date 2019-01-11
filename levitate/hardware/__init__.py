@@ -2,6 +2,7 @@ import os
 import numpy as np
 
 from ._dragonfly import dragonfly_grid
+from ._TCPArray import TCPArray
 
 
 def data_to_cpp(complex_values, filename, normalize=True):
