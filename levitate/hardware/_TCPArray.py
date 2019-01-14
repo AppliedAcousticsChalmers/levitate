@@ -38,6 +38,8 @@ class TCPArray:
                     message = bytes(message)
                 except TypeError:
                     message = bytes(message, 'ASCII')
+                    if message[-1] is not 0:
+                        message += b'\0'  # Properly terminate strings.
             msg_len = np.uint32(len(message))
             self.conn.sendall(msg_len)
             self.conn.sendall(message)
@@ -58,6 +60,7 @@ class TCPArray:
             self.conn.close()
             self.sock.close()
             self._cpp_process.wait()
+            self._is_open = False
 
     def __del__(self):
         self.close()

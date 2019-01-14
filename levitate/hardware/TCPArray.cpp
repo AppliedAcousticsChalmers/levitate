@@ -46,6 +46,7 @@ string TCPArray::input()
         received += receive_len;
         message_len -= receive_len;
     }
+    verbose_output(3, stringer("Read message: \"", string(buf), "\" from TCP"));
     return string(buf);
 }
 
