@@ -73,7 +73,7 @@ def test_double_sided_grid():
 
 
 def test_Array_basics():
-    pos, norm = levitate.hardware.dragonfly_grid()
+    pos, norm = levitate.hardware.dragonfly_grid
     array = levitate.arrays.TransducerArray(pos, norm)
     array.omega = 200000
     np.testing.assert_allclose(2 * np.pi * array.freq, array.omega)
