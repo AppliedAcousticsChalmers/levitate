@@ -16,7 +16,7 @@ using namespace std;
 
 TCPArray::TCPArray(const char ip_address[], const char port[])
 {
-    verbose_output(1, "Attempting TCP connection");
+    verbose_output(1, "Attempting TCP connection...");
 
     int status;
     struct addrinfo hints, *res;
@@ -28,6 +28,7 @@ TCPArray::TCPArray(const char ip_address[], const char port[])
     if ((sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol)) < 0) {perror("socket");}
     if (connect(sock, res->ai_addr, res->ai_addrlen) == -1) {perror("connect");}
     freeaddrinfo(res);
+    verbose_output(1, "TCP connection successful.");
 }
 
 string TCPArray::input()

@@ -10,11 +10,8 @@ HEADERS=CyclicUltrahapticsArray.hpp
 
 array_control: CyclicUltrahapticsArray.o TCPArray.o array_control.o
 	$(CC) -o $@ $^ $(FLAGS) $(INCLUDES) $(LIBS)
-	rm *.o
-	rm *.gch
 
 .PHONY: clean
 clean:
 	rm -f *.gch
 	rm -f *.o
-	rm array_control

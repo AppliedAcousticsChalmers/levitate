@@ -111,14 +111,14 @@ class TCPArray:
         num_transducers = self.num_transducers
         self._send('transducer positions')
         raw = self._recv(num_transducers)
-        return np.array([np.array(x.strip('()').split(',')).astype(float) for x in raw])
+        return np.array([np.array(x.decode().strip('()').split(',')).astype(float) for x in raw])
 
     @property
     def transducer_normals(self):
         num_transducers = self.num_transducers
         self._send('transducer normals')
         raw = self._recv(num_transducers)
-        return np.array([np.array(x.strip('()').split(',')).astype(float) for x in raw])
+        return np.array([np.array(x.decode().strip('()').split(',')).astype(float) for x in raw])
 
     @property
     def index(self):
