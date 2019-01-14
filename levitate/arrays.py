@@ -481,3 +481,32 @@ class DoublesidedArray:
         return np.concatenate([pos_1, pos_2], axis=0), np.concatenate([norm_1, norm_2], axis=0)
 
 
+class DragonflyArray(RectangularArray):
+
+    @classmethod
+    def grid_generator(cls, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
+        from .hardware import dragonfly_grid
+        positions, normals = dragonfly_grid
+
+        if normal[0] != 0 or normal[1] != 0:
+            # We need to rotate the grid to get the correct normal
+            rotation_vector = np.cross(normal, (0, 0, 1))
+            rotation_vector /= (rotation_vector**2).sum()**0.5
+            cross_product_matrix = np.array([[0, -rotation_vector[2], rotation_vector[1]],
+                                             [rotation_vector[2], 0, -rotation_vector[0]],
+                                             [-rotation_vector[1], rotation_vector[0], 0]])
+            cos = normal[2]
+            sin = (1 - cos**2)**0.5
+            rotation_matrix = (cos * np.eye(3) + sin * cross_product_matrix + (1 - cos) * np.outer(rotation_vector, rotation_vector))
+        else:
+            rotation_matrix = np.eye(3)
+        if rotation != 0:
+            cross_product_matrix = np.array([[0, -normal[2], normal[1]],
+                                             [normal[2], 0, -normal[0]],
+                                             [-normal[1], normal[0], 0]])
+            cos = np.cos(-rotation)
+            sin = np.sin(-rotation)
+            rotation_matrix = rotation_matrix.dot(cos * np.eye(3) + sin * cross_product_matrix + (1 - cos) * np.outer(normal, normal))
+
+        positions = positions.dot(rotation_matrix) + offset
+        return positions, normals
