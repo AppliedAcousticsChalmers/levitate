@@ -7,7 +7,7 @@ import os.path
 class TCPArray:
     executable = 'array_control'
 
-    def __init__(self, ip='127.0.0.1', port=0, use_array=True, verbose=0):
+    def __init__(self, ip='127.0.0.1', port=0, use_array=True, verbose=0, normalize=True):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind((ip, port))
         self.ip, self.port = self.sock.getsockname()
@@ -23,6 +23,7 @@ class TCPArray:
         self.sock.listen()
         self.conn, self._addr = self.sock.accept()
         self._is_open = True
+        self.normalize = normalize
 
     def _start_subprocess(self, *extra_args):
         name = os.path.dirname(__file__) + '/' + self.executable
@@ -144,7 +145,11 @@ class TCPArray:
 
     @states.setter
     def states(self, states):
-        msg = np.asarray(states).conj().astype(np.complex64).tobytes()
+        if self.normalize:
+            normalization = np.max(np.abs(states))
+        else:
+            normalization = 1
+        msg = (np.asarray(states) / normalization).conj().astype(np.complex64).tobytes()
         num_states = states.size / self.num_transducers
         if not num_states == int(num_states):
             raise ValueError('Cannot send uncomplete states!')
