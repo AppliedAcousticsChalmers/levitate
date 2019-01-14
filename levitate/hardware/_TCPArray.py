@@ -26,7 +26,10 @@ class TCPArray:
         self.normalize = normalize
 
     def _start_subprocess(self, *extra_args):
-        name = os.path.dirname(__file__) + '/' + self.executable
+        directory = os.path.dirname(__file__)
+        name = directory + '/' + self.executable
+        if not os.path.exists(name):
+            subprocess.run('make', cwd=directory)
         args = [name, '--ip', self.ip, str(self.port)]
         args.extend(extra_args)
         self._cpp_process = subprocess.Popen(args=args)
