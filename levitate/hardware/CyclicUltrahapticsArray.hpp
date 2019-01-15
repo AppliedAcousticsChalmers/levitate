@@ -2,8 +2,13 @@
 #include <math.h>
 #include <complex>
 #include <vector>
+#include <atomic>
 
 #include <UltrahapticsStateEmitters.hpp>
+
+#ifdef _WIN32
+    #define OS_WINDOWS
+#endif
 
 using namespace std;
 

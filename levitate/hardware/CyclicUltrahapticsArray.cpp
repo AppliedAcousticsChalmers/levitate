@@ -27,13 +27,13 @@ CyclicUltrahapticsArray::~CyclicUltrahapticsArray()
 
 int CyclicUltrahapticsArray::ultrahapticsConnect()
 {
-    verbose_output(1, "Attempting to connect to Ultrahaptics Device...");
+    verbose_output(1, "Attempting to connect to Ultrahaptics device...");
     if (no_array) {num_transducers = 4; return 1;}  // Use 4 transducer for debugging.
     while (!device){
         device = Ultrahaptics::DriverDevice::getDriverDeviceByCapability(driver_library, 
             Ultrahaptics::DeviceCapabilities::DEVICE_CAPABILITY_TRANSDUCER_STATE_WITH_TIME_POINT);
         if (!device || !device->isConnected()){
-            verbose_output(1, "Not connected...");
+            verbose_output(3, "Not connected...");
             if (device) {
                 Ultrahaptics::DriverDevice::destroyDevice(device);
             }
@@ -48,7 +48,7 @@ int CyclicUltrahapticsArray::ultrahapticsConnect()
 
 int CyclicUltrahapticsArray::ultrahapticsStart()
 {
-    verbose_output(1, "Starting Ultrahaptics array");
+    verbose_output(1, "Starting Ultrahaptics array...");
     if (no_array) {return 1;}
     emitting = false;
     current_state = 0;
@@ -92,7 +92,8 @@ int CyclicUltrahapticsArray::readStatesFromFile(const char filename[])
 
     int read_count = 0;
     current_state = 0;
-    complex<float> state_read_buffer[num_transducers];
+    // complex<float> state_read_buffer[num_transducers];
+    complex<float>* state_read_buffer = new complex<float>[num_transducers];
     // char state_read_buffer[num_transducers];
     states.clear();
     while (f.read((char*) state_read_buffer, sizeof(state_read_buffer))){
