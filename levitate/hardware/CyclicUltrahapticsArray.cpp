@@ -125,7 +125,7 @@ void CyclicUltrahapticsArray::timer(int* state_delay, void* user_ptr)
 {
     while (true) {
         CyclicUltrahapticsArray* array = static_cast<CyclicUltrahapticsArray*>(user_ptr);
-        if (*state_delay > 0) {
+        if (*state_delay > 0 && array->states.size()>0) {
             array->current_state = (array->current_state + 1) % array->states.size();
             this_thread::sleep_for(chrono::microseconds(*state_delay));
         } else {
