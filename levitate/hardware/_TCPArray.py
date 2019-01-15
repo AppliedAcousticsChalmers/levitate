@@ -22,7 +22,6 @@ class TCPArray:
         self._start_subprocess(*args)
         self.sock.listen()
         self.conn, self._addr = self.sock.accept()
-        self._is_open = True
         self.normalize = normalize
 
     def _start_subprocess(self, *extra_args):
@@ -70,12 +69,12 @@ class TCPArray:
             return [self._recv() for _ in range(count)]
 
     def close(self):
-        if self._is_open:
+        if self._cpp_process.poll() is None:
             self._send('quit')
-            self.conn.close()
-            self.sock.close()
             self._cpp_process.wait()
-            self._is_open = False
+        self.conn.close()
+        self.sock.close()
+            
 
     def __del__(self):
         self.close()
@@ -175,16 +174,18 @@ class TCPArray:
 
     @states.setter
     def states(self, states):
+        states = np.asarray(states)
         if self.normalize:
             normalization = np.max(np.abs(states))
         else:
             normalization = 1
-        msg = (np.asarray(states) / normalization).conj().astype(np.complex64).tobytes()
         num_states = states.size / self.num_transducers
         if not num_states == int(num_states):
             raise ValueError('Cannot send uncomplete states!')
         self._send('states ' + str(num_states))
-        self._send(msg)
+        for state in states:
+            msg = (state / normalization).conj().astype(np.complex64).tobytes()
+            self._send(msg)
 
     def read_file(self, filename):
         self._send('file ' + filename)
