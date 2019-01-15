@@ -5,7 +5,7 @@ import os.path
 
 
 class TCPArray:
-    executable = 'array_control'
+    _executable = 'array_control'
 
     def __init__(self, ip='127.0.0.1', port=0, use_array=True, verbose=0, normalize=True):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -27,12 +27,24 @@ class TCPArray:
 
     def _start_subprocess(self, *extra_args):
         directory = os.path.dirname(__file__)
-        name = directory + '/' + self.executable
+        name = os.path.join(directory, self.executable)
         if not os.path.exists(name):
-            subprocess.run('make', cwd=directory)
+            self._compile()
         args = [name, '--ip', self.ip, str(self.port)]
         args.extend(extra_args)
         self._cpp_process = subprocess.Popen(args=args)
+
+    @staticmethod
+    def _compile():
+        directory = os.path.dirname(__file__)
+        if os.name == 'nt':
+            result = subprocess.run(os.path.join(directory, 'make.bat'), cwd=directory)
+            if result.returncode != 0:
+                raise RuntimeError('array_control binary non-existent and c++ toolchain cannot compile binary!')
+        else:
+            result = subprocess.run('make', cwd=directory)
+            if result.returncode != 0:
+                raise RuntimeError('array_control binary non-existent and c++ toolchain cannot compile binary!')
 
     def _send(self, *messages):
         for message in messages:
@@ -67,6 +79,18 @@ class TCPArray:
 
     def __del__(self):
         self.close()
+
+    @property
+    def executable(self):
+        if os.name == 'nt':
+            return self._executable + '.exe'
+        else:
+            return self._executable
+
+    @executable.setter
+    def executable(self, val):
+        self._executable = val.rstrip('.exe')
+    
 
     @property
     def emit(self):
