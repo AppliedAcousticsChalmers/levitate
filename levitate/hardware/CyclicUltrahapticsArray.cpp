@@ -17,6 +17,7 @@ CyclicUltrahapticsArray::CyclicUltrahapticsArray()
     verbose_output(1, stringer("Verbosity level is: ", verbose));
     if (ultrahapticsConnect() != 0) {cerr << "Could not connect to ultrahaptics array!\n";}
     if (ultrahapticsStart() != 0) {cerr << "Could not start array callback loop\n";}
+    if (timerStart() != 0) {cerr << "Could not start timer thread\n";}
 };
 
 CyclicUltrahapticsArray::~CyclicUltrahapticsArray()
@@ -58,9 +59,6 @@ int CyclicUltrahapticsArray::ultrahapticsStart()
     verbose_output(1, stringer("Current update rate is: ", emitter->getUpdateRate()));
     verbose_output(1, stringer("Firmware version: ", device->getFirmwareVersion()));
     
-    state_delay = 0;
-    thread timer_thread(timer, &state_delay, this);
-    timer_thread.detach();
     return 0;
 }
 
@@ -73,6 +71,15 @@ int CyclicUltrahapticsArray::ultrahapticsStop()
     emitter = nullptr;
     Ultrahaptics::DriverDevice::destroyDevice(device);
     device = nullptr;
+    return 0;
+}
+
+int CyclicUltrahapticsArray::timerStart()
+{
+    verbose_output(2, "Starting timer thread...");
+    state_delay = 0;
+    thread timer_thread(timer, &state_delay, this);
+    timer_thread.detach();
     return 0;
 }
 

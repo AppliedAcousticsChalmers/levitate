@@ -49,6 +49,7 @@ protected:
     int ultrahapticsConnect();
     int ultrahapticsStart();
     int ultrahapticsStop();
+    int timerStart();
     int readStatesFromFile(const char filename[]);
 
 private:
