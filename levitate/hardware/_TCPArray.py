@@ -169,12 +169,12 @@ class TCPArray:
         for _ in range(num_states):
             header = self._recv()
             state_raw = self._recv(num_transducers)
-            states.append([complex(*np.array(trans_raw.decode().rsplit(':')[0].strip(' () ').split(',')).astype(float)) for trans_raw in state_raw])
+            states.append([complex(*np.array(trans_raw.decode().rsplit(':')[1].strip(' () ').split(',')).astype(float)) for trans_raw in state_raw])
         return np.array(states).conj()
 
     @states.setter
     def states(self, states):
-        states = np.asarray(states)
+        states = np.atleast_2d(states)
         if self.normalize:
             normalization = np.max(np.abs(states))
         else:
