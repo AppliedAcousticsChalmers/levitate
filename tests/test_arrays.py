@@ -47,6 +47,78 @@ def test_rectangular_grid():
     np.testing.assert_allclose(array.transducer_normals, expected_normals)
 
 
+def test_array_offset():
+    array = levitate.arrays.RectangularArray(shape=(4, 2), offset=(0.1, -0.2, 1.4))
+    expected_positions = np.array([
+        [0.085, -0.205, 1.4],
+        [0.095, -0.205, 1.4],
+        [0.105, -0.205, 1.4],
+        [0.115, -0.205, 1.4],
+        [0.085, -0.195, 1.4],
+        [0.095, -0.195, 1.4],
+        [0.105, -0.195, 1.4],
+        [0.115, -0.195, 1.4]])
+    expected_normals = np.array([
+        [0., 0., 1.],
+        [0., 0., 1.],
+        [0., 0., 1.],
+        [0., 0., 1.],
+        [0., 0., 1.],
+        [0., 0., 1.],
+        [0., 0., 1.],
+        [0., 0., 1.]])
+    np.testing.assert_allclose(array.transducer_positions, expected_positions)
+    np.testing.assert_allclose(array.transducer_normals, expected_normals)
+
+
+def test_array_normal():
+    array = levitate.arrays.RectangularArray(shape=(4, 2), normal=(2, 3, 4))
+    expected_positions = np.array([
+        [-1.321925551875e-02, -2.328883278124e-03, +8.356290217967e-03],
+        [-4.010697510416e-03, -3.516046265624e-03, +4.642383454426e-03],
+        [+5.197860497917e-03, -4.703209253125e-03, +9.284766908853e-04],
+        [+1.440641850625e-02, -5.890372240625e-03, -2.785430072656e-03],
+        [-1.440641850625e-02, +5.890372240625e-03, +2.785430072656e-03],
+        [-5.197860497917e-03, +4.703209253125e-03, -9.284766908853e-04],
+        [+4.010697510416e-03, +3.516046265624e-03, -4.642383454426e-03],
+        [+1.321925551875e-02, +2.328883278124e-03, -8.356290217967e-03]])
+    expected_normals = np.array([
+        [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01],
+        [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01],
+        [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01],
+        [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01],
+        [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01],
+        [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01],
+        [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01],
+        [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01]])
+    np.testing.assert_allclose(array.transducer_positions, expected_positions)
+    np.testing.assert_allclose(array.transducer_normals, expected_normals)
+
+
+def test_array_rotation():
+    array = levitate.arrays.RectangularArray(shape=(4, 2), rotation=1, normal=(-1, 4, -2))
+    expected_positions = np.array([
+        [-8.747019947780e-03, +4.075784833732e-03, +1.252507964135e-02],
+        [-9.564871486238e-04, +2.940455719910e-03, +6.359155014132e-03],
+        [+6.834045650533e-03, +1.805126606089e-03, +1.932303869110e-04],
+        [+1.462457844969e-02, +6.697974922671e-04, -5.972694240310e-03],
+        [-1.462457844969e-02, -6.697974922671e-04, +5.972694240310e-03],
+        [-6.834045650533e-03, -1.805126606089e-03, -1.932303869110e-04],
+        [+9.564871486238e-04, -2.940455719910e-03, -6.359155014132e-03],
+        [+8.747019947780e-03, -4.075784833732e-03, -1.252507964135e-02]])
+    expected_normals = np.array([
+        [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01],
+        [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01],
+        [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01],
+        [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01],
+        [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01],
+        [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01],
+        [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01],
+        [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01]])
+    np.testing.assert_allclose(array.transducer_positions, expected_positions)
+    np.testing.assert_allclose(array.transducer_normals, expected_normals)
+
+
 def test_double_sided_grid():
     # positions, normals = levitate.arrays.double_sided_grid(separation=0.5, shape=(2, 2), spread=5e-3, offset=(0.1, -0.2, 1.4), normal=(0.2, -1.4, 2), rotation=1, grid_generator=levitate.arrays.rectangular_grid)
     array = levitate.arrays.DoublesidedArray(levitate.arrays.RectangularArray, separation=0.5, shape=(2, 2), spread=5e-3, offset=(0.1, -0.2, 1.4), normal=(0.2, -1.4, 2), rotation=1)

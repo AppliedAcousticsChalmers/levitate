@@ -116,7 +116,7 @@ class Visualizer:
         if 'Doublesided' not in type(array).__name__:
             # Singlesided array, one of the limits will give a zero range.
             # Assuming that the array is in the xy-plane, pointing up
-            zlimits = zlimits or (np.min(array.transducer_positions[:, 2]) + 1e-3, 20 * array.wavelength)
+            zlimits = zlimits or (np.min(array.transducer_positions[:, 2]) + 1e-3, np.min(array.transducer_positions[:, 2]) + 20 * array.wavelength)
         else:
             zlimits = zlimits or (np.min(array.transducer_positions[:, 2]), np.max(array.transducer_positions[:, 2]))
 
