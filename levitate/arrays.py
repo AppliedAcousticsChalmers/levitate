@@ -348,39 +348,17 @@ class RectangularArray(TransducerArray):
         -------
         signature : numpy.ndarray
             The twin signature.
+
+        Todo
+        ----
+        This is not at all working for arrays where the normal is not (0, 0, 1).
         """
-        x = position[0]
-        y = position[1]
 
         if angle is None:
-            if np.allclose(x, 0):
-                a = 0
-                b = 1
-            elif np.allclose(y, 0):
-                a = 1
-                b = 0
-            else:
-                a = 1 / y
-                b = 1 / x
-        else:
-            cos = np.cos(angle)
-            sin = np.sin(angle)
-            if np.allclose(cos, 0):
-                a = 1
-                b = 0
-            elif np.allclose(sin, 0):
-                a = 0
-                b = 1
-            else:
-                a = 1 / cos
-                b = -1 / sin
-
-        signature = np.empty(self.num_transducers)
-        for idx in range(self.num_transducers):
-            if (self.transducer_positions[idx, 0] - x) * a + (self.transducer_positions[idx, 1] - y) * b > 0:
-                signature[idx] = -np.pi / 2
-            else:
-                signature[idx] = np.pi / 2
+            angle = np.arctan2(position[1], position[0]) + np.pi / 2
+        signature = np.arctan2(self.transducer_positions[1] - position[1], self.transducer_positions[0] - position[0]) - angle
+        signature = np.round(np.mod(signature / (2 * np.pi), 1))
+        signature = (signature - 0.5) * np.pi
         return signature
 
     def vortex_signature(self, position=(0, 0), angle=0):
@@ -394,14 +372,12 @@ class RectangularArray(TransducerArray):
         -------
         signature : numpy.ndarray
             The vortex signature.
+
+        Todo
+        ----
+            This is not at all working for arrays where the normal is not (0, 0, 1).
         """
-        x = position[0]
-        y = position[1]
-        # TODO: Rotate, shift, and make sure that the calculation below actually works
-        signature = np.empty(self.num_transducers)
-        for idx in range(self.num_transducers):
-            signature[idx] = np.arctan2(self.transducer_positions[idx, 1] - y, self.transducer_positions[idx, 0] - x) + angle
-        return signature
+        return np.arctan2(self.transducer_positions[1] - position[1], self.transducer_positions[0] - position[0]) + angle
 
     def bottle_signature(self, position=(0, 0), radius=None):
         """Get the bottle trap signature.
@@ -415,19 +391,16 @@ class RectangularArray(TransducerArray):
         -------
         signature : numpy.ndarray
             The bottle signature.
+
+        Todo
+        ----
+            This is not at all working for arrays where the normal is not (0, 0, 1).
         """
         position = np.asarray(position)[:2]
         if radius is None:
             A = self.num_transducers * self.transducer_size**2
             radius = (A / 2 / np.pi)**0.5
-
-        signature = np.empty(self.num_transducers)
-        for idx in range(self.num_transducers):
-            if np.sum((self.transducer_positions[idx, 0:2] - position)**2)**0.5 > radius:
-                signature[idx] = np.pi
-            else:
-                signature[idx] = 0
-        return signature
+        return np.where(np.sum((self.transducer_positions[:2] - position[:, None])**2, axis=0) > radius**2, np.pi, 0)
 
 
 class DoublesidedArray:
