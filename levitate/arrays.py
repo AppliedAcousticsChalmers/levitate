@@ -398,7 +398,7 @@ class RectangularArray(TransducerArray):
         # TODO: Rotate, shift, and make sure that the calculation below actually works
         signature = np.empty(self.num_transducers)
         for idx in range(self.num_transducers):
-            signature[idx] = np.arctan2(self.transducer_positions[idx, 1], self.transducer_positions[idx, 0])
+            signature[idx] = np.arctan2(self.transducer_positions[idx, 1] - y, self.transducer_positions[idx, 0] - x) + angle
         return signature
 
     def bottle_signature(self, position=(0, 0), radius=None):
