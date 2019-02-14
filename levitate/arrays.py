@@ -305,30 +305,31 @@ class RectangularArray(TransducerArray):
         y = np.linspace(-(shape[1] - 1) / 2, (shape[1] - 1) / 2, shape[1]) * spread
 
         X, Y, Z = np.meshgrid(x, y, 0)
-        positions = np.stack((X.flatten(), Y.flatten(), Z.flatten()), axis=1)
-        normals = np.tile(normal, (positions.shape[0], 1))
+        positions = np.stack((X.flatten(), Y.flatten(), Z.flatten()))
+        normals = np.tile(normal.reshape((3, 1)), (1, positions.shape[1]))
 
         if normal[0] != 0 or normal[1] != 0:
             # We need to rotate the grid to get the correct normal
             rotation_vector = np.cross(normal, (0, 0, 1))
             rotation_vector /= (rotation_vector**2).sum()**0.5
-            cross_product_matrix = np.array([[0, -rotation_vector[2], rotation_vector[1]],
-                                             [rotation_vector[2], 0, -rotation_vector[0]],
-                                             [-rotation_vector[1], rotation_vector[0], 0]])
+            cross_product_matrix = np.array([[0, rotation_vector[2], -rotation_vector[1]],
+                                             [-rotation_vector[2], 0, rotation_vector[0]],
+                                             [rotation_vector[1], -rotation_vector[0], 0]])
             cos = normal[2]
             sin = (1 - cos**2)**0.5
             rotation_matrix = (cos * np.eye(3) + sin * cross_product_matrix + (1 - cos) * np.outer(rotation_vector, rotation_vector))
         else:
             rotation_matrix = np.eye(3)
         if rotation != 0:
-            cross_product_matrix = np.array([[0, -normal[2], normal[1]],
-                                             [normal[2], 0, -normal[0]],
-                                             [-normal[1], normal[0], 0]])
+            cross_product_matrix = np.array([[0, normal[2], -normal[1]],
+                                             [-normal[2], 0, normal[0]],
+                                             [normal[1], -normal[0], 0]])
             cos = np.cos(-rotation)
             sin = np.sin(-rotation)
-            rotation_matrix = rotation_matrix.dot(cos * np.eye(3) + sin * cross_product_matrix + (1 - cos) * np.outer(normal, normal))
+            rotation_matrix = (cos * np.eye(3) + sin * cross_product_matrix + (1 - cos) * np.outer(normal, normal)).dot(rotation_matrix)
 
-        positions = positions.dot(rotation_matrix) + offset
+        positions = rotation_matrix.dot(positions)
+        positions += np.asarray(offset).reshape([3] + (positions.ndim - 1) * [1])
         return positions, normals
 
     def twin_signature(self, position=(0, 0), angle=None):
@@ -479,6 +480,4 @@ class DoublesidedArray:
 
         pos_1, norm_1 = super().grid_generator(offset=offset - 0.5 * separation * normal, normal=normal, rotation=rotation, **kwargs)
         pos_2, norm_2 = super().grid_generator(offset=offset + 0.5 * separation * normal, normal=-normal, rotation=-rotation, **kwargs)
-        return np.concatenate([pos_1, pos_2], axis=0), np.concatenate([norm_1, norm_2], axis=0)
-
-
+        return np.concatenate([pos_1, pos_2], axis=1), np.concatenate([norm_1, norm_2], axis=1)
