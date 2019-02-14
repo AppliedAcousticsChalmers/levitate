@@ -464,7 +464,9 @@ class PlaneWaveTransducer(TransducerModel):
             The pressure at the locations, assuming `p0` as the source strength.
             Has the same shape as `receiver_position` with the last axis removed.
         """
-        return self.p0 * np.exp(1j * self.k * np.sum((receiver_position - source_position) * source_normal, axis=-1))
+        diff = receiver_position - source_position.reshape([3] + (receiver_position.ndim - 1) * [1])
+        x_dot_n = np.einsum('i..., i...', diff, source_normal)
+        return self.p0 * np.exp(1j * self.k * x_dot_n)
 
     def spatial_derivatives(self, source_position, source_normal, receiver_position, orders=3):
         """Calculate the spatial derivatives of the greens function.
@@ -489,7 +491,7 @@ class PlaneWaveTransducer(TransducerModel):
         """
         source_normal = np.asarray(source_normal, dtype=np.float64)
         source_normal /= (source_normal**2).sum()**0.5
-        derivatives = np.empty((num_spatial_derivatives[orders],) + receiver_position.shape[:-1], dtype=np.complex128)
+        derivatives = np.empty((num_spatial_derivatives[orders],) + receiver_position.shape[1:], dtype=np.complex128)
         derivatives[0] = self.greens_function(source_position, source_normal, receiver_position)
         if orders > 0:
             derivatives[1] = 1j * self.k * source_normal[0] * derivatives[0]
@@ -558,10 +560,10 @@ class CircularPiston(TransducerModel):
             phase referenced to the transducer center.
             Has the same shape as `receiver_position` with the last axis removed.
         """
-        diff = receiver_position - source_position
-        dots = diff.dot(source_normal)
+        diff = receiver_position - source_position.reshape([3] + (receiver_position.ndim - 1) * [1])
+        dots = np.einsum('i...,i...', diff, source_normal)
         norm1 = np.sum(source_normal**2)**0.5
-        norm2 = np.einsum('...i,...i', diff, diff)**0.5
+        norm2 = np.einsum('i...,i...', diff, diff)**0.5
         cos_angle = dots / norm2 / norm1
         sin_angle = (1 - cos_angle**2)**0.5
         ka = self.k * self.effective_radius
@@ -615,10 +617,10 @@ class CircularRing(TransducerModel):
             phase referenced to the transducer center.
             Has the same shape as `receiver_position` with the last axis removed.
         """
-        diff = receiver_position - source_position
-        dots = diff.dot(source_normal)
+        diff = receiver_position - source_position.reshape([3] + (receiver_position.ndim - 1) * [1])
+        dots = np.einsum('i...,i...', diff, source_normal)
         norm1 = np.sum(source_normal**2)**0.5
-        norm2 = np.einsum('...i,...i', diff, diff)**0.5
+        norm2 = np.einsum('i...,i...', diff, diff)**0.5
         cos_angle = dots / norm2 / norm1
         sin_angle = (1 - cos_angle**2)**0.5
         ka = self.k * self.effective_radius
@@ -649,7 +651,8 @@ class CircularRing(TransducerModel):
             dimensions are the same as the `receiver_position` input with the last dimension removed.
 
         """
-        diff = np.moveaxis(receiver_position - source_position, -1, 0)  # Move the axis with coordinates to the from to line up with the derivatives
+        # diff = np.moveaxis(receiver_position - source_position, -1, 0)  # Move the axis with coordinates to the from to line up with the derivatives
+        diff = receiver_position - source_position.reshape([3] + (receiver_position.ndim - 1) * [1])
         dot = np.einsum('i...,i...', diff, source_normal)
         # r = np.einsum('...i,...i', diff, diff)**0.5
         r = np.sum(diff**2, axis=0)**0.5
@@ -660,7 +663,7 @@ class CircularRing(TransducerModel):
         ka = self.k * self.effective_radius
         ka_sin = ka * sin
 
-        derivatives = np.empty((num_spatial_derivatives[orders],) + receiver_position.shape[:-1], dtype=np.complex128)
+        derivatives = np.empty((num_spatial_derivatives[orders],) + receiver_position.shape[1:], dtype=np.complex128)
         J0 = j0(ka_sin)
         derivatives[0] = J0
         if orders > 0:
