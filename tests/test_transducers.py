@@ -9,7 +9,7 @@ Air.rho = 1.2
 source_pos = np.array([0.01, 0.12, -0.025])
 source_normal = np.array([2., 3., 4.])
 source_normal /= np.sum(source_normal**2)**0.5
-receiver_pos = np.stack(([0.1, 0.2, 0.3], [-0.15, 1.27, 0.001]), axis=0)
+receiver_pos = np.stack(([0.1, 0.2, 0.3], [-0.15, 1.27, 0.001]), axis=1)
 
 
 def test_TransducerModel():

@@ -213,7 +213,7 @@ def test_Array_calculations():
         [-1.50835913e+08-2.13718486e+09j, -1.96477450e+09+1.00192185e+09j, -1.35412183e+09+1.64178574e+09j,  2.08021234e+09+6.81337634e+08j]])
     np.testing.assert_allclose(array.spatial_derivatives(pos), expected_result)
 
-    pos = np.stack(np.mgrid[-10e-3:10e-3:5j, -10e-3:10e-3:4j, -10e-3:10e-3:2j], -1)
+    pos = np.stack(np.mgrid[-10e-3:10e-3:5j, -10e-3:10e-3:4j, -10e-3:10e-3:2j], 0)
     expected_result = np.array([
         [[ -198.361288714467 +541.993167997253j,  -198.361288714467 +541.993167997253j],
          [ -391.018833455589 +666.066211891658j,  -391.018833455589 +666.066211891658j],
