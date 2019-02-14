@@ -196,10 +196,10 @@ class TransducerArray:
             where N is the number of transducers, see `num_spatial_derivatives` and `spatial_derivative_order`,
             and the remaining dimensions are the same as the `receiver_position` input with the last dimension removed.
         """
-        derivatives = np.empty((num_spatial_derivatives[orders], self.num_transducers) + receiver_position.shape[:-1], dtype=np.complex128)
+        derivatives = np.empty((num_spatial_derivatives[orders], self.num_transducers) + receiver_position.shape[1:], dtype=np.complex128)
 
         for idx in range(self.num_transducers):
-            derivatives[:, idx] = self.transducer_model.spatial_derivatives(self.transducer_positions[idx], self.transducer_normals[idx], receiver_position, orders)
+            derivatives[:, idx] = self.transducer_model.spatial_derivatives(self.transducer_positions[:, idx], self.transducer_normals[:, idx], receiver_position, orders)
         return derivatives
 
     class PersistentFieldEvaluator:
