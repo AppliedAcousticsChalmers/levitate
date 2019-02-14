@@ -92,11 +92,9 @@ int CyclicUltrahapticsArray::readStatesFromFile(const char filename[])
 
     int read_count = 0;
     current_state = 0;
-    // complex<float> state_read_buffer[num_transducers];
     complex<float>* state_read_buffer = new complex<float>[num_transducers];
-    // char state_read_buffer[num_transducers];
     states.clear();
-    while (f.read((char*) state_read_buffer, sizeof(state_read_buffer))){
+    while (f.read((char*) state_read_buffer, num_transducers * sizeof(state_read_buffer[0]))){
         states.push_back(vector< complex<float> > (state_read_buffer, state_read_buffer + num_transducers));
         read_count++;
     }
