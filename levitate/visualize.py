@@ -78,9 +78,6 @@ def SVL(u):
     return SPL(u * Air.c * Air.rho)
 
 
-
-
-
 class Visualizer:
     """Handle array visualizations.
 
