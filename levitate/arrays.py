@@ -454,3 +454,6 @@ class DoublesidedArray:
         pos_1, norm_1 = super().grid_generator(offset=offset - 0.5 * separation * normal, normal=normal, rotation=rotation, **kwargs)
         pos_2, norm_2 = super().grid_generator(offset=offset + 0.5 * separation * normal, normal=-normal, rotation=-rotation, **kwargs)
         return np.concatenate([pos_1, pos_2], axis=1), np.concatenate([norm_1, norm_2], axis=1)
+
+    def doublesided_signature(self):
+        return np.where(np.arange(self.num_transducers) < self.num_transducers // 2, 0, np.pi)

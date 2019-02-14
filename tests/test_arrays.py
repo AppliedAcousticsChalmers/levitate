@@ -145,6 +145,8 @@ def test_double_sided_grid():
         [-0.08164966, +0.57154761, -0.81649658]]).T
     np.testing.assert_allclose(array.transducer_positions, expected_positions)
     np.testing.assert_allclose(array.transducer_normals, expected_normals)
+    expected_signature = np.array([0, 0, 0, 0, np.pi, np.pi, np.pi, np.pi])
+    np.testing.assert_allclose(array.doublesided_signature(), expected_signature)
 
 
 def test_Array_basics():
