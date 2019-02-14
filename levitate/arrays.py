@@ -73,9 +73,9 @@ class TransducerArray:
         self.calculate = self.PersistentFieldEvaluator(self)
 
         self.transducer_positions = transducer_positions
-        self.num_transducers = self.transducer_positions.shape[0]
+        self.num_transducers = self.transducer_positions.shape[1]
         if transducer_normals.ndim == 1:
-            transducer_normals = np.tile(transducer_normals, (self.num_transducers, 1))
+            transducer_normals = np.tile(transducer_normals.reshape(3, 1), (1, self.num_transducers))
         self.transducer_normals = transducer_normals
         self.amplitudes = np.ones(self.num_transducers)
         self.phases = np.zeros(self.num_transducers)
@@ -147,9 +147,10 @@ class TransducerArray:
             Array with the phases for the transducer elements.
 
         """
-        phase = np.empty(self.num_transducers)
-        for idx in range(self.num_transducers):
-            phase[idx] = -np.sum((self.transducer_positions[idx, :] - focus)**2)**0.5 * self.k
+        # phase = np.empty(self.num_transducers)
+        # for idx in range(self.num_transducers):
+        #     phase[idx] = -np.sum((self.transducer_positions[idx, :] - focus)**2)**0.5 * self.k
+        phase = -np.sum((self.transducer_positions - focus.reshape([3, 1]))**2, axis=0)**0.5 * self.k
         phase = np.mod(phase + np.pi, 2 * np.pi) - np.pi  # Wrap phase to [-pi, pi]
         return phase
 
