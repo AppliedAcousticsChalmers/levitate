@@ -97,7 +97,7 @@ class TransducerModel:
             The pressure at the locations, assuming `p0` as the source strength.
             Has the same shape as `receiver_position` with the last axis removed.
         """
-        if receiver_position.shape[-1] != 3:
+        if receiver_position.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
         return self.p0 * self.spherical_spreading(source_position, receiver_position) * self.directivity(source_position, source_normal, receiver_position)
 
@@ -118,7 +118,7 @@ class TransducerModel:
             phase referenced to the transducer center.
             Has the same shape as `receiver_position` with the last axis removed.
         """
-        if receiver_position.shape[-1] != 3:
+        if receiver_position.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
         diff = receiver_position - source_position
         distance = np.einsum('...i,...i', diff, diff)**0.5
@@ -172,7 +172,7 @@ class TransducerModel:
             derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`, and the remaining
             dimensions are the same as the `receiver_position` input with the last dimension removed.
         """
-        if receiver_position.shape[-1] != 3:
+        if receiver_position.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
         spherical_derivatives = self.spherical_derivatives(source_position, receiver_position, orders)
         directivity_derivatives = self.directivity_derivatives(source_position, source_normal, receiver_position, orders)
@@ -227,7 +227,7 @@ class TransducerModel:
             dimensions are the same as the `receiver_position` input with the last dimension removed.
 
         """
-        if receiver_position.shape[-1] != 3:
+        if receiver_position.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
         diff = np.moveaxis(receiver_position - source_position, -1, 0)  # Move axis with coordinates to the front to line up with derivatives
         # r = np.einsum('...i,...i', diff, diff)**0.5
@@ -297,7 +297,7 @@ class TransducerModel:
             dimensions are the same as the `receiver_position` input with the last dimension removed.
 
         """
-        if receiver_position.shape[-1] != 3:
+        if receiver_position.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
         finite_difference_coefficients = {'': (np.array([0, 0, 0]), 1)}
         if orders > 0:
