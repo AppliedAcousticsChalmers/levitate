@@ -78,9 +78,6 @@ def SVL(u):
     return SPL(u * Air.c * Air.rho)
 
 
-
-
-
 class Visualizer:
     """Handle array visualizations.
 
@@ -111,14 +108,14 @@ class Visualizer:
 
     def __init__(self, array, xlimits=None, ylimits=None, zlimits=None, resolution=10, constant_axis=('y', 0)):
         self.array = array
-        xlimits = xlimits or (np.min(array.transducer_positions[:, 0]), np.max(array.transducer_positions[:, 0]))
-        ylimits = ylimits or (np.min(array.transducer_positions[:, 1]), np.max(array.transducer_positions[:, 1]))
+        xlimits = xlimits or (np.min(array.transducer_positions[0]), np.max(array.transducer_positions[0]))
+        ylimits = ylimits or (np.min(array.transducer_positions[1]), np.max(array.transducer_positions[1]))
         if 'Doublesided' not in type(array).__name__:
             # Singlesided array, one of the limits will give a zero range.
             # Assuming that the array is in the xy-plane, pointing up
-            zlimits = zlimits or (np.min(array.transducer_positions[:, 2]) + 1e-3, 20 * array.wavelength)
+            zlimits = zlimits or (np.min(array.transducer_positions[2]) + 1e-3, np.min(array.transducer_positions[2]) + 20 * array.wavelength)
         else:
-            zlimits = zlimits or (np.min(array.transducer_positions[:, 2]), np.max(array.transducer_positions[:, 2]))
+            zlimits = zlimits or (np.min(array.transducer_positions[2]), np.max(array.transducer_positions[2]))
 
         self._xlimits = xlimits
         self._ylimits = ylimits
@@ -184,9 +181,6 @@ class Visualizer:
 
     def _update_mesh(self):
         axis, value = self.constant_axis
-        x = np.mgrid[self.xlimits[0]:self.xlimits[1]:self._resolution]
-        y = np.mgrid[self.ylimits[0]:self.ylimits[1]:self._resolution]
-        z = np.mgrid[self.zlimits[0]:self.zlimits[1]:self._resolution]
         if axis is 'x':
             self._x, self._y, self._z = np.mgrid[value:value:1j, self.ylimits[0]:self.ylimits[1]:self._resolution, self.zlimits[0]:self.zlimits[1]:self._resolution]
         if axis is 'y':
@@ -196,7 +190,7 @@ class Visualizer:
 
     @property
     def _mesh(self):
-        return np.stack([self._x, self._y, self._z], axis=-1)
+        return np.stack([self._x, self._y, self._z])
 
     def scalar_field(self, calculator, **kwargs):
         """Evaluate and prepare a scalar field visualization.
@@ -215,12 +209,12 @@ class Visualizer:
         trace : dict
             A plotly style dictionary with the trace for the field.
         """
+        data = self._mesh
         try:
-            data = self._mesh
             for f in calculator:
                 data = f(data)
         except TypeError:
-            data = calculator(self._mesh)
+            data = calculator(data)
         trace = dict(
             type='surface', surfacecolor=np.squeeze(data),
             x=np.squeeze(self._x),
@@ -280,9 +274,9 @@ class Visualizer:
         marker = dict(color=data, colorscale=colorscale, size=16, colorbar={'title': title, 'x': -0.02}, cmin=cmin, cmax=cmax)
         return dict(
             type='scatter3d', mode='markers',
-            x=self.array.transducer_positions[:, 0],
-            y=self.array.transducer_positions[:, 1],
-            z=self.array.transducer_positions[:, 2],
+            x=self.array.transducer_positions[0],
+            y=self.array.transducer_positions[1],
+            z=self.array.transducer_positions[2],
             marker=marker
         )
 
@@ -328,13 +322,13 @@ class Visualizer:
         evaluator = self.array.PersistentFieldEvaluator(self.array)
 
         def f(t, x):
-            F = evaluator.force(x.T)
+            F = evaluator.force(x)
             F[2] -= mg
             return F
 
         def bead_close(t, x):
-            dF = evaluator.stiffness(x.T)
-            F = evaluator.force(x.T)
+            dF = evaluator.stiffness(x)
+            F = evaluator.force(x)
             F[2] -= mg
             distance = np.sum((F / dF)**2, axis=0)**0.5
             return np.clip(distance - tolerance, 0, None)
