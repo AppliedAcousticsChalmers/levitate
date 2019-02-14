@@ -21,7 +21,7 @@ def dB(x, power=False):
 
     Returns
     -------
-    Lx : numeric
+    L : numeric
         The decibel value.
     """
     if power:
@@ -34,19 +34,19 @@ def SPL(p):
     """Convert sound pressure to sound pressure level.
 
     Uses the standard reference value for airborne acoustics: 20µPa.
-    Note that the input is the complex rms amplitude.
+    Note that the input is the pressure amplitude, not he RMS value.
 
     Parameters
     ----------
     p : numeric, complex
-        The complex sound pressure rms amplitude.
+        The complex sound pressure amplitude.
 
     Returns
     -------
     SPL : numeric
         The sound pressure level
     """
-    return dB(p / 20e-6)
+    return dB(p / (20e-6 * 2**0.5))
 
 
 def SVL(u):
@@ -54,7 +54,7 @@ def SVL(u):
 
     Uses the standard reference value for airborne acoustics: 20µPa
     and the material properties of air from the materials module.
-    Note that the input is the complex rms amplitude.
+    Note that the input the valocity amplitude(s), not the RMS values.
 
     If the first axis of the velocity input has length 3, it will be assumed to
     be the three Cartesian components of the velocity.
@@ -62,7 +62,7 @@ def SVL(u):
     Parameters
     ----------
     u : numeric, complex
-        The complex sound velocity rms amplitude, or the vector velocity.
+        The complex sound velocity amplitude, or the vector velocity.
 
     Returns
     -------
@@ -72,7 +72,7 @@ def SVL(u):
     u = np.asarray(u)
     try:
         if u.shape[0] == 3:
-            u = np.sum(u**2, 0)**0.5
+            u = np.sum(np.abs(u)**2, 0)**0.5
     except IndexError:
         pass
     return SPL(u * Air.c * Air.rho)

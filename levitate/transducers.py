@@ -18,6 +18,7 @@ class TransducerModel:
         The resonant frequency of the transducer.
     p0 : float, default 6 Pa
         The sound pressure crated at maximum amplitude at 1m distance, in Pa.
+        Note: This is not an rms value!
     **kwargs
         All remaining arguments will be used as additional properties for the object.
 
