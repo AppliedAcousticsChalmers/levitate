@@ -18,3 +18,30 @@ def requires(**requirements):
         # cost_function_defer_initialization.requires = requirements
         return wrapped
     return wrapper
+
+
+def gorkov_divergence(array, radius_sphere=1e-3, medium=materials.Air, sphere_material=materials.Styrofoam):
+    V = 4 / 3 * np.pi * radius_sphere**3
+    monopole_coefficient = 1 - sphere_material.compressibility / medium.compressibility  # f_1 in H. Bruus 2012
+    dipole_coefficient = 2 * (sphere_material.rho / medium.rho - 1) / (2 * sphere_material.rho / medium.rho + 1)   # f_2 in H. Bruus 2012
+    preToVel = 1 / (array.omega * medium.rho)  # Converting velocity to pressure gradient using equation of motion
+    pressure_coefficient = V / 4 * medium.compressibility * monopole_coefficient
+    gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * medium.rho
+
+    @requires(pressure_orders_summed=2)
+    def calc_values(summed_derivs):
+        values = np.real(pressure_coefficient * np.conj(summed_derivs[0]) * summed_derivs[1:4])  # Pressure parts
+        values -= np.real(gradient_coefficient * np.conj(summed_derivs[1]) * summed_derivs[[4, 7, 8]])  # Vx parts
+        values -= np.real(gradient_coefficient * np.conj(summed_derivs[2]) * summed_derivs[[7, 5, 9]])  # Vy parts
+        values -= np.real(gradient_coefficient * np.conj(summed_derivs[3]) * summed_derivs[[8, 9, 6]])  # Vz parts
+        return values * 2
+
+    @requires(pressure_orders_summed=2, pressure_orders_individual=2)
+    def calc_jacobians(summed_derivs, individual_derivs):
+        jacobians = pressure_coefficient * (np.conj(summed_derivs[0]) * individual_derivs[1:4] + np.conj(summed_derivs[1:4, None]) * individual_derivs[0])  # Pressure parts
+        jacobians -= gradient_coefficient * (np.conj(summed_derivs[1]) * individual_derivs[[4, 7, 8]] + np.conj(summed_derivs[[4, 7, 8], None]) * individual_derivs[1])  # Vx parts
+        jacobians -= gradient_coefficient * (np.conj(summed_derivs[2]) * individual_derivs[[7, 5, 9]] + np.conj(summed_derivs[[7, 5, 9], None]) * individual_derivs[2])  # Vy parts
+        jacobians -= gradient_coefficient * (np.conj(summed_derivs[3]) * individual_derivs[[8, 9, 6]] + np.conj(summed_derivs[[8, 9, 6], None]) * individual_derivs[3])  # Vz parts
+        return jacobians * 2
+    return calc_values, calc_jacobians
+
