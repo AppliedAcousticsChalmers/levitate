@@ -50,3 +50,19 @@ def test_gorkov_laplacian():
     np.testing.assert_allclose(-jac_1.imag, np.array([[-3.33886801e-10, 3.33886801e-10], [-1.94724287e-11, 1.94724287e-11], [-3.76591861e-11, 3.76591861e-11]]))
     np.testing.assert_allclose(jac_1.real, np.array([[-3.98912624e-10, -3.97329763e-10], [8.96724049e-12, 8.52751518e-12], [3.07462056e-11, 2.89871868e-11]]))
     np.testing.assert_allclose(jac_12, np.stack([jac_1, jac_2], -1))
+
+
+def test_second_order_force():
+    calc_values, calc_jacobians = levitate.algorithms.second_order_force(array)
+    val_1 = calc_values(sum_ders[..., 0])
+    val_2 = calc_values(sum_ders[..., 1])
+    val_12 = calc_values(sum_ders)
+    np.testing.assert_allclose(val_1, np.array([1.83399145e-10, 4.15099186e-10, 6.22648779e-10]))
+    np.testing.assert_allclose(val_12, np.stack([val_1, val_2], -1))
+
+    jac_1 = calc_jacobians(sum_ders[..., 0], ind_ders[..., 0])
+    jac_2 = calc_jacobians(sum_ders[..., 1], ind_ders[..., 1])
+    jac_12 = calc_jacobians(sum_ders, ind_ders)
+    np.testing.assert_allclose(-jac_1.imag, np.array([[-3.89064704e-10, 3.89064704e-10], [-8.13263002e-10, 8.13263002e-10], [-1.21989450e-09, 1.21989450e-09]]))
+    np.testing.assert_allclose(jac_1.real, np.array([[2.03139282e-10, 1.63659008e-10], [4.04354167e-10, 4.25844205e-10], [6.06531251e-10, 6.38766308e-10]]))
+    np.testing.assert_allclose(jac_12, np.stack([jac_1, jac_2], -1))
