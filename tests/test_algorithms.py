@@ -66,3 +66,19 @@ def test_second_order_force():
     np.testing.assert_allclose(-jac_1.imag, np.array([[-3.89064704e-10, 3.89064704e-10], [-8.13263002e-10, 8.13263002e-10], [-1.21989450e-09, 1.21989450e-09]]))
     np.testing.assert_allclose(jac_1.real, np.array([[2.03139282e-10, 1.63659008e-10], [4.04354167e-10, 4.25844205e-10], [6.06531251e-10, 6.38766308e-10]]))
     np.testing.assert_allclose(jac_12, np.stack([jac_1, jac_2], -1))
+
+
+def test_second_order_stiffness():
+    calc_values, calc_jacobians = levitate.algorithms.second_order_stiffness(array)
+    val_1 = calc_values(sum_ders[..., 0])
+    val_2 = calc_values(sum_ders[..., 1])
+    val_12 = calc_values(sum_ders)
+    np.testing.assert_allclose(val_1, np.array([-5.37791668e-09, 2.56362884e-09, 3.17379497e-09]))
+    np.testing.assert_allclose(val_12, np.stack([val_1, val_2], -1))
+
+    jac_1 = calc_jacobians(sum_ders[..., 0], ind_ders[..., 0])
+    jac_2 = calc_jacobians(sum_ders[..., 1], ind_ders[..., 1])
+    jac_12 = calc_jacobians(sum_ders, ind_ders)
+    np.testing.assert_allclose(-jac_1.imag, np.array([[2.54837811e-09, -2.54837811e-09], [-2.22777029e-09, 2.22777029e-09], [7.04106016e-11, -7.04106016e-11]]))
+    np.testing.assert_allclose(jac_1.real, np.array([[-5.51989676e-09, -5.23593661e-09], [2.58655676e-09, 2.54070091e-09], [3.29253917e-09, 3.05505076e-09]]))
+    np.testing.assert_allclose(jac_12, np.stack([jac_1, jac_2], -1))
