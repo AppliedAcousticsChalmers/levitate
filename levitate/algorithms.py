@@ -149,3 +149,16 @@ def pressure_squared_magnitude():
     def calc_jacobians(summed_derivs, individual_derivs):
         return 2 * np.conj(summed_derivs[0]) * individual_derivs[0]
     return calc_values, calc_jacobians
+
+
+def velocity_squared_magnitude(array, medium=materials.Air):
+    pre_grad_2_vel_squared = 1 / (medium.rho * array.omega)**2
+
+    @requires(pressure_orders_summed=1)
+    def calc_values(summed_derivs):
+        return pre_grad_2_vel_squared * summed_derivs[1:4] * np.conj(summed_derivs[1:4])
+
+    @requires(pressure_orders_summed=1, pressure_orders_individual=1)
+    def calc_jacobians(summed_derivs, individual_derivs):
+        return 2 * pre_grad_2_vel_squared * np.conj(summed_derivs[1:4, None]) * individual_derivs[1:4]
+    return calc_values, calc_jacobians

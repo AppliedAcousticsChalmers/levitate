@@ -98,3 +98,19 @@ def test_pressure():
     np.testing.assert_allclose(-jac_1.imag, np.array([-4.15076576e+02, 4.15076576e+02]))
     np.testing.assert_allclose(jac_1.real, np.array([2.07034544e+02, 2.14379234e+02]))
     np.testing.assert_allclose(jac_12, np.stack([jac_1, jac_2], -1))
+
+
+def test_velocity():
+    calc_values, calc_jacobians = levitate.algorithms.velocity_squared_magnitude(array)
+    val_1 = calc_values(sum_ders[..., 0])
+    val_2 = calc_values(sum_ders[..., 1])
+    val_12 = calc_values(sum_ders)
+    np.testing.assert_allclose(val_1, np.array([8.93991803e-05, 3.55387889e-04, 7.99622751e-04]))
+    np.testing.assert_allclose(val_12, np.stack([val_1, val_2], -1))
+
+    jac_1 = calc_jacobians(sum_ders[..., 0], ind_ders[..., 0])
+    jac_2 = calc_jacobians(sum_ders[..., 1], ind_ders[..., 1])
+    jac_12 = calc_jacobians(sum_ders, ind_ders)
+    np.testing.assert_allclose(-jac_1.imag, np.array([[-0.000174546016, 0.000174546016], [-0.000699933899, 0.000699933899], [-0.001574851272, 0.001574851272]]))
+    np.testing.assert_allclose(jac_1.real, np.array([[1.07974283e-04, 7.08240775e-05], [3.43002548e-04, 3.67773230e-04], [7.71755733e-04, 8.27489769e-04]]))
+    np.testing.assert_allclose(jac_12, np.stack([jac_1, jac_2], -1))
