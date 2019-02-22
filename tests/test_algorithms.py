@@ -82,3 +82,19 @@ def test_second_order_stiffness():
     np.testing.assert_allclose(-jac_1.imag, np.array([[2.54837811e-09, -2.54837811e-09], [-2.22777029e-09, 2.22777029e-09], [7.04106016e-11, -7.04106016e-11]]))
     np.testing.assert_allclose(jac_1.real, np.array([[-5.51989676e-09, -5.23593661e-09], [2.58655676e-09, 2.54070091e-09], [3.29253917e-09, 3.05505076e-09]]))
     np.testing.assert_allclose(jac_12, np.stack([jac_1, jac_2], -1))
+
+
+def test_pressure():
+    calc_values, calc_jacobians = levitate.algorithms.pressure_squared_magnitude()
+    val_1 = calc_values(sum_ders[..., 0])
+    val_2 = calc_values(sum_ders[..., 1])
+    val_12 = calc_values(sum_ders)
+    np.testing.assert_allclose(val_1, np.array(2.10706889e+02))
+    np.testing.assert_allclose(val_12, np.stack([val_1, val_2], -1))
+
+    jac_1 = calc_jacobians(sum_ders[..., 0], ind_ders[..., 0])
+    jac_2 = calc_jacobians(sum_ders[..., 1], ind_ders[..., 1])
+    jac_12 = calc_jacobians(sum_ders, ind_ders)
+    np.testing.assert_allclose(-jac_1.imag, np.array([-4.15076576e+02, 4.15076576e+02]))
+    np.testing.assert_allclose(jac_1.real, np.array([2.07034544e+02, 2.14379234e+02]))
+    np.testing.assert_allclose(jac_12, np.stack([jac_1, jac_2], -1))

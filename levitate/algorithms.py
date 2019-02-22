@@ -138,3 +138,14 @@ def second_order_stiffness(array, radius_sphere=1e-3, medium=materials.Air, sphe
         jacobians += 3 * (psi_1 * individual_derivs[3] * np.conj(summed_derivs[[14, 16, 12], None]) + np.conj(psi_1) * np.conj(summed_derivs[3]) * individual_derivs[[14, 16, 12]] + (psi_1 + np.conj(psi_1)) * np.conj(summed_derivs[[8, 9, 6], None]) * individual_derivs[[8, 9, 6]])
         return jacobians * force_coeff
     return calc_values, calc_jacobians
+
+
+def pressure_squared_magnitude():
+    @requires(pressure_orders_summed=0)
+    def calc_values(summed_derivs):
+        return summed_derivs[0] * np.conj(summed_derivs[0])
+
+    @requires(pressure_orders_summed=0, pressure_orders_individual=0)
+    def calc_jacobians(summed_derivs, individual_derivs):
+        return 2 * np.conj(summed_derivs[0]) * individual_derivs[0]
+    return calc_values, calc_jacobians
