@@ -2,24 +2,42 @@
 
 import numpy as np
 import functools
+import collections
 from . import materials
 
 
 def requires(**requirements):
-    # This function must define an actual decorator which gets the defined cost function as input.
     # TODO: Document the list of possible choises, and compare the input to what is possible.
     def wrapper(func):
-        # This function will be called at load time, i.e. when the levitate code is imported
         @functools.wraps(func)
         def wrapped(*args, **kwargs):
-            # Save the weights and requirements as attribures in the function, since the cost_function_point needs it.
             return func(*args, **kwargs)
         wrapped.requires = requirements
-        # cost_function_defer_initialization.requires = requirements
         return wrapped
     return wrapper
 
 
+def algorithm(*output_names):
+    def wrapper(func):
+        named_outputs = collections.namedtuple(func.__name__, output_names)
+
+        @functools.wraps(func)
+        def wrapped(*args, weights=None, **kwargs):
+            output = func(*args, **kwargs)
+            if weights is not None:
+                try:
+                    for f in output:
+                        f.weights = weights
+                    output = named_outputs(*output)
+                except TypeError:
+                    output.weights = weights
+                    output = named_outputs(output)
+            return output
+        return wrapped
+    return wrapper
+
+
+@algorithm('calc_values', 'calc_jacobians')
 def gorkov_divergence(array, radius_sphere=1e-3, medium=materials.Air, sphere_material=materials.Styrofoam):
     V = 4 / 3 * np.pi * radius_sphere**3
     monopole_coefficient = 1 - sphere_material.compressibility / medium.compressibility  # f_1 in H. Bruus 2012
@@ -46,6 +64,7 @@ def gorkov_divergence(array, radius_sphere=1e-3, medium=materials.Air, sphere_ma
     return calc_values, calc_jacobians
 
 
+@algorithm('calc_values', 'calc_jacobians')
 def gorkov_laplacian(array, radius_sphere=1e-3, medium=materials.Air, sphere_material=materials.Styrofoam):
     V = 4 / 3 * np.pi * radius_sphere**3
     monopole_coefficient = 1 - sphere_material.compressibility / medium.compressibility  # f_1 in H. Bruus 2012
@@ -72,6 +91,7 @@ def gorkov_laplacian(array, radius_sphere=1e-3, medium=materials.Air, sphere_mat
     return calc_values, calc_jacobians
 
 
+@algorithm('calc_values', 'calc_jacobians')
 def second_order_force(array, radius_sphere=1e-3, medium=materials.Air, sphere_material=materials.Styrofoam):
     f_1 = 1 - sphere_material.compressibility / medium.compressibility  # f_1 in H. Bruus 2012
     f_2 = 2 * (sphere_material.rho / medium.rho - 1) / (2 * sphere_material.rho / medium.rho + 1)   # f_2 in H. Bruus 2012
@@ -106,6 +126,7 @@ def second_order_force(array, radius_sphere=1e-3, medium=materials.Air, sphere_m
     return calc_values, calc_jacobians
 
 
+@algorithm('calc_values', 'calc_jacobians')
 def second_order_stiffness(array, radius_sphere=1e-3, medium=materials.Air, sphere_material=materials.Styrofoam):
     f_1 = 1 - sphere_material.compressibility / medium.compressibility  # f_1 in H. Bruus 2012
     f_2 = 2 * (sphere_material.rho / medium.rho - 1) / (2 * sphere_material.rho / medium.rho + 1)   # f_2 in H. Bruus 2012
@@ -140,10 +161,11 @@ def second_order_stiffness(array, radius_sphere=1e-3, medium=materials.Air, sphe
     return calc_values, calc_jacobians
 
 
+@algorithm('calc_values', 'calc_jacobians')
 def pressure_squared_magnitude():
     @requires(pressure_orders_summed=0)
     def calc_values(summed_derivs):
-        return summed_derivs[0] * np.conj(summed_derivs[0])
+        return np.real(summed_derivs[0] * np.conj(summed_derivs[0]))
 
     @requires(pressure_orders_summed=0, pressure_orders_individual=0)
     def calc_jacobians(summed_derivs, individual_derivs):
@@ -151,12 +173,13 @@ def pressure_squared_magnitude():
     return calc_values, calc_jacobians
 
 
+@algorithm('calc_values', 'calc_jacobians')
 def velocity_squared_magnitude(array, medium=materials.Air):
     pre_grad_2_vel_squared = 1 / (medium.rho * array.omega)**2
 
     @requires(pressure_orders_summed=1)
     def calc_values(summed_derivs):
-        return pre_grad_2_vel_squared * summed_derivs[1:4] * np.conj(summed_derivs[1:4])
+        return np.real(pre_grad_2_vel_squared * summed_derivs[1:4] * np.conj(summed_derivs[1:4]))
 
     @requires(pressure_orders_summed=1, pressure_orders_individual=1)
     def calc_jacobians(summed_derivs, individual_derivs):
