@@ -214,7 +214,7 @@ class TransducerArray:
 
         """
 
-        from . import cost_functions as _cost_functions
+        from .algorithms import second_order_force as _force, second_order_stiffness as _stiffness
 
         def __init__(self, array):
             self.array = array
@@ -251,7 +251,8 @@ class TransducerArray:
             pressure : numpy.ndarray
                 The complex pressure amplitudes, shape (...) as the positions.
             """
-            return self._cost_functions.pressure(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=0))(self.array.phases, self.array.amplitudes)
+            return np.einsum('i..., i', self.spatial_derivatives(positions, orders=0)[0], self.array.complex_amplitudes)
+            # return self._cost_functions.pressure(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=0))(self.array.phases, self.array.amplitudes)
 
         def velocity(self, positions):
             """Calculate the velocity field.
@@ -267,9 +268,10 @@ class TransducerArray:
             velocity : numpy.ndarray
                 The complex vector particle velocity, shape (3, ...) as the positions.
             """
-            return self._cost_functions.velocity(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=1))(self.array.phases, self.array.amplitudes)
+            return np.einsum('ji..., i->j...', self.spatial_derivatives(positions, orders=1)[1:4], self.array.complex_amplitudes) / (1j * self.array.omega * self.array.medium.rho)
+            # return self._cost_functions.velocity(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=1))(self.array.phases, self.array.amplitudes)
 
-        def force(self, positions):
+        def force(self, positions, **kwargs):
             """Calculate the force field.
 
             Parameters
@@ -283,9 +285,10 @@ class TransducerArray:
             force : numpy.ndarray
                 The vector radiation force, shape (3, ...) as the positions.
             """
-            return self._cost_functions.second_order_force(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=2))(self.array.phases, self.array.amplitudes)
+            summed_derivs = np.einsum('ji..., i->j...', self.spatial_derivatives(positions, orders=2), self.array.complex_amplitudes)
+            return TransducerArray.PersistentFieldEvaluator._force(self.array, **kwargs)[0](summed_derivs)
 
-        def stiffness(self, positions):
+        def stiffness(self, positions, **kwargs):
             """Calculate the stiffness field.
 
             Parameters
@@ -299,7 +302,8 @@ class TransducerArray:
             force : numpy.ndarray
                 The radiation stiffness, shape (...) as the positions.
             """
-            return self._cost_functions.second_order_stiffness(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=3))(self.array.phases, self.array.amplitudes)
+            summed_derivs = np.einsum('ji..., i->j...', self.spatial_derivatives(positions, orders=3), self.array.complex_amplitudes)
+            return TransducerArray.PersistentFieldEvaluator._stiffness(self.array, **kwargs)[0](summed_derivs)
 
 
 class RectangularArray(TransducerArray):
