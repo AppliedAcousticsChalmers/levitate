@@ -1,5 +1,4 @@
 import levitate
-import levitate.algorithms  # Not a default import for levitate
 import numpy as np
 
 # Hardcoded values for the tests were created using the previous jacobian convention inside the cost functions.
