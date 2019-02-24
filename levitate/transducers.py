@@ -35,7 +35,8 @@ class TransducerModel:
 
     """
 
-    def __init__(self, freq=40e3, p0=6, **kwargs):
+    def __init__(self, freq=40e3, p0=6, medium=Air, **kwargs):
+        self.medium = medium
         self.freq = freq
         self.p0 = p0
         # The murata transducers are measured to 85 dB SPL at 1 V at 1 m, which corresponds to ~6 Pa at 20 V
@@ -50,7 +51,7 @@ class TransducerModel:
     @k.setter
     def k(self, value):
         self._k = value
-        self._omega = value * Air.c
+        self._omega = value * self.medium.c
 
     @property
     def omega(self):
@@ -59,7 +60,7 @@ class TransducerModel:
     @omega.setter
     def omega(self, value):
         self._omega = value
-        self._k = value / Air.c
+        self._k = value / self.medium.c
 
     @property
     def freq(self):

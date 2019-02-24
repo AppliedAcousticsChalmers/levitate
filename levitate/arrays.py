@@ -7,6 +7,7 @@ frequently used methods.
 import numpy as np
 from . import num_spatial_derivatives
 from .visualize import Visualizer
+from .materials import Air
 
 
 class TransducerArray:
@@ -57,10 +58,13 @@ class TransducerArray:
     """
 
     def __init__(self, transducer_positions, transducer_normals,
-                 transducer_model=None, transducer_size=10e-3, transducer_kwargs=None, **kwargs
+                 transducer_model=None, transducer_size=10e-3, transducer_kwargs=None,
+                 medium=Air, **kwargs
                  ):
         self.transducer_size = transducer_size
         transducer_kwargs = transducer_kwargs or {}
+        self.medium = medium
+        transducer_kwargs['medium'] = self.medium
 
         if transducer_model is None:
             from .transducers import TransducerModel

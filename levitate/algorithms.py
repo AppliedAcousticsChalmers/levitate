@@ -38,13 +38,13 @@ def algorithm(*output_names):
 
 
 @algorithm('calc_values', 'calc_jacobians')
-def gorkov_divergence(array, radius_sphere=1e-3, medium=materials.Air, sphere_material=materials.Styrofoam):
+def gorkov_divergence(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
     V = 4 / 3 * np.pi * radius_sphere**3
-    monopole_coefficient = 1 - sphere_material.compressibility / medium.compressibility  # f_1 in H. Bruus 2012
-    dipole_coefficient = 2 * (sphere_material.rho / medium.rho - 1) / (2 * sphere_material.rho / medium.rho + 1)   # f_2 in H. Bruus 2012
-    preToVel = 1 / (array.omega * medium.rho)  # Converting velocity to pressure gradient using equation of motion
-    pressure_coefficient = V / 4 * medium.compressibility * monopole_coefficient
-    gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * medium.rho
+    monopole_coefficient = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
+    dipole_coefficient = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
+    preToVel = 1 / (array.omega * array.medium.rho)  # Converting velocity to pressure gradient using equation of motion
+    pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
+    gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
 
     @requires(pressure_orders_summed=2)
     def calc_values(summed_derivs):
@@ -65,13 +65,13 @@ def gorkov_divergence(array, radius_sphere=1e-3, medium=materials.Air, sphere_ma
 
 
 @algorithm('calc_values', 'calc_jacobians')
-def gorkov_laplacian(array, radius_sphere=1e-3, medium=materials.Air, sphere_material=materials.Styrofoam):
+def gorkov_laplacian(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
     V = 4 / 3 * np.pi * radius_sphere**3
-    monopole_coefficient = 1 - sphere_material.compressibility / medium.compressibility  # f_1 in H. Bruus 2012
-    dipole_coefficient = 2 * (sphere_material.rho / medium.rho - 1) / (2 * sphere_material.rho / medium.rho + 1)   # f_2 in H. Bruus 2012
-    preToVel = 1 / (array.omega * medium.rho)  # Converting velocity to pressure gradient using equation of motion
-    pressure_coefficient = V / 4 * medium.compressibility * monopole_coefficient
-    gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * medium.rho
+    monopole_coefficient = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
+    dipole_coefficient = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
+    preToVel = 1 / (array.omega * array.medium.rho)  # Converting velocity to pressure gradient using equation of motion
+    pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
+    gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
 
     @requires(pressure_orders_summed=3)
     def calc_values(summed_derivs):
@@ -92,15 +92,15 @@ def gorkov_laplacian(array, radius_sphere=1e-3, medium=materials.Air, sphere_mat
 
 
 @algorithm('calc_values', 'calc_jacobians')
-def second_order_force(array, radius_sphere=1e-3, medium=materials.Air, sphere_material=materials.Styrofoam):
-    f_1 = 1 - sphere_material.compressibility / medium.compressibility  # f_1 in H. Bruus 2012
-    f_2 = 2 * (sphere_material.rho / medium.rho - 1) / (2 * sphere_material.rho / medium.rho + 1)   # f_2 in H. Bruus 2012
+def second_order_force(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
+    f_1 = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
+    f_2 = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
 
     ka = array.k * radius_sphere
     k_square = array.k**2
     psi_0 = -2 * ka**6 / 9 * (f_1**2 + f_2**2 / 4 + f_1 * f_2) - 1j * ka**3 / 3 * (2 * f_1 + f_2)
     psi_1 = -ka**6 / 18 * f_2**2 + 1j * ka**3 / 3 * f_2
-    force_coeff = -np.pi / array.k**5 * medium.compressibility
+    force_coeff = -np.pi / array.k**5 * array.medium.compressibility
 
     # Including the j factors from the paper directly in the coefficients.
     psi_0 *= 1j
@@ -127,15 +127,15 @@ def second_order_force(array, radius_sphere=1e-3, medium=materials.Air, sphere_m
 
 
 @algorithm('calc_values', 'calc_jacobians')
-def second_order_stiffness(array, radius_sphere=1e-3, medium=materials.Air, sphere_material=materials.Styrofoam):
-    f_1 = 1 - sphere_material.compressibility / medium.compressibility  # f_1 in H. Bruus 2012
-    f_2 = 2 * (sphere_material.rho / medium.rho - 1) / (2 * sphere_material.rho / medium.rho + 1)   # f_2 in H. Bruus 2012
+def second_order_stiffness(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
+    f_1 = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
+    f_2 = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
 
     ka = array.k * radius_sphere
     k_square = array.k**2
     psi_0 = -2 * ka**6 / 9 * (f_1**2 + f_2**2 / 4 + f_1 * f_2) - 1j * ka**3 / 3 * (2 * f_1 + f_2)
     psi_1 = -ka**6 / 18 * f_2**2 + 1j * ka**3 / 3 * f_2
-    force_coeff = -np.pi / array.k**5 * medium.compressibility
+    force_coeff = -np.pi / array.k**5 * array.medium.compressibility
 
     # Including the j factors from the paper directly in the coefficients.
     psi_0 *= 1j
@@ -162,7 +162,7 @@ def second_order_stiffness(array, radius_sphere=1e-3, medium=materials.Air, sphe
 
 
 @algorithm('calc_values', 'calc_jacobians')
-def pressure_squared_magnitude():
+def pressure_squared_magnitude(array=None):
     @requires(pressure_orders_summed=0)
     def calc_values(summed_derivs):
         return np.real(summed_derivs[0] * np.conj(summed_derivs[0]))
@@ -174,8 +174,8 @@ def pressure_squared_magnitude():
 
 
 @algorithm('calc_values', 'calc_jacobians')
-def velocity_squared_magnitude(array, medium=materials.Air):
-    pre_grad_2_vel_squared = 1 / (medium.rho * array.omega)**2
+def velocity_squared_magnitude(array):
+    pre_grad_2_vel_squared = 1 / (array.medium.rho * array.omega)**2
 
     @requires(pressure_orders_summed=1)
     def calc_values(summed_derivs):
