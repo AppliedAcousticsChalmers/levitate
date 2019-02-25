@@ -185,3 +185,28 @@ def velocity_squared_magnitude(array):
     def calc_jacobians(summed_derivs, individual_derivs):
         return 2 * pre_grad_2_vel_squared * np.conj(summed_derivs[1:4, None]) * individual_derivs[1:4]
     return calc_values, calc_jacobians
+
+
+@algorithm('calc_values', 'calc_jacobians')
+def vector_target(vector_calculator, target_vector=(0, 0, 0)):
+    target_vector = np.asarray(target_vector)
+    # weights = np.asarray(weights)
+    calc_vector_values, calc_vector_jacobians = vector_calculator
+
+    @requires(**calc_vector_values.requires)
+    def calc_values(summed_derivs):
+        values = calc_vector_values(summed_derivs)
+        values -= target_vector.reshape([-1] + (values.ndim - 1) * [1])
+        # values *= weights.reshape([-1] + (values.ndim - 1) * [1])
+        # return np.real(np.einsum('i...,i...', values, np.conj(values)))
+        return np.real(values * np.conj(values))
+
+    @requires(**calc_vector_jacobians.requires)
+    def calc_jacobians(summed_derivs, individual_derivs):
+        # raise NotImplementedError('Vector target not fully implemented!')
+        values = calc_vector_values(summed_derivs)
+        values -= target_vector.reshape([-1] + (values.ndim - 1) * [1])
+        jacobians = calc_vector_jacobians(summed_derivs, individual_derivs)
+        # return 2 * np.einsum('i, ij...,i...', weights**2, jacobians, values)
+        return 2 * np.einsum('ij...,i...->ij', jacobians, values)
+    return calc_values, calc_jacobians

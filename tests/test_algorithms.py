@@ -113,3 +113,17 @@ def test_velocity():
     np.testing.assert_allclose(-jac_1.imag, np.array([[-0.000174546016, 0.000174546016], [-0.000699933899, 0.000699933899], [-0.001574851272, 0.001574851272]]))
     np.testing.assert_allclose(jac_1.real, np.array([[1.07974283e-04, 7.08240775e-05], [3.43002548e-04, 3.67773230e-04], [7.71755733e-04, 8.27489769e-04]]))
     np.testing.assert_allclose(jac_12, np.stack([jac_1, jac_2], -1))
+
+
+def test_vector_target():
+    calc_funcs = levitate.algorithms.gorkov_divergence(array)
+    weights = (3, 2, 1)
+    calc_values, calc_jacobians = levitate.algorithms.vector_target(calc_funcs, target_vector=(1e-9, 2e-9, 3e-9), weights=(3**0.5, 2**0.5, 1))
+    val = calc_values(sum_ders[..., 0])
+    weighted_val = np.einsum('i..., i', val, weights)
+    np.testing.assert_allclose(weighted_val, 1.9891260692384784e-17)
+
+    jac = calc_jacobians(sum_ders[..., 0], ind_ders[..., 0])
+    weighted_jac = np.einsum('i..., i', jac, weights)
+    np.testing.assert_allclose(-weighted_jac.imag, np.array([1.21709071e-19, -1.21709071e-19]))
+    np.testing.assert_allclose(weighted_jac.real, np.array([-1.06543769e-19, -1.07736340e-19]))
