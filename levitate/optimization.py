@@ -7,6 +7,25 @@ import itertools
 # Idea: Should there be a separate function with the inputs ...((calc_values, calc_jacobian), weights)?
 
 class CostFunctionPoint:
+    """Class for evaluating algorithms as cost functions.
+
+    Since the algorithms has some shared requirements as the inputs, the sound
+    field attributes is evaluated only once for a single point in space.
+    To use an algorithm as a cost funciton, the function needs to have a `weights`
+    attribute. If the algorithm generator functions are called with a `weights`
+    parameter it will be added as an attribure of the function objects.
+
+    Parameters
+    ----------
+    position : 3 element numeric
+        The position at which to evaluate the cost functions.
+    array : TransducerArray
+        The array for which to optimize.
+    *funcs : pairs of callables
+        Pairs (calc_values, calc_jacobians) of callables representing the cost functions.
+        Each callable should have a 'requires' property and a 'weights' property.
+        See the algorithms module for more details.
+    """
 
     def __init__(self, position, array, *funcs):
         # Determine which spatial derivatives are needed and calculate them from the array
@@ -24,6 +43,21 @@ class CostFunctionPoint:
             self.append(*funcs)
 
     def __call__(self, complex_transducer_weights):
+        """Evaluate the cost function point.
+
+        Parameters
+        ----------
+        complex_transducer_weights : complex ndarray
+            The complex weights (amplitudes) of the transducer elements in the array.
+
+        Returns
+        -------
+        value : float
+            The summed and weighted cost function results.
+        jacobians : compelex ndarray
+            The derivatives of the cost function value, w.r.t. the transducers
+            as defined in the supplementary documentation.
+        """
         # This is the top-level function which is called by the minimizer
         # Determine the input type, e.g. phases_amplitudes, (phases, amplitudes), etc
         # Pre-compute the amplitude-phase weighted spatial derivatives, and the amplitude-phase weigeted-summed derivatives
@@ -214,21 +248,18 @@ def minimize(functions, array,
              ):
     """Minimizes a set of cost functions.
 
-    Each cost function should have the signature `f(phases, amplitudes)`
-    where `phases` is an ndarray with the phase of each element in the array,
-    and `amplitudes` is an array with the amplitude of each element in the array.
-    The functions should return `value, phase_jacobian, amplitude_jacobian`
-    where the two jacobians are the derivative of the value w.r.t each input.
-    If the jacobians does not exist, set `minimize_kwargs['jac'] = False` and
-    return only `value`.
+    Each cost function should have the signature `f(complex_amplitudes)`
+    where `complex_amplitudes` is an ndarray with weight of each element in the array.
+    The functions should return `value, jacobians` where the jacobians are the
+    derivatives of the value w.r.t the transducers as defined in the full documentation.
 
     This function supports minimization sequences. Pass an iterable of iterables
     of cost functions to start sequenced minimization, e.g. a list of lists of
     functions.
     When using multiple cost functions, either all functions return the
     jacobians, or no functions return jacobians.
-    The arguments: `variable_amplitudes`, `constrain_transducers`, `callback`,
-    `precall`, `basinhopping`, and  `minimize_kwargs` can be given as single
+    The arguments: `use_real_imag`, `variable_amplitudes`, `constrain_transducers`,
+    `callback`, `precall`, `basinhopping`, and  `minimize_kwargs` can be given as single
     values or as iterables of the same length as `functions`.
 
     Parameters
@@ -239,11 +270,21 @@ def minimize(functions, array,
         described above.
     array : `TransducerArray`
         The array from which the cost functions are created.
-    variable_amplitudes : bool
-        Toggles the usage of varying amplitudes in the minimization.
+    start_values : complex ndarray, optional
+        The start values for the optimizatioin. Will default to the current array
+        settings if not given. Note that the precall for minimization sequences can
+        overrule this value.
+    use_real_imag : bool, default False
+        Toggles if the optimization should run using the phase-amplitude forumation
+        or the real-imag formulation.
     constrain_transducers : array_like
         Specifies a number of transducers which are constant elements in the
         minimization. Will be used as the second argument in `np.delete`
+    variable_amplitudes : bool
+        Toggles the usage of varying amplitudes in the minimization.
+        If `use_real_imag` is False 'phases first' is also a valid argument for this
+        parameter. The minimizer will then automatically sequence to optimize first with
+        fixed then with variable amplitudes, returning only the last result.
     callback : callable
         A callback function which will be called after each step in sequenced
         minimization. Return false from the callback to break the sequence.
@@ -256,7 +297,7 @@ def minimize(functions, array,
         Default sets the phases and amplitudes to the solution of the previous
         sequence step, or the original state for the first iteration.
         Should have the signature :
-        `precall(phases, amplitudes, idx)`
+        `precall(complex_amplitudes, idx)`
     basinhopping : bool or int
         Specifies if basinhopping should be used. Pass an int to specify the
         number of basinhopping iterations, or True to use default value.

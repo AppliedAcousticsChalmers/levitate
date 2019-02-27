@@ -54,8 +54,12 @@ extensions = [
     'sphinx.ext.mathjax',
 ]
 
-autodoc_member_order = 'bysource'
 autodoc_inherit_docstrings = False
+
+autodoc_default_options = {
+    'member-order': 'bysource',
+    'special-members': '__call__',
+}
 
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
