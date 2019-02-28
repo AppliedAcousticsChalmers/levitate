@@ -33,7 +33,7 @@ def dB(x, power=False):
 def SPL(p):
     """Convert sound pressure to sound pressure level.
 
-    Uses the standard reference value for airborne acoustics: 20µPa.
+    Uses the standard reference value for airborne acoustics: 20 µPa.
     Note that the input is the pressure amplitude, not he RMS value.
 
     Parameters
@@ -52,9 +52,9 @@ def SPL(p):
 def SVL(u):
     """Convert sound particle velocity to sound velocity level.
 
-    Uses the standard reference value for airborne acoustics: 20µPa
-    and the material properties of air from the materials module.
-    Note that the input the valocity amplitude(s), not the RMS values.
+    Uses the standard reference value for airborne acoustics: 50 nm/s,
+    which is approximately 20 µPa / c_0 / rho_0
+    Note that the input the velocity amplitude(s), not the RMS values.
 
     If the first axis of the velocity input has length 3, it will be assumed to
     be the three Cartesian components of the velocity.
@@ -75,7 +75,7 @@ def SVL(u):
             u = np.sum(np.abs(u)**2, 0)**0.5
     except IndexError:
         pass
-    return SPL(u * Air.c * Air.rho)
+    return dB(u / (50e-9 * 2**0.5))
 
 
 class Visualizer:
@@ -227,14 +227,14 @@ class Visualizer:
     def pressure(self, min=130, max=170):
         """Visualize pressure field."""
         return self.scalar_field(calculator=[self.calculate.pressure, SPL],
-                                 cmin=min, cmax=max, colorscale='Viridis')
+                                 cmin=min, cmax=max, colorscale='Viridis', colorbar={'title': 'Sound pressure in dB re. 20 µPa'})
 
     def velocity(self, min=130, max=170):
         """Visualize velocity field."""
         return self.scalar_field(calculator=[self.calculate.velocity, SVL],
-                                 cmin=min, cmax=max, colorscale='Viridis')
+                                 cmin=min, cmax=max, colorscale='Viridis', colorbar={'title': 'Particle velocity in dB re. 50 nm/s'})
 
-    def transducers(self, data='phases'):
+    def transducers(self, data=None, phases=None, amplitudes=None, signature_pos=None):
         """Create transducer visualization.
 
         A 3d scatter trace of the transducer elements in an array.
@@ -252,19 +252,33 @@ class Visualizer:
         trace : dict
             A plotly style dictionary with the trace for the transducers.
         """
-        if type(data) == str:
-            if 'phase' in data:
-                title = 'Transducer phase in rad/π'
+        if phases is not None or (type(data) is str and 'phase' in data):
+            if phases is None:
                 data = self.array.phases / np.pi
-                cmin = -1
-                cmax = 1
-                colorscale = [[0.0, 'hsv(0,255,255)'], [0.25, 'hsv(90,255,255)'], [0.5, 'hsv(180,255,255)'], [0.75, 'hsv(270,255,255)'], [1.0, 'hsv(360,255,255)']]
-            elif 'amp' in data:
-                title = 'Transducer amplitude'
+            else:
+                data = phases / np.pi
+            title = 'Transducer phase in rad/π'
+            cmin = -1
+            cmax = 1
+            colorscale = [[0.0, 'hsv(0,255,255)'], [0.25, 'hsv(90,255,255)'], [0.5, 'hsv(180,255,255)'], [0.75, 'hsv(270,255,255)'], [1.0, 'hsv(360,255,255)']]
+
+        elif amplitudes is not None or (type(data) is str and 'amp' in data):
+            if amplitudes is None:
                 data = self.array.amplitudes
-                cmin = 0
-                cmax = 1
-                colorscale = 'Viridis'
+            else:
+                data = amplitudes
+            title = 'Transducer amplitude'
+            cmin = 0
+            cmax = 1
+            colorscale = 'Viridis'
+        elif signature_pos is not None:
+            title = 'Transducer phase signature in rad/π'
+            if phases is None and data is not None:
+                phases = data
+            data = self.array.signature(signature_pos, phases) / np.pi
+            cmin = -1
+            cmax = 1
+            colorscale = [[0.0, 'hsv(0,255,255)'], [0.25, 'hsv(90,255,255)'], [0.5, 'hsv(180,255,255)'], [0.75, 'hsv(270,255,255)'], [1.0, 'hsv(360,255,255)']]
         else:
             title = 'Transducer data'
             cmin = np.min(data)
@@ -285,8 +299,8 @@ class Visualizer:
 
         Find an approximate position of a acoustic levitation trap close to a starting point.
         This is done by following the radiation force in the sound field using an differential
-        equation solver. The differential equation is the unphysical equation :math:`d\vec x/dt  = \vec F(x,t)`,
-        i.e. interpreting the force field as a velocity field.
+        equation solver. The differential equation is the unphysical equation
+        :math:`d\vec x/dt  = \vec F(x,t)`, i.e. interpreting the force field as a velocity field.
         This works for finding the location of a trap and the field line from the starting position
         to the trap position, but it can not be seen as a proper kinematic simulation of the system.
 
@@ -340,3 +354,27 @@ class Visualizer:
             return outs.sol(np.linspace(0, outs.sol.t_max, return_path))
         else:
             return outs.y[:, -1]
+
+
+def selection_figure(*traces, additional_traces=None):
+    num_varying_traces = len(traces)
+    try:
+        num_static_traces = len(additional_traces)
+    except TypeError:
+        num_static_traces = 0
+    buttons = []
+    data = []
+    for idx, (trace, name) in enumerate(traces):
+        buttons.append(dict(label=name, method='update', args=[{'visible': idx * [False] + [True] + (num_varying_traces - idx - 1) * [False] + num_static_traces * [True]}]))
+        if idx > 0:
+            trace['visible'] = False
+        data.append(trace)
+
+    try:
+        data.extend(additional_traces)
+    except TypeError:
+        pass
+
+    layout = dict(updatemenus=[dict(active=0, buttons=buttons)])
+    fig = dict(data=data, layout=layout)
+    return fig
