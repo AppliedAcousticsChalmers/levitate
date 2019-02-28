@@ -1,4 +1,5 @@
 import levitate
+import levitate.cost_functions
 import numpy as np
 
 from levitate.materials import Air
