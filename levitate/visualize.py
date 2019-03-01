@@ -279,6 +279,8 @@ class Visualizer:
             cmin = -1
             cmax = 1
             colorscale = [[0.0, 'hsv(0,255,255)'], [0.25, 'hsv(90,255,255)'], [0.5, 'hsv(180,255,255)'], [0.75, 'hsv(270,255,255)'], [1.0, 'hsv(360,255,255)']]
+        elif data is None:
+            return self.transducers(data='phases')
         else:
             title = 'Transducer data'
             cmin = np.min(data)
