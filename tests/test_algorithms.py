@@ -88,14 +88,14 @@ def test_pressure():
     val_1 = calc_values(sum_ders[..., 0])
     val_2 = calc_values(sum_ders[..., 1])
     val_12 = calc_values(sum_ders)
-    np.testing.assert_allclose(val_1, np.array(2.10706889e+02))
+    np.testing.assert_allclose(val_1, np.array([2.10706889e+02]))
     np.testing.assert_allclose(val_12, np.stack([val_1, val_2], -1))
 
     jac_1 = calc_jacobians(sum_ders[..., 0], ind_ders[..., 0])
     jac_2 = calc_jacobians(sum_ders[..., 1], ind_ders[..., 1])
     jac_12 = calc_jacobians(sum_ders, ind_ders)
-    np.testing.assert_allclose(-jac_1.imag, np.array([-4.15076576e+02, 4.15076576e+02]))
-    np.testing.assert_allclose(jac_1.real, np.array([2.07034544e+02, 2.14379234e+02]))
+    np.testing.assert_allclose(-jac_1.imag, np.array([[-4.15076576e+02, 4.15076576e+02]]))
+    np.testing.assert_allclose(jac_1.real, np.array([[2.07034544e+02, 2.14379234e+02]]))
     np.testing.assert_allclose(jac_12, np.stack([jac_1, jac_2], -1))
 
 

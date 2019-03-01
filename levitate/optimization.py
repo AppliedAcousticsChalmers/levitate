@@ -65,8 +65,8 @@ class CostFunctionPoint:
         individual_derivs = np.einsum('i,ji...->ji...', complex_transducer_weights, self._spatial_derivatives)
         summed_derivs = np.sum(individual_derivs, axis=1)
 
-        value = sum(np.einsum('i..., i', np.atleast_1d(calc_values(summed_derivs)), np.atleast_1d(calc_values.weights)) for calc_values in self._calc_values)
-        jacobians = sum(np.einsum('i..., i', np.atleast_1d(calc_jacobians(summed_derivs, individual_derivs)), np.atleast_1d(calc_jacobians.weights)) for calc_jacobians in self._calc_jacobians)
+        value = sum(np.einsum('i..., i', calc_values(summed_derivs), calc_values.weights) for calc_values in self._calc_values)
+        jacobians = sum(np.einsum('i..., i', calc_jacobians(summed_derivs, individual_derivs), calc_jacobians.weights) for calc_jacobians in self._calc_jacobians)
 
         return value, jacobians
 

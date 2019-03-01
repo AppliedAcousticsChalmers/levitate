@@ -26,6 +26,7 @@ def algorithm(*output_names):
         def wrapped(*args, weights=None, **kwargs):
             output = func(*args, **kwargs)
             if weights is not None:
+                weights = np.atleast_1d(weights)
                 try:
                     for f in output:
                         f.weights = weights
@@ -257,11 +258,11 @@ def pressure_squared_magnitude(array=None):
     """
     @requires(pressure_orders_summed=0)
     def calc_values(summed_derivs):
-        return np.real(summed_derivs[0] * np.conj(summed_derivs[0]))
+        return np.real(summed_derivs[0] * np.conj(summed_derivs[0]))[None, ...]
 
     @requires(pressure_orders_summed=0, pressure_orders_individual=0)
     def calc_jacobians(summed_derivs, individual_derivs):
-        return 2 * np.conj(summed_derivs[0]) * individual_derivs[0]
+        return (2 * np.conj(summed_derivs[0]) * individual_derivs[0])[None, ...]
     return calc_values, calc_jacobians
 
 
