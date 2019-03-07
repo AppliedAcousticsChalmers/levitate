@@ -7,6 +7,9 @@ from levitate.materials import Air
 Air.c = 343
 Air.rho = 1.2
 
+# Tests were mostly written before the layout was transposed,
+# so a lot of the "expected" positions etc are transposed in the test hardcoding.
+
 
 def test_rectangular_grid():
     # positions, normals = levitate.arrays.rectangular_grid(shape=(5, 3), spread=10e-3)
@@ -26,7 +29,7 @@ def test_rectangular_grid():
         [-0.01,  0.01, 0.],
         [ 0.  ,  0.01, 0.],
         [ 0.01,  0.01, 0.],
-        [ 0.02,  0.01, 0.]])
+        [ 0.02,  0.01, 0.]]).T
     expected_normals = np.array([
         [0., 0., 1.],
         [0., 0., 1.],
@@ -42,7 +45,79 @@ def test_rectangular_grid():
         [0., 0., 1.],
         [0., 0., 1.],
         [0., 0., 1.],
-        [0., 0., 1.]])
+        [0., 0., 1.]]).T
+    np.testing.assert_allclose(array.transducer_positions, expected_positions)
+    np.testing.assert_allclose(array.transducer_normals, expected_normals)
+
+
+def test_array_offset():
+    array = levitate.arrays.RectangularArray(shape=(4, 2), offset=(0.1, -0.2, 1.4))
+    expected_positions = np.array([
+        [0.085, -0.205, 1.4],
+        [0.095, -0.205, 1.4],
+        [0.105, -0.205, 1.4],
+        [0.115, -0.205, 1.4],
+        [0.085, -0.195, 1.4],
+        [0.095, -0.195, 1.4],
+        [0.105, -0.195, 1.4],
+        [0.115, -0.195, 1.4]]).T
+    expected_normals = np.array([
+        [0., 0., 1.],
+        [0., 0., 1.],
+        [0., 0., 1.],
+        [0., 0., 1.],
+        [0., 0., 1.],
+        [0., 0., 1.],
+        [0., 0., 1.],
+        [0., 0., 1.]]).T
+    np.testing.assert_allclose(array.transducer_positions, expected_positions)
+    np.testing.assert_allclose(array.transducer_normals, expected_normals)
+
+
+def test_array_normal():
+    array = levitate.arrays.RectangularArray(shape=(4, 2), normal=(2, 3, 4))
+    expected_positions = np.array([
+        [-1.321925551875e-02, -2.328883278124e-03, +8.356290217967e-03],
+        [-4.010697510416e-03, -3.516046265624e-03, +4.642383454426e-03],
+        [+5.197860497917e-03, -4.703209253125e-03, +9.284766908853e-04],
+        [+1.440641850625e-02, -5.890372240625e-03, -2.785430072656e-03],
+        [-1.440641850625e-02, +5.890372240625e-03, +2.785430072656e-03],
+        [-5.197860497917e-03, +4.703209253125e-03, -9.284766908853e-04],
+        [+4.010697510416e-03, +3.516046265624e-03, -4.642383454426e-03],
+        [+1.321925551875e-02, +2.328883278124e-03, -8.356290217967e-03]]).T
+    expected_normals = np.array([
+        [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01],
+        [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01],
+        [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01],
+        [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01],
+        [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01],
+        [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01],
+        [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01],
+        [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01]]).T
+    np.testing.assert_allclose(array.transducer_positions, expected_positions)
+    np.testing.assert_allclose(array.transducer_normals, expected_normals)
+
+
+def test_array_rotation():
+    array = levitate.arrays.RectangularArray(shape=(4, 2), rotation=1, normal=(-1, 4, -2))
+    expected_positions = np.array([
+        [-8.747019947780e-03, +4.075784833732e-03, +1.252507964135e-02],
+        [-9.564871486238e-04, +2.940455719910e-03, +6.359155014132e-03],
+        [+6.834045650533e-03, +1.805126606089e-03, +1.932303869110e-04],
+        [+1.462457844969e-02, +6.697974922671e-04, -5.972694240310e-03],
+        [-1.462457844969e-02, -6.697974922671e-04, +5.972694240310e-03],
+        [-6.834045650533e-03, -1.805126606089e-03, -1.932303869110e-04],
+        [+9.564871486238e-04, -2.940455719910e-03, -6.359155014132e-03],
+        [+8.747019947780e-03, -4.075784833732e-03, -1.252507964135e-02]]).T
+    expected_normals = np.array([
+        [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01],
+        [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01],
+        [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01],
+        [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01],
+        [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01],
+        [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01],
+        [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01],
+        [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01]]).T
     np.testing.assert_allclose(array.transducer_positions, expected_positions)
     np.testing.assert_allclose(array.transducer_normals, expected_normals)
 
@@ -58,7 +133,7 @@ def test_double_sided_grid():
         [+0.11727496, -0.34435280, +1.60341176],
         [+0.11880835, -0.34038334, +1.60603704],
         [+0.12201648, -0.34539046, +1.60221125],
-        [+0.12354987, -0.34142100, +1.60483653]])
+        [+0.12354987, -0.34142100, +1.60483653]]).T
     expected_normals = np.array([
         [+0.08164966, -0.57154761, +0.81649658],
         [+0.08164966, -0.57154761, +0.81649658],
@@ -67,13 +142,15 @@ def test_double_sided_grid():
         [-0.08164966, +0.57154761, -0.81649658],
         [-0.08164966, +0.57154761, -0.81649658],
         [-0.08164966, +0.57154761, -0.81649658],
-        [-0.08164966, +0.57154761, -0.81649658]])
+        [-0.08164966, +0.57154761, -0.81649658]]).T
     np.testing.assert_allclose(array.transducer_positions, expected_positions)
     np.testing.assert_allclose(array.transducer_normals, expected_normals)
+    expected_signature = np.array([0, 0, 0, 0, np.pi, np.pi, np.pi, np.pi])
+    np.testing.assert_allclose(array.doublesided_signature(), expected_signature)
 
 
 def test_Array_basics():
-    pos, norm = levitate.hardware.dragonfly_grid()
+    pos, norm = levitate.hardware.dragonfly_grid
     array = levitate.arrays.TransducerArray(pos, norm)
     array.omega = 200000
     np.testing.assert_allclose(2 * np.pi * array.freq, array.omega)
@@ -86,10 +163,15 @@ def test_Array_basics():
 
     from levitate.transducers import PlaneWaveTransducer
     array = levitate.arrays.RectangularArray(shape=(4, 4), transducer_model=PlaneWaveTransducer)
+    pos = np.array([7e-3, -3e-3, 70e-3])
+    np.testing.assert_allclose(array.focus_phases(pos), np.array([+2.069588782645e+00, -2.511641902621e+00, -1.794667262208e+00, -2.103144086214e+00, +2.763870843565e+00, -1.794667262208e+00, -1.067679552580e+00, -1.380498791671e+00, +2.465230031099e+00, -2.103144086214e+00, -1.380498791671e+00, -1.691434660688e+00, +1.189733359830e+00, +2.863786956082e+00, -2.714709695304e+00, -3.017860322253e+00]))
+    np.testing.assert_allclose(array.twin_signature(pos), np.array([-1.570796326795e+00, -1.570796326795e+00, +1.570796326795e+00, +1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, +1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, +1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, +1.570796326795e+00]))
+    np.testing.assert_allclose(array.vortex_signature(pos), np.array([-2.642245931910e+00, -2.356194490192e+00, -1.735945004210e+00, -9.827937232473e-01, -3.050932766389e+00, -2.976443976175e+00, -2.356194490192e+00, -2.449786631269e-01, +2.792821650006e+00, +2.553590050042e+00, +1.815774989922e+00, +7.853981633974e-01, +2.455863142684e+00, +2.158798930342e+00, +1.681453547969e+00, +1.152571997216e+00]))
+    np.testing.assert_allclose(array.bottle_signature(pos), np.array([+3.141592653590e+00, +3.141592653590e+00, +0.000000000000e+00, +0.000000000000e+00, +3.141592653590e+00, +0.000000000000e+00, +0.000000000000e+00, +0.000000000000e+00, +3.141592653590e+00, +0.000000000000e+00, +0.000000000000e+00, +0.000000000000e+00, +3.141592653590e+00, +3.141592653590e+00, +3.141592653590e+00, +3.141592653590e+00]))
     pos = np.array([0.1, -0.2, 0.3])
     np.testing.assert_allclose(array.focus_phases(pos), np.array([-1.4782875, 0.70451472, 2.70433793, -1.76613547, 1.07535199, -3.05482743, -1.08272084, 0.70451472, -2.79668059, -0.67375749, 1.27038374, 3.03192953, -0.52217161, 1.57048339, -2.79668059, -1.0609514]))
     np.testing.assert_allclose(array.twin_signature(pos), np.array([-1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633]))
-    np.testing.assert_allclose(array.vortex_signature(pos), np.array([-2.35619449, -1.89254688, -1.24904577, -0.78539816, -2.8198421, -2.35619449, -0.78539816, -0.32175055, 2.8198421, 2.35619449, 0.78539816, 0.32175055, 2.35619449, 1.89254688, 1.24904577, 0.78539816]))
+    np.testing.assert_allclose(array.vortex_signature(), np.array([-2.35619449, -1.89254688, -1.24904577, -0.78539816, -2.8198421, -2.35619449, -0.78539816, -0.32175055, 2.8198421, 2.35619449, 0.78539816, 0.32175055, 2.35619449, 1.89254688, 1.24904577, 0.78539816]))
     np.testing.assert_allclose(array.bottle_signature(), np.array([3.14159265, 0., 0., 3.14159265, 0., 0., 0., 0., 0., 0., 0., 0., 3.14159265, 0., 0., 3.14159265]))
 
 
@@ -131,7 +213,7 @@ def test_Array_calculations():
         [-1.50835913e+08-2.13718486e+09j, -1.96477450e+09+1.00192185e+09j, -1.35412183e+09+1.64178574e+09j,  2.08021234e+09+6.81337634e+08j]])
     np.testing.assert_allclose(array.spatial_derivatives(pos), expected_result)
 
-    pos = np.stack(np.mgrid[-10e-3:10e-3:5j, -10e-3:10e-3:4j, -10e-3:10e-3:2j], -1)
+    pos = np.stack(np.mgrid[-10e-3:10e-3:5j, -10e-3:10e-3:4j, -10e-3:10e-3:2j], 0)
     expected_result = np.array([
         [[ -198.361288714467 +541.993167997253j,  -198.361288714467 +541.993167997253j],
          [ -391.018833455589 +666.066211891658j,  -391.018833455589 +666.066211891658j],

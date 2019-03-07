@@ -21,7 +21,7 @@ def dB(x, power=False):
 
     Returns
     -------
-    Lx : numeric
+    L : numeric
         The decibel value.
     """
     if power:
@@ -33,28 +33,28 @@ def dB(x, power=False):
 def SPL(p):
     """Convert sound pressure to sound pressure level.
 
-    Uses the standard reference value for airborne acoustics: 20µPa.
-    Note that the input is the complex rms amplitude.
+    Uses the standard reference value for airborne acoustics: 20 µPa.
+    Note that the input is the pressure amplitude, not he RMS value.
 
     Parameters
     ----------
     p : numeric, complex
-        The complex sound pressure rms amplitude.
+        The complex sound pressure amplitude.
 
     Returns
     -------
     SPL : numeric
         The sound pressure level
     """
-    return dB(p / 20e-6)
+    return dB(p / (20e-6 * 2**0.5))
 
 
 def SVL(u):
     """Convert sound particle velocity to sound velocity level.
 
-    Uses the standard reference value for airborne acoustics: 20µPa
-    and the material properties of air from the materials module.
-    Note that the input is the complex rms amplitude.
+    Uses the standard reference value for airborne acoustics: 50 nm/s,
+    which is approximately 20 µPa / c_0 / rho_0
+    Note that the input the velocity amplitude(s), not the RMS values.
 
     If the first axis of the velocity input has length 3, it will be assumed to
     be the three Cartesian components of the velocity.
@@ -62,7 +62,7 @@ def SVL(u):
     Parameters
     ----------
     u : numeric, complex
-        The complex sound velocity rms amplitude, or the vector velocity.
+        The complex sound velocity amplitude, or the vector velocity.
 
     Returns
     -------
@@ -72,13 +72,10 @@ def SVL(u):
     u = np.asarray(u)
     try:
         if u.shape[0] == 3:
-            u = np.sum(u**2, 0)**0.5
+            u = np.sum(np.abs(u)**2, 0)**0.5
     except IndexError:
         pass
-    return SPL(u * Air.c * Air.rho)
-
-
-
+    return dB(u / (50e-9 * 2**0.5))
 
 
 class Visualizer:
@@ -111,14 +108,14 @@ class Visualizer:
 
     def __init__(self, array, xlimits=None, ylimits=None, zlimits=None, resolution=10, constant_axis=('y', 0)):
         self.array = array
-        xlimits = xlimits or (np.min(array.transducer_positions[:, 0]), np.max(array.transducer_positions[:, 0]))
-        ylimits = ylimits or (np.min(array.transducer_positions[:, 1]), np.max(array.transducer_positions[:, 1]))
+        xlimits = xlimits or (np.min(array.transducer_positions[0]), np.max(array.transducer_positions[0]))
+        ylimits = ylimits or (np.min(array.transducer_positions[1]), np.max(array.transducer_positions[1]))
         if 'Doublesided' not in type(array).__name__:
             # Singlesided array, one of the limits will give a zero range.
             # Assuming that the array is in the xy-plane, pointing up
-            zlimits = zlimits or (np.min(array.transducer_positions[:, 2]) + 1e-3, 20 * array.wavelength)
+            zlimits = zlimits or (np.min(array.transducer_positions[2]) + 1e-3, np.min(array.transducer_positions[2]) + 20 * array.wavelength)
         else:
-            zlimits = zlimits or (np.min(array.transducer_positions[:, 2]), np.max(array.transducer_positions[:, 2]))
+            zlimits = zlimits or (np.min(array.transducer_positions[2]), np.max(array.transducer_positions[2]))
 
         self._xlimits = xlimits
         self._ylimits = ylimits
@@ -184,9 +181,6 @@ class Visualizer:
 
     def _update_mesh(self):
         axis, value = self.constant_axis
-        x = np.mgrid[self.xlimits[0]:self.xlimits[1]:self._resolution]
-        y = np.mgrid[self.ylimits[0]:self.ylimits[1]:self._resolution]
-        z = np.mgrid[self.zlimits[0]:self.zlimits[1]:self._resolution]
         if axis is 'x':
             self._x, self._y, self._z = np.mgrid[value:value:1j, self.ylimits[0]:self.ylimits[1]:self._resolution, self.zlimits[0]:self.zlimits[1]:self._resolution]
         if axis is 'y':
@@ -196,7 +190,7 @@ class Visualizer:
 
     @property
     def _mesh(self):
-        return np.stack([self._x, self._y, self._z], axis=-1)
+        return np.stack([self._x, self._y, self._z])
 
     def scalar_field(self, calculator, **kwargs):
         """Evaluate and prepare a scalar field visualization.
@@ -215,12 +209,12 @@ class Visualizer:
         trace : dict
             A plotly style dictionary with the trace for the field.
         """
+        data = self._mesh
         try:
-            data = self._mesh
             for f in calculator:
                 data = f(data)
         except TypeError:
-            data = calculator(self._mesh)
+            data = calculator(data)
         trace = dict(
             type='surface', surfacecolor=np.squeeze(data),
             x=np.squeeze(self._x),
@@ -233,14 +227,14 @@ class Visualizer:
     def pressure(self, min=130, max=170):
         """Visualize pressure field."""
         return self.scalar_field(calculator=[self.calculate.pressure, SPL],
-                                 cmin=min, cmax=max, colorscale='Viridis')
+                                 cmin=min, cmax=max, colorscale='Viridis', colorbar={'title': 'Sound pressure in dB re. 20 µPa'})
 
     def velocity(self, min=130, max=170):
         """Visualize velocity field."""
         return self.scalar_field(calculator=[self.calculate.velocity, SVL],
-                                 cmin=min, cmax=max, colorscale='Viridis')
+                                 cmin=min, cmax=max, colorscale='Viridis', colorbar={'title': 'Particle velocity in dB re. 50 nm/s'})
 
-    def transducers(self, data='phases'):
+    def transducers(self, data=None, phases=None, amplitudes=None, signature_pos=None):
         """Create transducer visualization.
 
         A 3d scatter trace of the transducer elements in an array.
@@ -258,19 +252,35 @@ class Visualizer:
         trace : dict
             A plotly style dictionary with the trace for the transducers.
         """
-        if type(data) == str:
-            if 'phase' in data:
-                title = 'Transducer phase in rad/π'
+        if phases is not None or (type(data) is str and 'phase' in data):
+            if phases is None:
                 data = self.array.phases / np.pi
-                cmin = -1
-                cmax = 1
-                colorscale = [[0.0, 'hsv(0,255,255)'], [0.25, 'hsv(90,255,255)'], [0.5, 'hsv(180,255,255)'], [0.75, 'hsv(270,255,255)'], [1.0, 'hsv(360,255,255)']]
-            elif 'amp' in data:
-                title = 'Transducer amplitude'
+            else:
+                data = phases / np.pi
+            title = 'Transducer phase in rad/π'
+            cmin = -1
+            cmax = 1
+            colorscale = [[0.0, 'hsv(0,255,255)'], [0.25, 'hsv(90,255,255)'], [0.5, 'hsv(180,255,255)'], [0.75, 'hsv(270,255,255)'], [1.0, 'hsv(360,255,255)']]
+
+        elif amplitudes is not None or (type(data) is str and 'amp' in data):
+            if amplitudes is None:
                 data = self.array.amplitudes
-                cmin = 0
-                cmax = 1
-                colorscale = 'Viridis'
+            else:
+                data = amplitudes
+            title = 'Transducer amplitude'
+            cmin = 0
+            cmax = 1
+            colorscale = 'Viridis'
+        elif signature_pos is not None:
+            title = 'Transducer phase signature in rad/π'
+            if phases is None and data is not None:
+                phases = data
+            data = self.array.signature(signature_pos, phases) / np.pi
+            cmin = -1
+            cmax = 1
+            colorscale = [[0.0, 'hsv(0,255,255)'], [0.25, 'hsv(90,255,255)'], [0.5, 'hsv(180,255,255)'], [0.75, 'hsv(270,255,255)'], [1.0, 'hsv(360,255,255)']]
+        elif data is None:
+            return self.transducers(data='phases')
         else:
             title = 'Transducer data'
             cmin = np.min(data)
@@ -280,9 +290,9 @@ class Visualizer:
         marker = dict(color=data, colorscale=colorscale, size=16, colorbar={'title': title, 'x': -0.02}, cmin=cmin, cmax=cmax)
         return dict(
             type='scatter3d', mode='markers',
-            x=self.array.transducer_positions[:, 0],
-            y=self.array.transducer_positions[:, 1],
-            z=self.array.transducer_positions[:, 2],
+            x=self.array.transducer_positions[0],
+            y=self.array.transducer_positions[1],
+            z=self.array.transducer_positions[2],
             marker=marker
         )
 
@@ -291,8 +301,8 @@ class Visualizer:
 
         Find an approximate position of a acoustic levitation trap close to a starting point.
         This is done by following the radiation force in the sound field using an differential
-        equation solver. The differential equation is the unphysical equation :math:`d\vec x/dt  = \vec F(x,t)`,
-        i.e. interpreting the force field as a velocity field.
+        equation solver. The differential equation is the unphysical equation
+        :math:`d\vec x/dt  = \vec F(x,t)`, i.e. interpreting the force field as a velocity field.
         This works for finding the location of a trap and the field line from the starting position
         to the trap position, but it can not be seen as a proper kinematic simulation of the system.
 
@@ -328,13 +338,13 @@ class Visualizer:
         evaluator = self.array.PersistentFieldEvaluator(self.array)
 
         def f(t, x):
-            F = evaluator.force(x.T)
+            F = evaluator.force(x)
             F[2] -= mg
             return F
 
         def bead_close(t, x):
-            dF = evaluator.stiffness(x.T)
-            F = evaluator.force(x.T)
+            dF = evaluator.stiffness(x)
+            F = evaluator.force(x)
             F[2] -= mg
             distance = np.sum((F / dF)**2, axis=0)**0.5
             return np.clip(distance - tolerance, 0, None)
@@ -346,3 +356,27 @@ class Visualizer:
             return outs.sol(np.linspace(0, outs.sol.t_max, return_path))
         else:
             return outs.y[:, -1]
+
+
+def selection_figure(*traces, additional_traces=None):
+    num_varying_traces = len(traces)
+    try:
+        num_static_traces = len(additional_traces)
+    except TypeError:
+        num_static_traces = 0
+    buttons = []
+    data = []
+    for idx, (trace, name) in enumerate(traces):
+        buttons.append(dict(label=name, method='update', args=[{'visible': idx * [False] + [True] + (num_varying_traces - idx - 1) * [False] + num_static_traces * [True]}]))
+        if idx > 0:
+            trace['visible'] = False
+        data.append(trace)
+
+    try:
+        data.extend(additional_traces)
+    except TypeError:
+        pass
+
+    layout = dict(updatemenus=[dict(active=0, buttons=buttons)])
+    fig = dict(data=data, layout=layout)
+    return fig

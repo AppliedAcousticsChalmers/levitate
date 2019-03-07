@@ -1,5 +1,6 @@
 """A collection of cost functions, and a minimizer for them."""
 
+import warnings
 import numpy as np
 import scipy.optimize
 import logging
@@ -9,7 +10,7 @@ from .materials import Air
 from . import num_spatial_derivatives
 
 logger = logging.getLogger(__name__)
-
+warnings.warn("""The cost_functions module is deprecated and will be removed in a further release. Use the algorithms module or the optimization module instead.""")
 
 def minimize(functions, array, variable_amplitudes=False,
              constrain_transducers=None, callback=None, precall=None,

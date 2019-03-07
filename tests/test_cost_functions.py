@@ -1,4 +1,5 @@
 import levitate
+import levitate.cost_functions
 import numpy as np
 
 from levitate.materials import Air
@@ -8,7 +9,7 @@ Air.rho = 1.2
 array = levitate.arrays.RectangularArray(shape=(2, 1))
 pos_1 = np.array([0.1, 0.2, 0.3])
 pos_2 = np.array([-0.15, 1.27, 0.001])
-both_pos = np.stack((pos_1, pos_2), axis=0)
+both_pos = np.stack((pos_1, pos_2), axis=1)
 array.phases = array.focus_phases((pos_1 + pos_2) / 2)
 
 

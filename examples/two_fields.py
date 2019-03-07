@@ -11,38 +11,58 @@ from plotly.offline import plot
 array = levitate.arrays.RectangularArray((21, 12))
 trap_pos = np.array([-20e-3, 0, 60e-3])
 haptics_pos = np.array([40e-3, 0, 90e-3])
+array.phases = array.focus_phases(trap_pos) + array.twin_signature(trap_pos) + 0.2 * np.random.uniform(-np.pi, np.pi, array.num_transducers)
 
 
 # The fields are superposed using mutual quiet zones, created by minimizing the
 # pressure and velocity at the secondary point in each field.
-gorkov_laplacian = levitate.cost_functions.second_order_stiffness(array, trap_pos, weights=(1, 1, 1))
-trap_pressure_null = levitate.cost_functions.pressure(array, trap_pos, weight=1)
-trap_velocity_null = levitate.cost_functions.velocity(array, trap_pos, weights=(1e3, 1e3, 1e3))
-haptics_pressure_null = levitate.cost_functions.pressure(array, haptics_pos, weight=1)
-haptics_velocity_null = levitate.cost_functions.velocity(array, haptics_pos, weights=(1e3, 1e3, 1e3))
-# To create a focus point we set a negative weight for the pressure.
-haptics_focus_pressure = levitate.cost_functions.pressure(array, trap_pos, weight=-1e-3)
+trap_point = levitate.optimization.CostFunctionPoint(
+    trap_pos, array,
+    levitate.algorithms.second_order_stiffness(array, weights=(1, 1, 1)),
+    levitate.algorithms.pressure_squared_magnitude(array, weights=1)
+)
+haptics_quiet_zone = levitate.optimization.CostFunctionPoint(
+    haptics_pos, array,
+    levitate.algorithms.pressure_squared_magnitude(array, weights=1),
+    levitate.algorithms.velocity_squared_magnitude(array, weights=(1e3, 1e3, 1e3)),
+)
 
 # The levitation trap is found using a minimization sequence.
 # First the phases are optimized for just a trap,
 # then the phases and amplitudes are optimized to include the quiet zone.
-funcs = [[gorkov_laplacian, trap_pressure_null],
-         [gorkov_laplacian, trap_pressure_null, haptics_pressure_null, haptics_velocity_null]]
-trap_results = levitate.cost_functions.minimize(funcs, array, variable_amplitudes=[False, True])[-1]
+trap_result = levitate.optimization.minimize(
+    [[trap_point], [trap_point, haptics_quiet_zone]],
+    array, variable_amplitudes=[False, True])[-1]
 
 # The haptics point can be created using a simple focusing algorithm,
 # so we can optimize for the inclusion of the quiet zone straight away.
-funcs = [trap_pressure_null, trap_velocity_null, haptics_focus_pressure]
+# To retain the focus point we set a negative weight for the pressure,
+# i.e. maximizing the pressure.
+haptics_point = levitate.optimization.CostFunctionPoint(
+    haptics_pos, array,
+    levitate.algorithms.pressure_squared_magnitude(array, weights=-1e-3))
+trap_quiet_zone = levitate.optimization.CostFunctionPoint(
+    trap_pos, array,
+    levitate.algorithms.pressure_squared_magnitude(array, weights=1),
+    levitate.algorithms.velocity_squared_magnitude(array, weights=(1e3, 1e3, 1e3)),
+)
 array.phases = array.focus_phases(haptics_pos)
-haptics_result = levitate.cost_functions.minimize(funcs, array, variable_amplitudes=True)
+haptics_result = levitate.optimization.minimize(
+    [haptics_point, trap_quiet_zone],
+    array, variable_amplitudes=True)
 
 # Visualize the individual fields, as well as the compound field.
-array.complex_amplitudes = trap_results
-plot([array.visualize.pressure(), array.visualize.transducers()],
-     filename='trap_results.html')
+array.complex_amplitudes = trap_result
+trap_trace = array.visualize.pressure()
 array.complex_amplitudes = haptics_result
-plot([array.visualize.pressure(), array.visualize.transducers()],
-     filename='haptics_results.html')
-array.complex_amplitudes = haptics_result * 0.3 + trap_results * 0.7
-plot([array.visualize.pressure(), array.visualize.transducers()],
-     filename='combined_results.html')
+haptics_trace = array.visualize.pressure()
+array.complex_amplitudes = haptics_result * 0.3 + trap_result * 0.7
+combined_trace = array.visualize.pressure()
+fig = levitate.visualize.selection_figure(
+    (trap_trace, 'Trap'),
+    (haptics_trace, 'Haptics'),
+    (combined_trace, 'Combined'),
+    additional_traces=[array.visualize.transducers(signature_pos=trap_pos)]
+)
+
+plot(fig, filename='two_fields.html', auto_open=False)

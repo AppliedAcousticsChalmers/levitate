@@ -14,9 +14,15 @@ Transducers
 .. automodule:: levitate.transducers
     :members:
 
-Cost Functions
---------------
-.. automodule:: levitate.cost_functions
+Algorithms
+----------
+.. automodule:: levitate.algorithms
+    :members:
+
+
+Optimization
+------------
+.. automodule:: levitate.optimization
     :members:
 
 Visualization
