@@ -8,14 +8,19 @@ import numpy as np
 import levitate
 from plotly.offline import plot
 
+pos = np.array([0, 0, 80e-3])
 array = levitate.arrays.RectangularArray(9)
-pos = np.array([0, 0, 50e-3])
+array.phases = array.focus_phases(pos) + array.twin_signature() + 0.2 * np.random.uniform(-np.pi, np.pi, array.num_transducers)
+
 
 # Create the cost functions and minimize them.
-gorkov_laplacian = levitate.cost_functions.gorkov_laplacian(array, pos, weights=(-1, -1, -1))
-pressure = levitate.cost_functions.pressure(array, pos, weight=1e3)
-results = levitate.cost_functions.minimize([gorkov_laplacian, pressure], array)
+point = levitate.optimization.CostFunctionPoint(
+    pos, array,
+    levitate.algorithms.gorkov_laplacian(array, weights=(-100, -100, -1)),
+    levitate.algorithms.pressure_squared_magnitude(array, weights=1e-3),
+)
+results = levitate.optimization.minimize(point, array)
 
 # Visualize the field.
 array.complex_amplitudes = results
-plot([array.visualize.pressure(), array.visualize.transducers()])
+plot([array.visualize.pressure(), array.visualize.transducers(signature_pos=pos)], filename='basic_trap.html', auto_open=False)
