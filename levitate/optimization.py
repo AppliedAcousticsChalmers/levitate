@@ -198,7 +198,10 @@ def _minimize_phase_amplitude(functions, array, start_values,
                 out = f(call_complex)
                 value += out[0]
                 jacobians += out[1]
-            jacobians = np.concatenate((-np.imag(jacobians[unconstrained_transducers]), np.real(jacobians[unconstrained_transducers])))
+            jacobians = np.concatenate((
+                -np.imag(jacobians[unconstrained_transducers]),
+                np.einsum('i, i...->i...', 1 / call_amplitudes[unconstrained_transducers], np.real(jacobians[unconstrained_transducers]))
+            ))
             return value, jacobians
     elif opt_args['jac']:
         def func(phases):
