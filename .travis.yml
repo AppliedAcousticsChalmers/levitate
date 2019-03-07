@@ -27,12 +27,13 @@ jobs:
         - pip install -r requirements.txt
         - pip install plotly        
       script:
+        - mkdir -p build/examples
         - python examples/basic_trap.py
-        - mv basic_trap.html examples/basic_trap.html
+        - mv basic_trap.html build/examples/basic_trap.html
         - python examples/two_fields.py
-        - mv two_fields.html examples/two_fields.html
+        - mv two_fields.html build/examples/two_fields.html
         - python examples/complex_setup.py
-        - mv complex_setup.html examples/complex_setup.html
+        - mv complex_setup.html build/examples/complex_setup.html
         - sphinx-build -M html docs .
         - echo '<html>\n<head>\n<meta http-equiv="refresh" content="0; url=html/index.html" />\n</head>\n<body></body>\n</html>' > index.html
         - touch .nojekyll
