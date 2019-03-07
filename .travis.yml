@@ -2,7 +2,7 @@ language: python
 
 install:
   - pip install -e . 
-  - pip install -r tests/requirements.txt
+  - pip install -r requirements.txt
 
 script: 
   - pytest
@@ -23,9 +23,6 @@ jobs:
       <<: *xenial-mixin
     - stage: deploy
       python: "3.6"
-      install: 
-          - pip install -e . 
-          - pip install -r docs/requirements.txt
       script: 
         - sphinx-build -M html docs .
         - echo '<html>\n<head>\n<meta http-equiv="refresh" content="0; url=html/index.html" />\n</head>\n<body></body>\n</html>' > index.html
