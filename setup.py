@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 __version__ = 'unknown'
 for line in open('levitate/__init__.py'):
@@ -17,9 +17,10 @@ setup(
     author='Carl Andersson',
     author_email='carl.andersson@chalmers.se',
     license='MIT',
-    packages=['levitate'],
+    packages=find_packages('.'),
     python_requires='>=3.5',
     install_requires=[
         'numpy',
         'scipy'],
+    include_package_data=True,
 )
