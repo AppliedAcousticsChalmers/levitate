@@ -1,0 +1,4 @@
+include LICENSE.txt
+include levitate/hardware/*.cpp
+include levitate/hardware/*.hpp
+include levitate/hardware/make*

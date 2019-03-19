@@ -80,19 +80,15 @@ clean_tests :
 	rm -f .coverage
 	rm -rdf .pytest_cache
 
-$(BUILDDIR)/$(TESTSDIR)/testresult.txt : $(LOGDIR)/$(TESTSDIR) $(tests_files) $(package_files)
+$(BUILDDIR)/$(TESTSDIR)/testresult.txt : $(tests_files) $(package_files) $(LOGDIR)/$(PACKAGE_NAME)
 	$(dir_guard)
 	@pytest --color=yes --cache-clear --cov $(PACKAGE_NAME) --cov-report term-missing | tee $(BUILDDIR)/$(TESTSDIR)/testresult.txt
 
-$(BUILDDIR)/$(TESTSDIR)/formatresult.txt : $(LOGDIR)/$(TESTSDIR) $(package_files)
+$(BUILDDIR)/$(TESTSDIR)/formatresult.txt : $(package_files) $(LOGDIR)/$(PACKAGE_NAME)
 	$(dir_guard)
 	$(info ============================= Formatting summary ==============================)
 	@flake8 $(PACKAGE_NAME) --ignore=E501 --exit-zero > $(BUILDDIR)/$(TESTSDIR)/formatresult.txt
 	@flake8 $(PACKAGE_NAME) --ignore=E501 -qq --statistics --exit-zero
-
-$(LOGDIR)/$(TESTSDIR) : $(TESTSDIR)/requirements.txt
-	$(dir_guard)
-	pip install -r $(TESTSDIR)/requirements.txt | tee $(LOGDIR)/$(TESTSDIR)
 
 
 # ====
@@ -102,18 +98,14 @@ $(LOGDIR)/$(TESTSDIR) : $(TESTSDIR)/requirements.txt
 docs: $(BUILDDIR)/$(DOCSDIR)/html ## Build the documentation to html (recommended for reading)
 pdfdocs: $(BUILDDIR)/$(DOCSDIR)/*.pdf ## Build the documentation to pdf (recommended for official deliverables)
 
-$(BUILDDIR)/$(DOCSDIR)/html: $(LOGDIR)/$(DOCSDIR) $(docs_files) $(package_files) $(examples_files) $(examples_plots)
+$(BUILDDIR)/$(DOCSDIR)/html: $(docs_files) $(package_files) $(examples_files) $(examples_plots) $(LOGDIR)/$(PACKAGE_NAME)
 	$(info ============================= Building docs ==============================)
 	sphinx-build -M html $(DOCSDIR) $(BUILDDIR)/$(DOCSDIR)
 
-$(BUILDDIR)/$(DOCSDIR)/*.pdf: $(LOGDIR)/$(DOCSDIR) $(docs_files) $(package_files) $(examples_files)
+$(BUILDDIR)/$(DOCSDIR)/*.pdf: $(docs_files) $(package_files) $(examples_files) $(LOGDIR)/$(PACKAGE_NAME)
 	$(info ============================= Building docs ==============================)
 	sphinx-build -M latexpdf $(DOCSDIR) $(BUILDDIR)/$(DOCSDIR)
 	mv $(BUILDDIR)/$(DOCSDIR)/latex/*.pdf $(BUILDDIR)/$(DOCSDIR)
-
-$(LOGDIR)/$(DOCSDIR) : $(DOCSDIR)/requirements.txt
-	$(dir_guard)
-	pip install -r $(DOCSDIR)/requirements.txt | tee $(LOGDIR)/$(DOCSDIR)
 
 .PHONY : clean_docs
 clean_docs : 
