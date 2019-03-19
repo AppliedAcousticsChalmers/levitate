@@ -164,10 +164,13 @@ def _minimize_phase_amplitude(functions, array, start_values,
                               basinhopping, minimize_kwargs,
                               return_optim_status):
     if variable_amplitudes == 'phases first':
-        return minimize([functions, functions], array, start_values=start_values, constrain_transducers=constrain_transducers,
-                        variable_amplitudes=[False, True], basinhopping=basinhopping, minimize_kwargs=minimize_kwargs,
-                        return_optim_status=return_optim_status)[-1]
-        # raise NotImplementedError('Lazy setting for phases first optimization not implemented')
+        result, status = minimize([functions, functions], array, start_values=start_values, constrain_transducers=constrain_transducers,
+                                  variable_amplitudes=[False, True], basinhopping=basinhopping, minimize_kwargs=minimize_kwargs,
+                                  return_optim_status=True)
+        if return_optim_status:
+            return result[-1], status[-1]
+        else:
+            return result[-1]
 
     num_total_transducers = len(start_values)
     unconstrained_transducers = np.delete(np.arange(num_total_transducers), constrain_transducers)
