@@ -198,6 +198,34 @@ def second_order_stiffness(array, radius_sphere=1e-3, sphere_material=materials.
 
 
 @algorithm
+def second_order_curl(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
+    f_1 = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
+    f_2 = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
+
+    ka = array.k * radius_sphere
+    overall_coef = 2 * np.pi * array.medium.compressibility / array.k**5
+    pressure_coefficient = -2 / 9 * ka**6 * (f_1**2 + f_1 * f_2) * array.k**2 * overall_coef
+    velocity_coefficient = -3 * ka**6 / 18 * f_2**2 * overall_coef
+
+    @requires(pressure_derivs_summed=2)
+    def calc_values(pressure_derivs_summed):
+        values = pressure_coefficient * np.imag(pressure_derivs_summed[[2, 3, 1]] * np.conj(pressure_derivs_summed[[3, 1, 2]]))
+        values += velocity_coefficient * np.imag(pressure_derivs_summed[[7, 8, 4]] * np.conj(pressure_derivs_summed[[8, 4, 7]]))
+        values += velocity_coefficient * np.imag(pressure_derivs_summed[[5, 9, 7]] * np.conj(pressure_derivs_summed[[9, 7, 5]]))
+        values += velocity_coefficient * np.imag(pressure_derivs_summed[[9, 6, 8]] * np.conj(pressure_derivs_summed[[6, 8, 9]]))
+        return values
+
+    @requires(pressure_derivs_summed=2, pressure_derivs_individual=2)
+    def calc_jacobians(pressure_derivs_summed, pressure_derivs_individual):
+        jacobians = 1j * pressure_coefficient * (np.conj(pressure_derivs_summed[[2, 3, 1], None]) * pressure_derivs_individual[[3, 1, 2]] - np.conj(pressure_derivs_summed[[3, 1, 2], None]) * pressure_derivs_individual[[2, 3, 1]])
+        jacobians += 1j * velocity_coefficient * (np.conj(pressure_derivs_summed[[7, 8, 4], None]) * pressure_derivs_individual[[8, 4, 7]] - np.conj(pressure_derivs_summed[[8, 4, 7], None]) * pressure_derivs_individual[[7, 8, 4]])
+        jacobians += 1j * velocity_coefficient * (np.conj(pressure_derivs_summed[[5, 9, 7], None]) * pressure_derivs_individual[[9, 7, 5]] - np.conj(pressure_derivs_summed[[9, 7, 5], None]) * pressure_derivs_individual[[5, 9, 7]])
+        jacobians += 1j * velocity_coefficient * (np.conj(pressure_derivs_summed[[9, 6, 8], None]) * pressure_derivs_individual[[6, 8, 9]] - np.conj(pressure_derivs_summed[[6, 8, 9], None]) * pressure_derivs_individual[[9, 6, 8]])
+        return jacobians
+    return calc_values, calc_jacobians
+
+
+@algorithm
 def pressure_squared_magnitude(array=None):
     """
     Create pressure squared magnitude calculation functions.
