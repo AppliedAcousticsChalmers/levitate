@@ -286,7 +286,7 @@ class TransducerArray:
                 The vector radiation force, shape (3, ...) as the positions.
             """
             summed_derivs = np.einsum('ji..., i->j...', self.spatial_derivatives(positions, orders=2), self.array.complex_amplitudes)
-            return TransducerArray.PersistentFieldEvaluator._force(self.array, **kwargs)[0](summed_derivs)
+            return TransducerArray.PersistentFieldEvaluator._force(self.array, **kwargs).calc_values(summed_derivs)
 
         def stiffness(self, positions, **kwargs):
             """Calculate the stiffness field.
@@ -303,7 +303,7 @@ class TransducerArray:
                 The radiation stiffness, shape (...) as the positions.
             """
             summed_derivs = np.einsum('ji..., i->j...', self.spatial_derivatives(positions, orders=3), self.array.complex_amplitudes)
-            return TransducerArray.PersistentFieldEvaluator._stiffness(self.array, **kwargs)[0](summed_derivs)
+            return TransducerArray.PersistentFieldEvaluator._stiffness(self.array, **kwargs).calc_values(summed_derivs)
 
 
 class RectangularArray(TransducerArray):
