@@ -74,20 +74,20 @@ def gorkov_divergence(array, radius_sphere=1e-3, sphere_material=materials.Styro
     pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
     gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
 
-    @requires(pressure_orders_summed=2)
-    def calc_values(summed_derivs):
-        values = np.real(pressure_coefficient * np.conj(summed_derivs[0]) * summed_derivs[1:4])  # Pressure parts
-        values -= np.real(gradient_coefficient * np.conj(summed_derivs[1]) * summed_derivs[[4, 7, 8]])  # Vx parts
-        values -= np.real(gradient_coefficient * np.conj(summed_derivs[2]) * summed_derivs[[7, 5, 9]])  # Vy parts
-        values -= np.real(gradient_coefficient * np.conj(summed_derivs[3]) * summed_derivs[[8, 9, 6]])  # Vz parts
+    @requires(pressure_derivs_summed=2)
+    def calc_values(pressure_derivs_summed):
+        values = np.real(pressure_coefficient * np.conj(pressure_derivs_summed[0]) * pressure_derivs_summed[1:4])  # Pressure parts
+        values -= np.real(gradient_coefficient * np.conj(pressure_derivs_summed[1]) * pressure_derivs_summed[[4, 7, 8]])  # Vx parts
+        values -= np.real(gradient_coefficient * np.conj(pressure_derivs_summed[2]) * pressure_derivs_summed[[7, 5, 9]])  # Vy parts
+        values -= np.real(gradient_coefficient * np.conj(pressure_derivs_summed[3]) * pressure_derivs_summed[[8, 9, 6]])  # Vz parts
         return values * 2
 
-    @requires(pressure_orders_summed=2, pressure_orders_individual=2)
-    def calc_jacobians(summed_derivs, individual_derivs):
-        jacobians = pressure_coefficient * (np.conj(summed_derivs[0]) * individual_derivs[1:4] + np.conj(summed_derivs[1:4, None]) * individual_derivs[0])  # Pressure parts
-        jacobians -= gradient_coefficient * (np.conj(summed_derivs[1]) * individual_derivs[[4, 7, 8]] + np.conj(summed_derivs[[4, 7, 8], None]) * individual_derivs[1])  # Vx parts
-        jacobians -= gradient_coefficient * (np.conj(summed_derivs[2]) * individual_derivs[[7, 5, 9]] + np.conj(summed_derivs[[7, 5, 9], None]) * individual_derivs[2])  # Vy parts
-        jacobians -= gradient_coefficient * (np.conj(summed_derivs[3]) * individual_derivs[[8, 9, 6]] + np.conj(summed_derivs[[8, 9, 6], None]) * individual_derivs[3])  # Vz parts
+    @requires(pressure_derivs_summed=2, pressure_derivs_individual=2)
+    def calc_jacobians(pressure_derivs_summed, pressure_derivs_individual):
+        jacobians = pressure_coefficient * (np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[1:4] + np.conj(pressure_derivs_summed[1:4, None]) * pressure_derivs_individual[0])  # Pressure parts
+        jacobians -= gradient_coefficient * (np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[4, 7, 8]] + np.conj(pressure_derivs_summed[[4, 7, 8], None]) * pressure_derivs_individual[1])  # Vx parts
+        jacobians -= gradient_coefficient * (np.conj(pressure_derivs_summed[2]) * pressure_derivs_individual[[7, 5, 9]] + np.conj(pressure_derivs_summed[[7, 5, 9], None]) * pressure_derivs_individual[2])  # Vy parts
+        jacobians -= gradient_coefficient * (np.conj(pressure_derivs_summed[3]) * pressure_derivs_individual[[8, 9, 6]] + np.conj(pressure_derivs_summed[[8, 9, 6], None]) * pressure_derivs_individual[3])  # Vz parts
         return jacobians * 2
     return calc_values, calc_jacobians
 
@@ -116,20 +116,20 @@ def gorkov_laplacian(array, radius_sphere=1e-3, sphere_material=materials.Styrof
     pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
     gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
 
-    @requires(pressure_orders_summed=3)
-    def calc_values(summed_derivs):
-        values = np.real(pressure_coefficient * (np.conj(summed_derivs[0]) * summed_derivs[[4, 5, 6]] + summed_derivs[[1, 2, 3]] * np.conj(summed_derivs[[1, 2, 3]])))
-        values -= np.real(gradient_coefficient * (np.conj(summed_derivs[1]) * summed_derivs[[10, 15, 17]] + summed_derivs[[4, 7, 8]] * np.conj(summed_derivs[[4, 7, 8]])))
-        values -= np.real(gradient_coefficient * (np.conj(summed_derivs[2]) * summed_derivs[[13, 11, 18]] + summed_derivs[[7, 5, 9]] * np.conj(summed_derivs[[7, 5, 9]])))
-        values -= np.real(gradient_coefficient * (np.conj(summed_derivs[3]) * summed_derivs[[14, 16, 12]] + summed_derivs[[8, 9, 6]] * np.conj(summed_derivs[[8, 9, 6]])))
+    @requires(pressure_derivs_summed=3)
+    def calc_values(pressure_derivs_summed):
+        values = np.real(pressure_coefficient * (np.conj(pressure_derivs_summed[0]) * pressure_derivs_summed[[4, 5, 6]] + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
+        values -= np.real(gradient_coefficient * (np.conj(pressure_derivs_summed[1]) * pressure_derivs_summed[[10, 15, 17]] + pressure_derivs_summed[[4, 7, 8]] * np.conj(pressure_derivs_summed[[4, 7, 8]])))
+        values -= np.real(gradient_coefficient * (np.conj(pressure_derivs_summed[2]) * pressure_derivs_summed[[13, 11, 18]] + pressure_derivs_summed[[7, 5, 9]] * np.conj(pressure_derivs_summed[[7, 5, 9]])))
+        values -= np.real(gradient_coefficient * (np.conj(pressure_derivs_summed[3]) * pressure_derivs_summed[[14, 16, 12]] + pressure_derivs_summed[[8, 9, 6]] * np.conj(pressure_derivs_summed[[8, 9, 6]])))
         return values * 2
 
-    @requires(pressure_orders_summed=3, pressure_orders_individual=3)
-    def calc_jacobians(summed_derivs, individual_derivs):
-        jacobians = pressure_coefficient * (np.conj(summed_derivs[0]) * individual_derivs[[4, 5, 6]] + np.conj(summed_derivs[[4, 5, 6], None]) * individual_derivs[0] + 2 * np.conj(summed_derivs[[1, 2, 3], None]) * individual_derivs[[1, 2, 3]])
-        jacobians -= gradient_coefficient * (np.conj(summed_derivs[1]) * individual_derivs[[10, 15, 17]] + np.conj(summed_derivs[[10, 15, 17], None]) * individual_derivs[1] + 2 * np.conj(summed_derivs[[4, 7, 8], None]) * individual_derivs[[4, 7, 8]])
-        jacobians -= gradient_coefficient * (np.conj(summed_derivs[2]) * individual_derivs[[13, 11, 18]] + np.conj(summed_derivs[[13, 11, 18], None]) * individual_derivs[2] + 2 * np.conj(summed_derivs[[7, 5, 9], None]) * individual_derivs[[7, 5, 9]])
-        jacobians -= gradient_coefficient * (np.conj(summed_derivs[3]) * individual_derivs[[14, 16, 12]] + np.conj(summed_derivs[[14, 16, 12], None]) * individual_derivs[3] + 2 * np.conj(summed_derivs[[8, 9, 6], None]) * individual_derivs[[8, 9, 6]])
+    @requires(pressure_derivs_summed=3, pressure_derivs_individual=3)
+    def calc_jacobians(pressure_derivs_summed, pressure_derivs_individual):
+        jacobians = pressure_coefficient * (np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[[4, 5, 6]] + np.conj(pressure_derivs_summed[[4, 5, 6], None]) * pressure_derivs_individual[0] + 2 * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[[1, 2, 3]])
+        jacobians -= gradient_coefficient * (np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[10, 15, 17]] + np.conj(pressure_derivs_summed[[10, 15, 17], None]) * pressure_derivs_individual[1] + 2 * np.conj(pressure_derivs_summed[[4, 7, 8], None]) * pressure_derivs_individual[[4, 7, 8]])
+        jacobians -= gradient_coefficient * (np.conj(pressure_derivs_summed[2]) * pressure_derivs_individual[[13, 11, 18]] + np.conj(pressure_derivs_summed[[13, 11, 18], None]) * pressure_derivs_individual[2] + 2 * np.conj(pressure_derivs_summed[[7, 5, 9], None]) * pressure_derivs_individual[[7, 5, 9]])
+        jacobians -= gradient_coefficient * (np.conj(pressure_derivs_summed[3]) * pressure_derivs_individual[[14, 16, 12]] + np.conj(pressure_derivs_summed[[14, 16, 12], None]) * pressure_derivs_individual[3] + 2 * np.conj(pressure_derivs_summed[[8, 9, 6], None]) * pressure_derivs_individual[[8, 9, 6]])
         return jacobians * 2
     return calc_values, calc_jacobians
 
@@ -168,22 +168,22 @@ def second_order_force(array, radius_sphere=1e-3, sphere_material=materials.Styr
     psi_0 *= 1j
     psi_1 *= 1j
 
-    @requires(pressure_orders_summed=2)
-    def calc_values(summed_derivs):
-        values = np.real(k_square * psi_0 * summed_derivs[0] * np.conj(summed_derivs[[1, 2, 3]]))
-        values += np.real(k_square * psi_1 * summed_derivs[[1, 2, 3]] * np.conj(summed_derivs[0]))
-        values += np.real(3 * psi_1 * summed_derivs[1] * np.conj(summed_derivs[[4, 7, 8]]))
-        values += np.real(3 * psi_1 * summed_derivs[2] * np.conj(summed_derivs[[7, 5, 9]]))
-        values += np.real(3 * psi_1 * summed_derivs[3] * np.conj(summed_derivs[[8, 9, 6]]))
+    @requires(pressure_derivs_summed=2)
+    def calc_values(pressure_derivs_summed):
+        values = np.real(k_square * psi_0 * pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[[1, 2, 3]]))
+        values += np.real(k_square * psi_1 * pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[0]))
+        values += np.real(3 * psi_1 * pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[[4, 7, 8]]))
+        values += np.real(3 * psi_1 * pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[[7, 5, 9]]))
+        values += np.real(3 * psi_1 * pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[[8, 9, 6]]))
         return values * force_coeff
 
-    @requires(pressure_orders_summed=2, pressure_orders_individual=2)
-    def calc_jacobians(summed_derivs, individual_derivs):
-        jacobians = k_square * (psi_0 * individual_derivs[0] * np.conj(summed_derivs[[1, 2, 3], None]) + np.conj(psi_0) * np.conj(summed_derivs[0]) * individual_derivs[[1, 2, 3]])
-        jacobians += k_square * (psi_1 * individual_derivs[[1, 2, 3]] * np.conj(summed_derivs[0]) + np.conj(psi_1) * np.conj(summed_derivs[[1, 2, 3], None]) * individual_derivs[0])
-        jacobians += 3 * (psi_1 * individual_derivs[1] * np.conj(summed_derivs[[4, 7, 8], None]) + np.conj(psi_1) * np.conj(summed_derivs[1]) * individual_derivs[[4, 7, 8]])
-        jacobians += 3 * (psi_1 * individual_derivs[2] * np.conj(summed_derivs[[7, 5, 9], None]) + np.conj(psi_1) * np.conj(summed_derivs[2]) * individual_derivs[[7, 5, 9]])
-        jacobians += 3 * (psi_1 * individual_derivs[3] * np.conj(summed_derivs[[8, 9, 6], None]) + np.conj(psi_1) * np.conj(summed_derivs[3]) * individual_derivs[[8, 9, 6]])
+    @requires(pressure_derivs_summed=2, pressure_derivs_individual=2)
+    def calc_jacobians(pressure_derivs_summed, pressure_derivs_individual):
+        jacobians = k_square * (psi_0 * pressure_derivs_individual[0] * np.conj(pressure_derivs_summed[[1, 2, 3], None]) + np.conj(psi_0) * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[[1, 2, 3]])
+        jacobians += k_square * (psi_1 * pressure_derivs_individual[[1, 2, 3]] * np.conj(pressure_derivs_summed[0]) + np.conj(psi_1) * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[0])
+        jacobians += 3 * (psi_1 * pressure_derivs_individual[1] * np.conj(pressure_derivs_summed[[4, 7, 8], None]) + np.conj(psi_1) * np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[4, 7, 8]])
+        jacobians += 3 * (psi_1 * pressure_derivs_individual[2] * np.conj(pressure_derivs_summed[[7, 5, 9], None]) + np.conj(psi_1) * np.conj(pressure_derivs_summed[2]) * pressure_derivs_individual[[7, 5, 9]])
+        jacobians += 3 * (psi_1 * pressure_derivs_individual[3] * np.conj(pressure_derivs_summed[[8, 9, 6], None]) + np.conj(psi_1) * np.conj(pressure_derivs_summed[3]) * pressure_derivs_individual[[8, 9, 6]])
         return jacobians * force_coeff
     return calc_values, calc_jacobians
 
@@ -222,22 +222,22 @@ def second_order_stiffness(array, radius_sphere=1e-3, sphere_material=materials.
     psi_0 *= 1j
     psi_1 *= 1j
 
-    @requires(pressure_orders_summed=3)
-    def calc_values(summed_derivs):
-        values = np.real(k_square * psi_0 * (summed_derivs[0] * np.conj(summed_derivs[[4, 5, 6]]) + summed_derivs[[1, 2, 3]] * np.conj(summed_derivs[[1, 2, 3]])))
-        values += np.real(k_square * psi_1 * (summed_derivs[[4, 5, 6]] * np.conj(summed_derivs[0]) + summed_derivs[[1, 2, 3]] * np.conj(summed_derivs[[1, 2, 3]])))
-        values += np.real(3 * psi_1 * (summed_derivs[1] * np.conj(summed_derivs[[10, 15, 17]]) + summed_derivs[[4, 7, 8]] * np.conj(summed_derivs[[4, 7, 8]])))
-        values += np.real(3 * psi_1 * (summed_derivs[2] * np.conj(summed_derivs[[13, 11, 18]]) + summed_derivs[[7, 5, 9]] * np.conj(summed_derivs[[7, 5, 9]])))
-        values += np.real(3 * psi_1 * (summed_derivs[3] * np.conj(summed_derivs[[14, 16, 12]]) + summed_derivs[[8, 9, 6]] * np.conj(summed_derivs[[8, 9, 6]])))
+    @requires(pressure_derivs_summed=3)
+    def calc_values(pressure_derivs_summed):
+        values = np.real(k_square * psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[[4, 5, 6]]) + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
+        values += np.real(k_square * psi_1 * (pressure_derivs_summed[[4, 5, 6]] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
+        values += np.real(3 * psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[[10, 15, 17]]) + pressure_derivs_summed[[4, 7, 8]] * np.conj(pressure_derivs_summed[[4, 7, 8]])))
+        values += np.real(3 * psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[[13, 11, 18]]) + pressure_derivs_summed[[7, 5, 9]] * np.conj(pressure_derivs_summed[[7, 5, 9]])))
+        values += np.real(3 * psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[[14, 16, 12]]) + pressure_derivs_summed[[8, 9, 6]] * np.conj(pressure_derivs_summed[[8, 9, 6]])))
         return values * force_coeff
 
-    @requires(pressure_orders_summed=3, pressure_orders_individual=3)
-    def calc_jacobians(summed_derivs, individual_derivs):
-        jacobians = k_square * (psi_0 * individual_derivs[0] * np.conj(summed_derivs[[4, 5, 6], None]) + np.conj(psi_0) * np.conj(summed_derivs[0]) * individual_derivs[[4, 5, 6]] + (psi_0 + np.conj(psi_0)) * np.conj(summed_derivs[[1, 2, 3], None]) * individual_derivs[[1, 2, 3]])
-        jacobians += k_square * (psi_1 * individual_derivs[[4, 5, 6]] * np.conj(summed_derivs[0]) + np.conj(psi_1) * np.conj(summed_derivs[[4, 5, 6], None]) * individual_derivs[0] + (psi_1 + np.conj(psi_1)) * np.conj(summed_derivs[[1, 2, 3], None]) * individual_derivs[[1, 2, 3]])
-        jacobians += 3 * (psi_1 * individual_derivs[1] * np.conj(summed_derivs[[10, 15, 17], None]) + np.conj(psi_1) * np.conj(summed_derivs[1]) * individual_derivs[[10, 15, 17]] + (psi_1 + np.conj(psi_1)) * np.conj(summed_derivs[[4, 7, 8], None]) * individual_derivs[[4, 7, 8]])
-        jacobians += 3 * (psi_1 * individual_derivs[2] * np.conj(summed_derivs[[13, 11, 18], None]) + np.conj(psi_1) * np.conj(summed_derivs[2]) * individual_derivs[[13, 11, 18]] + (psi_1 + np.conj(psi_1)) * np.conj(summed_derivs[[7, 5, 9], None]) * individual_derivs[[7, 5, 9]])
-        jacobians += 3 * (psi_1 * individual_derivs[3] * np.conj(summed_derivs[[14, 16, 12], None]) + np.conj(psi_1) * np.conj(summed_derivs[3]) * individual_derivs[[14, 16, 12]] + (psi_1 + np.conj(psi_1)) * np.conj(summed_derivs[[8, 9, 6], None]) * individual_derivs[[8, 9, 6]])
+    @requires(pressure_derivs_summed=3, pressure_derivs_individual=3)
+    def calc_jacobians(pressure_derivs_summed, pressure_derivs_individual):
+        jacobians = k_square * (psi_0 * pressure_derivs_individual[0] * np.conj(pressure_derivs_summed[[4, 5, 6], None]) + np.conj(psi_0) * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[[4, 5, 6]] + (psi_0 + np.conj(psi_0)) * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[[1, 2, 3]])
+        jacobians += k_square * (psi_1 * pressure_derivs_individual[[4, 5, 6]] * np.conj(pressure_derivs_summed[0]) + np.conj(psi_1) * np.conj(pressure_derivs_summed[[4, 5, 6], None]) * pressure_derivs_individual[0] + (psi_1 + np.conj(psi_1)) * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[[1, 2, 3]])
+        jacobians += 3 * (psi_1 * pressure_derivs_individual[1] * np.conj(pressure_derivs_summed[[10, 15, 17], None]) + np.conj(psi_1) * np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[10, 15, 17]] + (psi_1 + np.conj(psi_1)) * np.conj(pressure_derivs_summed[[4, 7, 8], None]) * pressure_derivs_individual[[4, 7, 8]])
+        jacobians += 3 * (psi_1 * pressure_derivs_individual[2] * np.conj(pressure_derivs_summed[[13, 11, 18], None]) + np.conj(psi_1) * np.conj(pressure_derivs_summed[2]) * pressure_derivs_individual[[13, 11, 18]] + (psi_1 + np.conj(psi_1)) * np.conj(pressure_derivs_summed[[7, 5, 9], None]) * pressure_derivs_individual[[7, 5, 9]])
+        jacobians += 3 * (psi_1 * pressure_derivs_individual[3] * np.conj(pressure_derivs_summed[[14, 16, 12], None]) + np.conj(psi_1) * np.conj(pressure_derivs_summed[3]) * pressure_derivs_individual[[14, 16, 12]] + (psi_1 + np.conj(psi_1)) * np.conj(pressure_derivs_summed[[8, 9, 6], None]) * pressure_derivs_individual[[8, 9, 6]])
         return jacobians * force_coeff
     return calc_values, calc_jacobians
 
@@ -256,13 +256,13 @@ def pressure_squared_magnitude(array=None):
     array : TransducerArray
         The object modeling the array, optional.
     """
-    @requires(pressure_orders_summed=0)
-    def calc_values(summed_derivs):
-        return np.real(summed_derivs[0] * np.conj(summed_derivs[0]))[None, ...]
+    @requires(pressure_derivs_summed=0)
+    def calc_values(pressure_derivs_summed):
+        return np.real(pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[0]))[None, ...]
 
-    @requires(pressure_orders_summed=0, pressure_orders_individual=0)
-    def calc_jacobians(summed_derivs, individual_derivs):
-        return (2 * np.conj(summed_derivs[0]) * individual_derivs[0])[None, ...]
+    @requires(pressure_derivs_summed=0, pressure_derivs_individual=0)
+    def calc_jacobians(pressure_derivs_summed, pressure_derivs_individual):
+        return (2 * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[0])[None, ...]
     return calc_values, calc_jacobians
 
 
@@ -282,13 +282,13 @@ def velocity_squared_magnitude(array):
     """
     pre_grad_2_vel_squared = 1 / (array.medium.rho * array.omega)**2
 
-    @requires(pressure_orders_summed=1)
-    def calc_values(summed_derivs):
-        return np.real(pre_grad_2_vel_squared * summed_derivs[1:4] * np.conj(summed_derivs[1:4]))
+    @requires(pressure_derivs_summed=1)
+    def calc_values(pressure_derivs_summed):
+        return np.real(pre_grad_2_vel_squared * pressure_derivs_summed[1:4] * np.conj(pressure_derivs_summed[1:4]))
 
-    @requires(pressure_orders_summed=1, pressure_orders_individual=1)
-    def calc_jacobians(summed_derivs, individual_derivs):
-        return 2 * pre_grad_2_vel_squared * np.conj(summed_derivs[1:4, None]) * individual_derivs[1:4]
+    @requires(pressure_derivs_summed=1, pressure_derivs_individual=1)
+    def calc_jacobians(pressure_derivs_summed, pressure_derivs_individual):
+        return 2 * pre_grad_2_vel_squared * np.conj(pressure_derivs_summed[1:4, None]) * pressure_derivs_individual[1:4]
     return calc_values, calc_jacobians
 
 
@@ -316,19 +316,19 @@ def vector_target(vector_calculator, target_vector=(0, 0, 0)):
     calc_vector_values, calc_vector_jacobians = vector_calculator
 
     @requires(**calc_vector_values.requires)
-    def calc_values(summed_derivs):
-        values = calc_vector_values(summed_derivs)
+    def calc_values(pressure_derivs_summed):
+        values = calc_vector_values(pressure_derivs_summed)
         values -= target_vector.reshape([-1] + (values.ndim - 1) * [1])
         # values *= weights.reshape([-1] + (values.ndim - 1) * [1])
         # return np.real(np.einsum('i...,i...', values, np.conj(values)))
         return np.real(values * np.conj(values))
 
     @requires(**calc_vector_jacobians.requires)
-    def calc_jacobians(summed_derivs, individual_derivs):
+    def calc_jacobians(pressure_derivs_summed, pressure_derivs_individual):
         # raise NotImplementedError('Vector target not fully implemented!')
-        values = calc_vector_values(summed_derivs)
+        values = calc_vector_values(pressure_derivs_summed)
         values -= target_vector.reshape([-1] + (values.ndim - 1) * [1])
-        jacobians = calc_vector_jacobians(summed_derivs, individual_derivs)
+        jacobians = calc_vector_jacobians(pressure_derivs_summed, pressure_derivs_individual)
         # return 2 * np.einsum('i, ij...,i...', weights**2, jacobians, values)
         return 2 * np.einsum('ij...,i...->ij', jacobians, values)
     return calc_values, calc_jacobians

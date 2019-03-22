@@ -80,7 +80,7 @@ class CostFunctionPoint:
                     updated_requirements[key] = value
                     self._requirements[key] = value
         for key, value in updated_requirements.items():
-            if key.find('pressure_orders') > -1:
+            if key.find('pressure_derivs') > -1:
                 self._spatial_derivatives = self.array.spatial_derivatives(self.position, orders=value)
             else:
                 raise ValueError("Unknown requirement '{}'".format(key))
