@@ -7,33 +7,18 @@ array = levitate.arrays.RectangularArray(shape=2)
 array.phases = array.focus_phases(pos) + array.twin_signature()
 
 
-def test_cost_function_point():
-    point = levitate.optimization.CostFunctionPoint(pos, array, levitate.algorithms.pressure_squared_magnitude(weights=3))
-    values, jacobians = point(array.complex_amplitudes)
-    np.testing.assert_allclose(values, np.abs(array.calculate.pressure(pos))**2 * 3)
-    point.append(levitate.algorithms.second_order_stiffness(array, weights=(-1.2, 4, -1.6)))
-    values, jacobians = point(array.complex_amplitudes)
-    np.testing.assert_allclose(values, np.abs(array.calculate.pressure(pos))**2 * 3 + np.sum(array.calculate.stiffness(pos) * np.array([-1.2, 4, -1.6])))
-
-
 def test_minimize_phases_amplitudes():
-    trap = levitate.optimization.CostFunctionPoint(pos, array,
-        levitate.algorithms.pressure_squared_magnitude(weights=1),
-        levitate.algorithms.second_order_stiffness(array, weights=(1, 1, 1)))
+    trap = levitate.algorithms.pressure_squared_magnitude(array) * 1 @ pos + levitate.algorithms.second_order_stiffness(array) * (1, 1, 1) @ pos
     result = levitate.optimization.minimize(trap, array)
     result = levitate.optimization.minimize(trap, array, variable_amplitudes=True, start_values=0.5 * array.complex_amplitudes, basinhopping=3)
     result = levitate.optimization.minimize(trap, array, constrain_transducers=[0, 3])
 
 
 def test_minimize_sequence():
-    trap = levitate.optimization.CostFunctionPoint(pos, array,
-        levitate.algorithms.pressure_squared_magnitude(weights=1),
-        levitate.algorithms.second_order_stiffness(array, weights=(1, 1, 1)))
+    trap = levitate.algorithms.pressure_squared_magnitude(array) * 1 @ pos + levitate.algorithms.second_order_stiffness(array) * (1, 1, 1) @ pos
     result = levitate.optimization.minimize(trap, array, variable_amplitudes='phases first', start_values=0.5 * array.complex_amplitudes)
-    quiet_zone = levitate.optimization.CostFunctionPoint(np.array([-5, -2, 60]) * 1e-3, array,
-        levitate.algorithms.pressure_squared_magnitude(weights=1),
-        levitate.algorithms.velocity_squared_magnitude(array, weights=(1, 1, 1)))
-    result = levitate.optimization.minimize([[trap], [trap, quiet_zone]], array)
+    quiet_zone = (levitate.algorithms.pressure_squared_magnitude(array) * 1 + levitate.algorithms.velocity_squared_magnitude(array) * (1, 1, 1)) @ (np.array([-5, -2, 60]) * 1e-3)
+    result = levitate.optimization.minimize([[trap], [trap + quiet_zone]], array)
     result, status = levitate.optimization.minimize([[trap], [trap, quiet_zone]], array, basinhopping=True, minimize_kwargs={'tol': 1e-6}, callback=lambda **kwargs: False, return_optim_status=True)
 
 
@@ -43,7 +28,7 @@ large_array.amplitudes = np.random.uniform(1e-3, 1, large_array.num_transducers)
 operating_point = large_array.complex_amplitudes
 
 
-@pytest.mark.parametrize("func, weights", [
+@pytest.mark.parametrize("func, weight", [
     (levitate.algorithms.gorkov_divergence, (1, 0, 0)),
     (levitate.algorithms.gorkov_divergence, (0, 1, 0)),
     (levitate.algorithms.gorkov_divergence, (0, 0, 1)),
@@ -67,8 +52,8 @@ operating_point = large_array.complex_amplitudes
     (levitate.algorithms.velocity_squared_magnitude, (0, 0, 1)),
     (levitate.algorithms.velocity_squared_magnitude, np.random.uniform(-10, 10, 3)),
 ])
-def test_jacobian_accuracy(func, weights):
-    point = levitate.optimization.CostFunctionPoint(pos, large_array, func(large_array, weights=weights))
+def test_jacobian_accuracy(func, weight):
+    point = func(large_array, weight=weight, position=pos)
     values_at_operating_point = point(operating_point)
 
     phase_jacobians = np.zeros(large_array.num_transducers)
