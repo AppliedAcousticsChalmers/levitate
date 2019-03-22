@@ -90,9 +90,6 @@ class Algorithm:
         return spatial_structures
 
     def __mul__(self, weight):
-        weight = np.atleast_1d(weight)
-        if weight.dtype == object:
-            return NotImplemented
         return UnboundCostFunction(array=self.array, name=self.name, weight=weight,
                                    calc_values=self.calc_values, calc_jacobians=self.calc_jacobians)
 
@@ -172,7 +169,7 @@ class UnboundCostFunction(Algorithm):
 
     def __init__(self, array, *, calc_values, calc_jacobians, weight, name=None, **kwargs):
         super().__init__(array=array, calc_values=calc_values, calc_jacobians=calc_jacobians, name=name, **kwargs)
-        self.weight = weight
+        self.weight = np.atleast_1d(weight)
         for key, value in calc_jacobians.requires.items():
             self.requires[key] = max(value, self.requires.get(key, -1))
 
