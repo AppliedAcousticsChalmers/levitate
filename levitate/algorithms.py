@@ -1,56 +1,11 @@
 """A collection of levitation related mathematical implementations."""
 
 import numpy as np
-import functools
-import collections
-import textwrap
 from . import materials
+from ._algorithm import algorithm, requires
 
 
-def requires(**requirements):
-    # TODO: Document the list of possible choises, and compare the input to what is possible.
-    def wrapper(func):
-        @functools.wraps(func)
-        def wrapped(*args, **kwargs):
-            return func(*args, **kwargs)
-        wrapped.requires = requirements
-        return wrapped
-    return wrapper
-
-
-def algorithm(*output_names):
-    def wrapper(func):
-        named_outputs = collections.namedtuple(func.__name__, output_names)
-        func.__doc__ = func.__doc__ or 'Parameters\n----------\n'
-        @functools.wraps(func)
-        def wrapped(*args, weights=None, **kwargs):
-            output = func(*args, **kwargs)
-            if weights is not None:
-                weights = np.atleast_1d(weights)
-                try:
-                    for f in output:
-                        f.weights = weights
-                    output = named_outputs(*output)
-                except TypeError:
-                    output.weights = weights
-                    output = named_outputs(output)
-            return output
-        wrapped.__doc__ = textwrap.dedent(wrapped.__doc__).rstrip('\n') + textwrap.dedent("""
-            weights : numeric, optional
-                Attaching weights to the algorithms for use in optimizations.
-
-            Returns
-            -------
-            calc_values : func
-                Function to calculate the divergence of the gorkov potential in cartesian coordinates.
-            calc_jacobians : func
-                Function to calculate the jacobian of the above, w.r.t the transducers.
-            """)
-        return wrapped
-    return wrapper
-
-
-@algorithm('calc_values', 'calc_jacobians')
+@algorithm
 def gorkov_divergence(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
     """
     Create gorkov divergence calculation functions.
@@ -92,7 +47,7 @@ def gorkov_divergence(array, radius_sphere=1e-3, sphere_material=materials.Styro
     return calc_values, calc_jacobians
 
 
-@algorithm('calc_values', 'calc_jacobians')
+@algorithm
 def gorkov_laplacian(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
     """
     Create gorkov laplacian calculation functions.
@@ -134,7 +89,7 @@ def gorkov_laplacian(array, radius_sphere=1e-3, sphere_material=materials.Styrof
     return calc_values, calc_jacobians
 
 
-@algorithm('calc_values', 'calc_jacobians')
+@algorithm
 def second_order_force(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
     """
     Create second order radiation force calculation functions.
@@ -188,7 +143,7 @@ def second_order_force(array, radius_sphere=1e-3, sphere_material=materials.Styr
     return calc_values, calc_jacobians
 
 
-@algorithm('calc_values', 'calc_jacobians')
+@algorithm
 def second_order_stiffness(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
     """
     Create second order radiation stiffness calculation functions.
@@ -242,7 +197,7 @@ def second_order_stiffness(array, radius_sphere=1e-3, sphere_material=materials.
     return calc_values, calc_jacobians
 
 
-@algorithm('calc_values', 'calc_jacobians')
+@algorithm
 def pressure_squared_magnitude(array=None):
     """
     Create pressure squared magnitude calculation functions.
@@ -266,7 +221,7 @@ def pressure_squared_magnitude(array=None):
     return calc_values, calc_jacobians
 
 
-@algorithm('calc_values', 'calc_jacobians')
+@algorithm
 def velocity_squared_magnitude(array):
     """
     Create velocity squared magnitude calculation functions.
@@ -292,7 +247,7 @@ def velocity_squared_magnitude(array):
     return calc_values, calc_jacobians
 
 
-@algorithm('calc_values', 'calc_jacobians')
+@algorithm
 def vector_target(vector_calculator, target_vector=(0, 0, 0)):
     """
     Create a function which calculates the difference of a vector and a target vector.
