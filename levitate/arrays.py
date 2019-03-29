@@ -180,8 +180,11 @@ class TransducerArray:
         focus_phases = self.focus_phases(focus)
         return np.mod(phases - focus_phases + np.pi, 2 * np.pi) - np.pi
 
-    def spatial_derivatives(self, positions, orders=3):
-        """Calculate the spatial derivatives for all the transducers.
+    def pressure_derivs(self, positions, orders=3):
+        """Calculate derivatives of the pressure.
+
+        Calculates the spatial derivatives of the pressure from all individual
+        transducers in a Cartesian coordinate system.
 
         Parameters
         ----------
@@ -199,9 +202,8 @@ class TransducerArray:
             and the remaining dimensions are the same as the `positions` input with the first dimension removed.
         """
         derivatives = np.empty((num_spatial_derivatives[orders], self.num_transducers) + positions.shape[1:], dtype=np.complex128)
-
         for idx in range(self.num_transducers):
-            derivatives[:, idx] = self.transducer_model.spatial_derivatives(self.transducer_positions[:, idx], self.transducer_normals[:, idx], positions, orders)
+            derivatives[:, idx] = self.transducer_model.pressure_derivs(self.transducer_positions[:, idx], self.transducer_normals[:, idx], positions, orders)
         return derivatives
 
     class PersistentFieldEvaluator:
@@ -219,23 +221,23 @@ class TransducerArray:
         def __init__(self, array):
             self.array = array
             self._last_positions = None
-            self._spatial_derivatives = None
+            self._pressure_derivs = None
             self._existing_orders = -1
 
-        def spatial_derivatives(self, positions, orders=3):
-            """Cashed wrapper around `TransducerArray.spatial_derivatives`."""
+        def pressure_derivs(self, positions, orders=3):
+            """Cashed wrapper around `TransducerArray.pressure_derivs`."""
             if (
-                self._spatial_derivatives is not None and
+                self._pressure_derivs is not None and
                 self._existing_orders >= orders and
                 positions.shape == self._last_positions.shape and
                 np.allclose(positions, self._last_positions)
             ):
-                return self._spatial_derivatives
+                return self._pressure_derivs
 
-            self._spatial_derivatives = self.array.spatial_derivatives(positions, orders)
+            self._pressure_derivs = self.array.pressure_derivs(positions, orders)
             self._existing_orders = orders
             self._last_positions = positions
-            return self._spatial_derivatives
+            return self._pressure_derivs
 
         def pressure(self, positions):
             """Calculate the pressure field.
@@ -251,8 +253,8 @@ class TransducerArray:
             pressure : numpy.ndarray
                 The complex pressure amplitudes, shape (...) as the positions.
             """
-            return np.einsum('i..., i', self.spatial_derivatives(positions, orders=0)[0], self.array.complex_amplitudes)
-            # return self._cost_functions.pressure(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=0))(self.array.phases, self.array.amplitudes)
+            return np.einsum('i..., i', self.pressure_derivs(positions, orders=0)[0], self.array.complex_amplitudes)
+            # return self._cost_functions.pressure(self.array, pressure_derivs=self.pressure_derivs(positions, orders=0))(self.array.phases, self.array.amplitudes)
 
         def velocity(self, positions):
             """Calculate the velocity field.
@@ -268,8 +270,8 @@ class TransducerArray:
             velocity : numpy.ndarray
                 The complex vector particle velocity, shape (3, ...) as the positions.
             """
-            return np.einsum('ji..., i->j...', self.spatial_derivatives(positions, orders=1)[1:4], self.array.complex_amplitudes) / (1j * self.array.omega * self.array.medium.rho)
-            # return self._cost_functions.velocity(self.array, spatial_derivatives=self.spatial_derivatives(positions, orders=1))(self.array.phases, self.array.amplitudes)
+            return np.einsum('ji..., i->j...', self.pressure_derivs(positions, orders=1)[1:4], self.array.complex_amplitudes) / (1j * self.array.omega * self.array.medium.rho)
+            # return self._cost_functions.velocity(self.array, pressure_derivs=self.pressure_derivs(positions, orders=1))(self.array.phases, self.array.amplitudes)
 
         def force(self, positions, **kwargs):
             """Calculate the force field.
@@ -285,7 +287,7 @@ class TransducerArray:
             force : numpy.ndarray
                 The vector radiation force, shape (3, ...) as the positions.
             """
-            summed_derivs = np.einsum('ji..., i->j...', self.spatial_derivatives(positions, orders=2), self.array.complex_amplitudes)
+            summed_derivs = np.einsum('ji..., i->j...', self.pressure_derivs(positions, orders=2), self.array.complex_amplitudes)
             return TransducerArray.PersistentFieldEvaluator._force(self.array, **kwargs).calc_values(summed_derivs)
 
         def stiffness(self, positions, **kwargs):
@@ -302,7 +304,7 @@ class TransducerArray:
             force : numpy.ndarray
                 The radiation stiffness, shape (...) as the positions.
             """
-            summed_derivs = np.einsum('ji..., i->j...', self.spatial_derivatives(positions, orders=3), self.array.complex_amplitudes)
+            summed_derivs = np.einsum('ji..., i->j...', self.pressure_derivs(positions, orders=3), self.array.complex_amplitudes)
             return TransducerArray.PersistentFieldEvaluator._stiffness(self.array, **kwargs).calc_values(summed_derivs)
 
 

@@ -8,7 +8,7 @@ pos_1 = np.array([-0.15, 1.27, 0.001])
 pos_both = np.stack((pos_0, pos_1), axis=1)
 array.phases = array.focus_phases((pos_0 + pos_1) / 2) + array.twin_signature()
 
-spat_ders = array.spatial_derivatives(pos_both, orders=3)
+spat_ders = array.pressure_derivs(pos_both, orders=3)
 ind_ders = np.einsum('i, ji...->ji...', array.amplitudes * np.exp(1j * array.phases), spat_ders)
 sum_ders = np.sum(ind_ders, axis=1)
 

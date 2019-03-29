@@ -86,7 +86,7 @@ class Algorithm:
                 raise ValueError("Unknown requirement '{}'".format(key))
         # Replace the requets with values calculated by the array
         if 'pressure_derivs' in spatial_structures:
-            spatial_structures['pressure_derivs'] = self.array.spatial_derivatives(position, orders=spatial_structures['pressure_derivs'])
+            spatial_structures['pressure_derivs'] = self.array.pressure_derivs(position, orders=spatial_structures['pressure_derivs'])
         return spatial_structures
 
     def __mul__(self, weight):

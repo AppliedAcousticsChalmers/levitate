@@ -100,10 +100,10 @@ class TransducerModel:
         """
         raise NotImplementedError('Transducer model of type `{}` has not implemented a greens function'.format(self.__class__.__name__))
 
-    def spatial_derivatives(self, source_position, source_normal, receiver_positions, orders=3):
+    def pressure_derivs(self, source_position, source_normal, receiver_positions, orders=3, **kwargs):
         """Calculate the spatial derivatives of the greens function.
 
-        Calculates spatial derivatives of the Green's function. Should be implemented by concrete subclasses.
+        Calculates cartesian spatial derivatives of the pressure Green's function. Should be implemented by concrete subclasses.
 
         Parameters
         ----------
@@ -124,7 +124,7 @@ class TransducerModel:
             derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`, and the remaining
             dimensions are as `receiver_positions`.
         """
-        raise NotImplementedError('Transducer model of type `{}` has not implemented spatial derivatives'.format(self.__class__.__name__))
+        raise NotImplementedError('Transducer model of type `{}` has not implemented cartesian pressure derivatives'.format(self.__class__.__name__))
 
 
 class PointSource(TransducerModel):
@@ -199,7 +199,7 @@ class PointSource(TransducerModel):
         """
         return np.ones(receiver_positions.shape[1:])
 
-    def spatial_derivatives(self, source_position, source_normal, receiver_positions, orders=3):
+    def pressure_derivs(self, source_position, source_normal, receiver_positions, orders=3, **kwargs):
         """Calculate the spatial derivatives of the greens function.
 
         This is the combination of the derivative of the spherical spreading, and
@@ -459,7 +459,7 @@ class ReflectingTransducer:
         reflected = super().greens_function(mirror_position, mirror_normal, receiver_positions)
         return direct + self.reflection_coefficient * reflected
 
-    def spatial_derivatives(self, source_position, source_normal, receiver_positions, orders=3):
+    def pressure_derivs(self, source_position, source_normal, receiver_positions, orders=3, **kwargs):
         """Calculate the spatial derivatives of the transducer radiation.
 
         This calculates the spatial derivatives for the underlying transducer model,
@@ -484,10 +484,10 @@ class ReflectingTransducer:
             derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`, and the remaining
             dimensions are as `receiver_positions`.
         """
-        direct = super().spatial_derivatives(source_position, source_normal, receiver_positions, orders)
+        direct = super().pressure_derivs(source_position, source_normal, receiver_positions, orders, **kwargs)
         mirror_position = source_position - 2 * self.plane_normal * ((source_position * self.plane_normal).sum() - self.plane_distance)
         mirror_normal = source_normal - 2 * self.plane_normal * (source_normal * self.plane_normal).sum()
-        reflected = super().spatial_derivatives(mirror_position, mirror_normal, receiver_positions, orders)
+        reflected = super().pressure_derivs(mirror_position, mirror_normal, receiver_positions, orders, **kwargs)
         return direct + self.reflection_coefficient * reflected
 
 
@@ -522,7 +522,7 @@ class PlaneWaveTransducer(TransducerModel):
         x_dot_n = np.einsum('i..., i...', diff, source_normal)
         return self.p0 * np.exp(1j * self.k * x_dot_n)
 
-    def spatial_derivatives(self, source_position, source_normal, receiver_positions, orders=3):
+    def pressure_derivs(self, source_position, source_normal, receiver_positions, orders=3, **kwargs):
         """Calculate the spatial derivatives of the greens function.
 
         Parameters

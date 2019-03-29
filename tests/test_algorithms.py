@@ -14,7 +14,7 @@ pos_2 = np.array([-0.15, 1.27, 0.001])
 both_pos = np.stack((pos_1, pos_2), axis=1)
 array.phases = array.focus_phases((pos_1 + pos_2) / 2)
 
-spat_ders = array.spatial_derivatives(both_pos, orders=3)
+spat_ders = array.pressure_derivs(both_pos, orders=3)
 ind_ders = np.einsum('i, ji...->ji...', array.amplitudes * np.exp(1j * array.phases), spat_ders)
 sum_ders = np.sum(ind_ders, axis=1)
 
