@@ -7,7 +7,7 @@ import logging
 import itertools
 
 from .materials import Air
-from . import num_spatial_derivatives
+from . import num_pressure_derivs
 
 logger = logging.getLogger(__name__)
 warnings.warn("""The cost_functions module is deprecated and will be removed in a further release. Use the algorithms module or the optimization module instead.""")
@@ -926,7 +926,7 @@ def velocity(array, location=None, weights=None, spatial_derivatives=None):
     if spatial_derivatives is None:
         spatial_derivatives = array.pressure_derivs(location, orders=1)
     pre_grad_2_vel = 1 / (1j * Air.rho * array.omega)
-    spatial_derivatives = spatial_derivatives[num_spatial_derivatives[0]:num_spatial_derivatives[1]] * pre_grad_2_vel
+    spatial_derivatives = spatial_derivatives[num_pressure_derivs[0]:num_pressure_derivs[1]] * pre_grad_2_vel
 
     if weights is None:
         def calc_values(tot_der):

@@ -5,7 +5,7 @@ frequently used methods.
 """
 
 import numpy as np
-from . import num_spatial_derivatives
+from . import num_pressure_derivs
 from .visualize import Visualizer
 from .materials import Air
 
@@ -201,7 +201,7 @@ class TransducerArray:
             and N is the number of transducers, see `num_spatial_derivatives` and `spatial_derivative_order`,
             and the remaining dimensions are the same as the `positions` input with the first dimension removed.
         """
-        derivatives = np.empty((num_spatial_derivatives[orders], self.num_transducers) + positions.shape[1:], dtype=np.complex128)
+        derivatives = np.empty((num_pressure_derivs[orders], self.num_transducers) + positions.shape[1:], dtype=np.complex128)
         for idx in range(self.num_transducers):
             derivatives[:, idx] = self.transducer_model.pressure_derivs(self.transducer_positions[:, idx], self.transducer_normals[:, idx], positions, orders)
         return derivatives
