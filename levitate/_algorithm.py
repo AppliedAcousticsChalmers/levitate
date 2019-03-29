@@ -114,9 +114,6 @@ class Algorithm:
 
     def __str__(self, not_api_call=True):
         return self._str_format_spec.format(self)
-        cls = self.__class__.__name__ + ': ' if not_api_call else ''
-        name = self.name or 'Unknown'
-        return cls + name
 
     def __format__(self, format_spec):
         cls = self.__class__.__name__ + ': '
