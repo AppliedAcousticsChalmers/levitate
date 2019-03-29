@@ -67,8 +67,8 @@ class TransducerArray:
         transducer_kwargs['medium'] = self.medium
 
         if transducer_model is None:
-            from .transducers import TransducerModel
-            self.transducer_model = TransducerModel(**transducer_kwargs)
+            from .transducers import PointSource
+            self.transducer_model = PointSource(**transducer_kwargs)
         elif type(transducer_model) is type:
             self.transducer_model = transducer_model(**transducer_kwargs)
         else:

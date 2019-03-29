@@ -81,6 +81,56 @@ class TransducerModel:
     def greens_function(self, source_position, source_normal, receiver_positions):
         """Evaluate the transducer radiation.
 
+        This function needs to be implemented by concrete subclasses.
+
+        Parameters
+        ----------
+        source_position : numpy.ndarray
+            The location of the transducer, as a 3 element array.
+        source_normal : numpy.ndarray
+            The look direction of the transducer, as a 3 element array.
+        receiver_positions : numpy.ndarray
+            The location(s) at which to evaluate the radiation, shape (3, ...).
+            The first dimension must have length 3 and represent the coordinates of the points.
+
+        Returns
+        -------
+        out : numpy.ndarray
+            The pressure at the locations, shape (...) as `receiver_positions`.
+        """
+        raise NotImplementedError('Transducer model of type `{}` has not implemented a greens function'.format(self.__class__.__name__))
+
+    def spatial_derivatives(self, source_position, source_normal, receiver_positions, orders=3):
+        """Calculate the spatial derivatives of the greens function.
+
+        Calculates spatial derivatives of the Green's function. Should be implemented by concrete subclasses.
+
+        Parameters
+        ----------
+        source_position : numpy.ndarray
+            The location of the transducer, as a 3 element array.
+        source_normal : numpy.ndarray
+            The look direction of the transducer, as a 3 element array.
+        receiver_positions : numpy.ndarray
+            The location(s) at which to evaluate the radiation, shape (3, ...).
+            The first dimension must have length 3 and represent the coordinates of the points.
+        orders : int
+            How many orders of derivatives to calculate. Currently three orders are supported.
+
+        Returns
+        -------
+        derivatives : numpy.ndarray
+            Array with the calculated derivatives. Has the shape (M, ...) where M is the number of spatial
+            derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`, and the remaining
+            dimensions are as `receiver_positions`.
+        """
+        raise NotImplementedError('Transducer model of type `{}` has not implemented spatial derivatives'.format(self.__class__.__name__))
+
+
+class PointSource(TransducerModel):
+    def greens_function(self, source_position, source_normal, receiver_positions):
+        """Evaluate the transducer radiation.
+
         This is a combination of spherically spreading waves, a directivity
         function, and a source strength.
 
@@ -101,9 +151,9 @@ class TransducerModel:
         """
         if receiver_positions.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
-        return self.p0 * self.spherical_spreading(source_position, receiver_positions) * self.directivity(source_position, source_normal, receiver_positions)
+        return self.p0 * self.wavefront_spreading(source_position, receiver_positions) * self.directivity(source_position, source_normal, receiver_positions)
 
-    def spherical_spreading(self, source_position, receiver_positions):
+    def wavefront_spreading(self, source_position, receiver_positions):
         """Evaluate spherical wavefronts.
 
         Parameters
@@ -176,40 +226,40 @@ class TransducerModel:
         """
         if receiver_positions.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
-        spherical_derivatives = self.spherical_derivatives(source_position, receiver_positions, orders)
+        wavefront_derivatives = self.wavefront_derivatives(source_position, receiver_positions, orders)
         directivity_derivatives = self.directivity_derivatives(source_position, source_normal, receiver_positions, orders)
 
         derivatives = np.empty((num_spatial_derivatives[orders],) + receiver_positions.shape[1:], dtype=np.complex128)
-        derivatives[0] = spherical_derivatives[0] * directivity_derivatives[0]
+        derivatives[0] = wavefront_derivatives[0] * directivity_derivatives[0]
 
         if orders > 0:
-            derivatives[1] = spherical_derivatives[0] * directivity_derivatives[1] + directivity_derivatives[0] * spherical_derivatives[1]
-            derivatives[2] = spherical_derivatives[0] * directivity_derivatives[2] + directivity_derivatives[0] * spherical_derivatives[2]
-            derivatives[3] = spherical_derivatives[0] * directivity_derivatives[3] + directivity_derivatives[0] * spherical_derivatives[3]
+            derivatives[1] = wavefront_derivatives[0] * directivity_derivatives[1] + directivity_derivatives[0] * wavefront_derivatives[1]
+            derivatives[2] = wavefront_derivatives[0] * directivity_derivatives[2] + directivity_derivatives[0] * wavefront_derivatives[2]
+            derivatives[3] = wavefront_derivatives[0] * directivity_derivatives[3] + directivity_derivatives[0] * wavefront_derivatives[3]
 
         if orders > 1:
-            derivatives[4] = spherical_derivatives[0] * directivity_derivatives[4] + directivity_derivatives[0] * spherical_derivatives[4] + 2 * directivity_derivatives[1] * spherical_derivatives[1]
-            derivatives[5] = spherical_derivatives[0] * directivity_derivatives[5] + directivity_derivatives[0] * spherical_derivatives[5] + 2 * directivity_derivatives[2] * spherical_derivatives[2]
-            derivatives[6] = spherical_derivatives[0] * directivity_derivatives[6] + directivity_derivatives[0] * spherical_derivatives[6] + 2 * directivity_derivatives[3] * spherical_derivatives[3]
-            derivatives[7] = spherical_derivatives[0] * directivity_derivatives[7] + directivity_derivatives[0] * spherical_derivatives[7] + spherical_derivatives[1] * directivity_derivatives[2] + directivity_derivatives[1] * spherical_derivatives[2]
-            derivatives[8] = spherical_derivatives[0] * directivity_derivatives[8] + directivity_derivatives[0] * spherical_derivatives[8] + spherical_derivatives[1] * directivity_derivatives[3] + directivity_derivatives[1] * spherical_derivatives[3]
-            derivatives[9] = spherical_derivatives[0] * directivity_derivatives[9] + directivity_derivatives[0] * spherical_derivatives[9] + spherical_derivatives[2] * directivity_derivatives[3] + directivity_derivatives[2] * spherical_derivatives[3]
+            derivatives[4] = wavefront_derivatives[0] * directivity_derivatives[4] + directivity_derivatives[0] * wavefront_derivatives[4] + 2 * directivity_derivatives[1] * wavefront_derivatives[1]
+            derivatives[5] = wavefront_derivatives[0] * directivity_derivatives[5] + directivity_derivatives[0] * wavefront_derivatives[5] + 2 * directivity_derivatives[2] * wavefront_derivatives[2]
+            derivatives[6] = wavefront_derivatives[0] * directivity_derivatives[6] + directivity_derivatives[0] * wavefront_derivatives[6] + 2 * directivity_derivatives[3] * wavefront_derivatives[3]
+            derivatives[7] = wavefront_derivatives[0] * directivity_derivatives[7] + directivity_derivatives[0] * wavefront_derivatives[7] + wavefront_derivatives[1] * directivity_derivatives[2] + directivity_derivatives[1] * wavefront_derivatives[2]
+            derivatives[8] = wavefront_derivatives[0] * directivity_derivatives[8] + directivity_derivatives[0] * wavefront_derivatives[8] + wavefront_derivatives[1] * directivity_derivatives[3] + directivity_derivatives[1] * wavefront_derivatives[3]
+            derivatives[9] = wavefront_derivatives[0] * directivity_derivatives[9] + directivity_derivatives[0] * wavefront_derivatives[9] + wavefront_derivatives[2] * directivity_derivatives[3] + directivity_derivatives[2] * wavefront_derivatives[3]
 
         if orders > 2:
-            derivatives[10] = spherical_derivatives[0] * directivity_derivatives[10] + directivity_derivatives[0] * spherical_derivatives[10] + 3 * (directivity_derivatives[4] * spherical_derivatives[1] + spherical_derivatives[4] * directivity_derivatives[1])
-            derivatives[11] = spherical_derivatives[0] * directivity_derivatives[11] + directivity_derivatives[0] * spherical_derivatives[11] + 3 * (directivity_derivatives[5] * spherical_derivatives[2] + spherical_derivatives[5] * directivity_derivatives[2])
-            derivatives[12] = spherical_derivatives[0] * directivity_derivatives[12] + directivity_derivatives[0] * spherical_derivatives[12] + 3 * (directivity_derivatives[6] * spherical_derivatives[3] + spherical_derivatives[6] * directivity_derivatives[3])
-            derivatives[13] = spherical_derivatives[0] * directivity_derivatives[13] + directivity_derivatives[0] * spherical_derivatives[13] + spherical_derivatives[2] * directivity_derivatives[4] + directivity_derivatives[2] * spherical_derivatives[4] + 2 * (spherical_derivatives[1] * directivity_derivatives[7] + directivity_derivatives[1] * spherical_derivatives[7])
-            derivatives[14] = spherical_derivatives[0] * directivity_derivatives[14] + directivity_derivatives[0] * spherical_derivatives[14] + spherical_derivatives[3] * directivity_derivatives[4] + directivity_derivatives[3] * spherical_derivatives[4] + 2 * (spherical_derivatives[1] * directivity_derivatives[8] + directivity_derivatives[1] * spherical_derivatives[8])
-            derivatives[15] = spherical_derivatives[0] * directivity_derivatives[15] + directivity_derivatives[0] * spherical_derivatives[15] + spherical_derivatives[1] * directivity_derivatives[5] + directivity_derivatives[1] * spherical_derivatives[5] + 2 * (spherical_derivatives[2] * directivity_derivatives[7] + directivity_derivatives[2] * spherical_derivatives[7])
-            derivatives[16] = spherical_derivatives[0] * directivity_derivatives[16] + directivity_derivatives[0] * spherical_derivatives[16] + spherical_derivatives[3] * directivity_derivatives[5] + directivity_derivatives[3] * spherical_derivatives[5] + 2 * (spherical_derivatives[2] * directivity_derivatives[9] + directivity_derivatives[2] * spherical_derivatives[9])
-            derivatives[17] = spherical_derivatives[0] * directivity_derivatives[17] + directivity_derivatives[0] * spherical_derivatives[17] + spherical_derivatives[1] * directivity_derivatives[6] + directivity_derivatives[1] * spherical_derivatives[6] + 2 * (spherical_derivatives[3] * directivity_derivatives[8] + directivity_derivatives[3] * spherical_derivatives[8])
-            derivatives[18] = spherical_derivatives[0] * directivity_derivatives[18] + directivity_derivatives[0] * spherical_derivatives[18] + spherical_derivatives[2] * directivity_derivatives[6] + directivity_derivatives[2] * spherical_derivatives[6] + 2 * (spherical_derivatives[3] * directivity_derivatives[9] + directivity_derivatives[3] * spherical_derivatives[9])
+            derivatives[10] = wavefront_derivatives[0] * directivity_derivatives[10] + directivity_derivatives[0] * wavefront_derivatives[10] + 3 * (directivity_derivatives[4] * wavefront_derivatives[1] + wavefront_derivatives[4] * directivity_derivatives[1])
+            derivatives[11] = wavefront_derivatives[0] * directivity_derivatives[11] + directivity_derivatives[0] * wavefront_derivatives[11] + 3 * (directivity_derivatives[5] * wavefront_derivatives[2] + wavefront_derivatives[5] * directivity_derivatives[2])
+            derivatives[12] = wavefront_derivatives[0] * directivity_derivatives[12] + directivity_derivatives[0] * wavefront_derivatives[12] + 3 * (directivity_derivatives[6] * wavefront_derivatives[3] + wavefront_derivatives[6] * directivity_derivatives[3])
+            derivatives[13] = wavefront_derivatives[0] * directivity_derivatives[13] + directivity_derivatives[0] * wavefront_derivatives[13] + wavefront_derivatives[2] * directivity_derivatives[4] + directivity_derivatives[2] * wavefront_derivatives[4] + 2 * (wavefront_derivatives[1] * directivity_derivatives[7] + directivity_derivatives[1] * wavefront_derivatives[7])
+            derivatives[14] = wavefront_derivatives[0] * directivity_derivatives[14] + directivity_derivatives[0] * wavefront_derivatives[14] + wavefront_derivatives[3] * directivity_derivatives[4] + directivity_derivatives[3] * wavefront_derivatives[4] + 2 * (wavefront_derivatives[1] * directivity_derivatives[8] + directivity_derivatives[1] * wavefront_derivatives[8])
+            derivatives[15] = wavefront_derivatives[0] * directivity_derivatives[15] + directivity_derivatives[0] * wavefront_derivatives[15] + wavefront_derivatives[1] * directivity_derivatives[5] + directivity_derivatives[1] * wavefront_derivatives[5] + 2 * (wavefront_derivatives[2] * directivity_derivatives[7] + directivity_derivatives[2] * wavefront_derivatives[7])
+            derivatives[16] = wavefront_derivatives[0] * directivity_derivatives[16] + directivity_derivatives[0] * wavefront_derivatives[16] + wavefront_derivatives[3] * directivity_derivatives[5] + directivity_derivatives[3] * wavefront_derivatives[5] + 2 * (wavefront_derivatives[2] * directivity_derivatives[9] + directivity_derivatives[2] * wavefront_derivatives[9])
+            derivatives[17] = wavefront_derivatives[0] * directivity_derivatives[17] + directivity_derivatives[0] * wavefront_derivatives[17] + wavefront_derivatives[1] * directivity_derivatives[6] + directivity_derivatives[1] * wavefront_derivatives[6] + 2 * (wavefront_derivatives[3] * directivity_derivatives[8] + directivity_derivatives[3] * wavefront_derivatives[8])
+            derivatives[18] = wavefront_derivatives[0] * directivity_derivatives[18] + directivity_derivatives[0] * wavefront_derivatives[18] + wavefront_derivatives[2] * directivity_derivatives[6] + directivity_derivatives[2] * wavefront_derivatives[6] + 2 * (wavefront_derivatives[3] * directivity_derivatives[9] + directivity_derivatives[3] * wavefront_derivatives[9])
 
         derivatives *= self.p0
         return derivatives
 
-    def spherical_derivatives(self, source_position, receiver_positions, orders=3):
+    def wavefront_derivatives(self, source_position, receiver_positions, orders=3):
         """Calculate the spatial derivatives of the spherical spreading.
 
         Parameters
@@ -522,7 +572,7 @@ class PlaneWaveTransducer(TransducerModel):
         return derivatives
 
 
-class CircularPiston(TransducerModel):
+class CircularPiston(PointSource):
     r"""Circular piston transducer model.
 
     Implementation of the circular piston directivity :math:`D(\theta) = 2 J_1(ka\sin\theta) / (ka\sin\theta)`.
@@ -578,7 +628,7 @@ class CircularPiston(TransducerModel):
             return np.where(denom == 0, 1, 2 * numer / denom)
 
 
-class CircularRing(TransducerModel):
+class CircularRing(PointSource):
     r"""Circular ring transducer model.
 
     Implementation of the circular ring directivity :math:`D(\theta) = J_0(ka\sin\theta)`.
