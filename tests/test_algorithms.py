@@ -20,7 +20,9 @@ sum_ders = np.sum(ind_ders, axis=1)
 
 
 def test_gorkov_divergence():
-    calc_values, calc_jacobians = levitate.algorithms.gorkov_divergence(array)
+    algorithm = levitate.algorithms.gorkov_divergence(array)
+    calc_values, calc_jacobians = algorithm.calc_values, algorithm.calc_jacobians
+
     val_1 = calc_values(sum_ders[..., 0])
     val_2 = calc_values(sum_ders[..., 1])
     val_12 = calc_values(sum_ders)
@@ -36,7 +38,9 @@ def test_gorkov_divergence():
 
 
 def test_gorkov_laplacian():
-    calc_values, calc_jacobians = levitate.algorithms.gorkov_laplacian(array)
+    algorithm = levitate.algorithms.gorkov_laplacian(array)
+    calc_values, calc_jacobians = algorithm.calc_values, algorithm.calc_jacobians
+
     val_1 = calc_values(sum_ders[..., 0])
     val_2 = calc_values(sum_ders[..., 1])
     val_12 = calc_values(sum_ders)
@@ -52,7 +56,9 @@ def test_gorkov_laplacian():
 
 
 def test_second_order_force():
-    calc_values, calc_jacobians = levitate.algorithms.second_order_force(array)
+    algorithm = levitate.algorithms.second_order_force(array)
+    calc_values, calc_jacobians = algorithm.calc_values, algorithm.calc_jacobians
+
     val_1 = calc_values(sum_ders[..., 0])
     val_2 = calc_values(sum_ders[..., 1])
     val_12 = calc_values(sum_ders)
@@ -68,7 +74,9 @@ def test_second_order_force():
 
 
 def test_second_order_stiffness():
-    calc_values, calc_jacobians = levitate.algorithms.second_order_stiffness(array)
+    algorithm = levitate.algorithms.second_order_stiffness(array)
+    calc_values, calc_jacobians = algorithm.calc_values, algorithm.calc_jacobians
+
     val_1 = calc_values(sum_ders[..., 0])
     val_2 = calc_values(sum_ders[..., 1])
     val_12 = calc_values(sum_ders)
@@ -84,7 +92,9 @@ def test_second_order_stiffness():
 
 
 def test_pressure():
-    calc_values, calc_jacobians = levitate.algorithms.pressure_squared_magnitude()
+    algorithm = levitate.algorithms.pressure_squared_magnitude(array)
+    calc_values, calc_jacobians = algorithm.calc_values, algorithm.calc_jacobians
+
     val_1 = calc_values(sum_ders[..., 0])
     val_2 = calc_values(sum_ders[..., 1])
     val_12 = calc_values(sum_ders)
@@ -100,7 +110,9 @@ def test_pressure():
 
 
 def test_velocity():
-    calc_values, calc_jacobians = levitate.algorithms.velocity_squared_magnitude(array)
+    algorithm = levitate.algorithms.velocity_squared_magnitude(array)
+    calc_values, calc_jacobians = algorithm.calc_values, algorithm.calc_jacobians
+
     val_1 = calc_values(sum_ders[..., 0])
     val_2 = calc_values(sum_ders[..., 1])
     val_12 = calc_values(sum_ders)
@@ -116,14 +128,15 @@ def test_velocity():
 
 
 def test_vector_target():
-    calc_funcs = levitate.algorithms.gorkov_divergence(array)
     weights = (3, 2, 1)
-    calc_values, calc_jacobians = levitate.algorithms.vector_target(calc_funcs, target_vector=(1e-9, 2e-9, 3e-9), weights=(3**0.5, 2**0.5, 1))
-    val = calc_values(sum_ders[..., 0])
+    algorithm = levitate.algorithms.gorkov_divergence(array) * (3**0.5, 2**0.5, 1) - (1e-9, 2e-9, 3e-9)
+    calc_values, calc_jacobians = algorithm.calc_values, algorithm.calc_jacobians
+
+    val = calc_values(pressure_derivs_summed=sum_ders[..., 0])
     weighted_val = np.einsum('i..., i', val, weights)
     np.testing.assert_allclose(weighted_val, 1.9891260692384784e-17)
 
-    jac = calc_jacobians(sum_ders[..., 0], ind_ders[..., 0])
+    jac = calc_jacobians(pressure_derivs_summed=sum_ders[..., 0], pressure_derivs_individual=ind_ders[..., 0])
     weighted_jac = np.einsum('i..., i', jac, weights)
     np.testing.assert_allclose(-weighted_jac.imag, np.array([1.21709071e-19, -1.21709071e-19]))
     np.testing.assert_allclose(weighted_jac.real, np.array([-1.06543769e-19, -1.07736340e-19]))
