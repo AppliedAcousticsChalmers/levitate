@@ -206,6 +206,12 @@ class TransducerArray:
             derivatives[:, idx] = self.transducer_model.pressure_derivs(self.transducer_positions[:, idx], self.transducer_normals[:, idx], positions, orders)
         return derivatives
 
+    def spherical_harmonics(self, positions, orders=0):
+        coefs = np.empty(((orders + 1)**2, self.num_transducers) + positions.shape[1:], dtype=np.complex128)
+        for idx in range(self.num_transducers):
+            coefs[:, idx] = self.transducer_model.spherical_harmonics(self.transducer_positions[:, idx], self.transducer_normals[:, idx], positions, orders)
+        return coefs
+
     class PersistentFieldEvaluator:
         """Implementation of cashed field calculations.
 
