@@ -8,10 +8,11 @@ def algorithm(func):
 
     @functools.wraps(func)
     def wrapper(array, *args, weight=None, position=None, **kwargs):
+        outputs = func(array, *args, **kwargs)
         try:
-            values, jacobians = func(array, *args, **kwargs)
+            values, jacobians = outputs
         except TypeError:
-            values = func(array, *args, **kwargs)
+            values = outputs
             jacobians = None
         if weight is None and position is None:
             obj = Algorithm(array, calc_values=values, calc_jacobians=jacobians, name=func.__name__)
