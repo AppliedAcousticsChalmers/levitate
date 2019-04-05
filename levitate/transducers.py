@@ -395,7 +395,9 @@ class PointSource(TransducerModel):
         if receiver_positions.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
 
-        diff = receiver_positions - source_position.reshape([3] + (receiver_positions.ndim - 1) * [1])
+        # We need the vector from the receiver to the source, since we are calculating an expansion centered
+        # at the receiving point.
+        diff = source_position.reshape([3] + (receiver_positions.ndim - 1) * [1]) - receiver_positions
         r = np.sum(diff**2, axis=0)**0.5
         kr = self.k * r
         colatitude = np.arccos(diff[2] / r)
