@@ -315,24 +315,11 @@ def spherical_harmonics_force(array, orders, radius_sphere=1e-3, sphere_material
 
     # Calculate bessel functions, hankel functions, and their derivatives
     ka = array.k * radius_sphere
-    ka_inverse = 1 / ka
-    bessel_function = np.zeros(orders + 2, dtype=np.complex128)
-    hankel_function = np.zeros(orders + 2, dtype=np.complex128)
-    bessel_function[0] = spherical_jn(0, ka)
-    bessel_function[1] = spherical_jn(1, ka)
-    hankel_function[0] = bessel_function[0] + 1j * spherical_yn(0, ka)
-    hankel_function[1] = bessel_function[1] + 1j * spherical_yn(1, ka)
-    for n in range(2, orders + 2):
-        bessel_function[n] = (2 * n - 1) * ka_inverse * bessel_function[n - 1] - bessel_function[n - 2]
-        hankel_function[n] = (2 * n - 1) * ka_inverse * hankel_function[n - 1] - hankel_function[n - 2]
-
-    bessel_derivative = np.zeros(orders + 2, dtype=np.complex128)
-    hankel_derivative = np.zeros(orders + 2, dtype=np.complex128)
-    bessel_derivative[0] = spherical_jn(0, ka, derivative=True)
-    hankel_derivative[0] = bessel_derivative[0] + 1j * spherical_yn(0, ka, derivative=True)
-    for n in range(1, orders + 2):
-        bessel_derivative[n] = bessel_function[n - 1] - ka_inverse * (n + 1) * bessel_function[n]
-        hankel_derivative[n] = hankel_function[n - 1] - ka_inverse * (n + 1) * hankel_function[n]
+    n = np.arange(0, orders + 2)
+    bessel_function = spherical_jn(n, ka)
+    hankel_function = bessel_function + 1j * spherical_yn(n, ka)
+    bessel_derivative = spherical_jn(n, ka, derivative=True)
+    hankel_derivative = bessel_derivative + 1j * spherical_yn(n, ka, derivative=True)
 
     scattering_coefficient = - bessel_derivative / hankel_derivative
     psi = np.zeros(orders + 1, dtype=np.complex128)
@@ -342,10 +329,13 @@ def spherical_harmonics_force(array, orders, radius_sphere=1e-3, sphere_material
     scaling = array.medium.compressibility / (8 * array.k**2)
     xy_coefficients = np.zeros((orders + 1)**2, dtype=np.complex128)
     z_coefficients = np.zeros((orders + 1)**2, dtype=np.complex128)
-    for idx, (n, m) in enumerate(sph_idx.orders(0, orders)):
+    idx = 0
+    for n in range(0, orders + 1):
         denom = 1 / ((2 * n + 1) * (2 * n + 3))**0.5
-        xy_coefficients[idx] = psi[n] * ((n + m + 1) * (n + m + 2))**0.5 * denom * scaling
-        z_coefficients[idx] = -2 * psi[n] * ((n + m + 1) * (n - m + 1))**0.5 * denom * scaling
+        for m in range(-n, n + 1):
+            xy_coefficients[idx] = psi[n] * ((n + m + 1) * (n + m + 2))**0.5 * denom * scaling
+            z_coefficients[idx] = -2 * psi[n] * ((n + m + 1) * (n - m + 1))**0.5 * denom * scaling
+            idx += 1
 
     @requires(spherical_harmonics_summed=orders + 1)
     def calc_values(spherical_harmonics_summed):

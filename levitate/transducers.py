@@ -394,7 +394,6 @@ class PointSource(TransducerModel):
     def spherical_harmonics(self, source_position, source_normal, receiver_positions, orders=0, **kwargs):
         if receiver_positions.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
-        from . import spherical_harmonics_index
 
         diff = receiver_positions - source_position.reshape([3] + (receiver_positions.ndim - 1) * [1])
         r = np.sum(diff**2, axis=0)**0.5
@@ -406,18 +405,15 @@ class PointSource(TransducerModel):
         # exp(jk|r-r'|) / (4pi |r-r'|) = jk sum_n j_n(k r_min) h_n(k r_max) sum_m Y_n^m (theta', phi')^* Y_n^m (theta, phi)
         # See Ahrens 2.37a with Errata for the 4pi
         # exp(-jk|r-r'|) / (4pi |r-r'|) = -jk sum_n j_n(k r_min) h^(2)_n(k r_max) sum_m Y_n^-m (theta', phi') Y_n^m (theta, phi)
-        hankel_funcs = np.empty((orders + 1,) + kr.shape, dtype=np.complex128)
-        hankel_funcs[0] = spherical_jn(0, kr) + 1j * spherical_yn(0, kr)
-        hankel_funcs[1] = spherical_jn(1, kr) + 1j * spherical_yn(1, kr)
-        kr_inverse = 1 / kr
-        for order in range(2, orders + 1):
-            hankel_funcs[order] = (2 * order - 1) * kr_inverse * hankel_funcs[order - 1] - hankel_funcs[order - 2]
 
         num_coefs = (orders + 1)**2
         coefficients = np.empty((num_coefs,) + receiver_positions.shape[1:], dtype=np.complex128)
-        for index, (order, mode) in enumerate(spherical_harmonics_index.orders(0, orders)):
-            this_sph_harm = np.conj(sph_harm(mode, order, azimuth, colatitude))
-            coefficients[index] = hankel_funcs[order] * this_sph_harm
+        idx = 0
+        for n in range(0, orders + 1):
+            hankel_func = spherical_jn(n, kr) + 1j * spherical_yn(n, kr)
+            for m in range(-n, n + 1):
+                coefficients[idx] = hankel_func * np.conj(sph_harm(m, n, azimuth, colatitude))
+                idx += 1
         directivity = self.directivity(source_position, source_normal, receiver_positions)
         return self.p0 * 4 * np.pi * 1j * self.k * directivity * coefficients
 
