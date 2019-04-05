@@ -38,7 +38,10 @@ def algorithm(func):
 
 
 def requires(**requirements):
-    possible_requirements = ['pressure_derivs_summed', 'pressure_derivs_individual']
+    possible_requirements = [
+        'pressure_derivs_summed', 'pressure_derivs_individual',
+        'spherical_harmonics_summed', 'spherical_harmonics_individual',
+    ]
     for requirement in requirements:
         if requirement not in possible_requirements:
             raise NotImplementedError("Requirement '{}' is not implemented for an algorithm. The possible requests are: {}".format(requirement, possible_requirements))
@@ -74,6 +77,9 @@ class Algorithm:
         if 'pressure_derivs' in spatial_structures:
             requirements['pressure_derivs_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, spatial_structures['pressure_derivs'])
             requirements['pressure_derivs_summed'] = np.sum(requirements['pressure_derivs_individual'], axis=1)
+        if 'spherical_harmonics' in spatial_structures:
+            requirements['spherical_harmonics_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, spatial_structures['spherical_harmonics'])
+            requirements['spherical_harmonics_summed'] = np.sum(requirements['spherical_harmonics_individual'], axis=1)
         return requirements
 
     def _spatial_structures(self, position):
@@ -82,11 +88,15 @@ class Algorithm:
         for key, value in self.requires.items():
             if key.find('pressure_derivs') > -1:
                 spatial_structures['pressure_derivs'] = max(value, spatial_structures.get('pressure_derivs', -1))
+            elif key.find('spherical_harmonics') > -1:
+                spatial_structures['spherical_harmonics'] = max(value, spatial_structures.get('spherical_harmonics', -1))
             else:
                 raise ValueError("Unknown requirement '{}'".format(key))
         # Replace the requets with values calculated by the array
         if 'pressure_derivs' in spatial_structures:
             spatial_structures['pressure_derivs'] = self.array.pressure_derivs(position, orders=spatial_structures['pressure_derivs'])
+        if 'spherical_harmonics' in spatial_structures:
+            spatial_structures['spherical_harmonics'] = self.array.spherical_harmonics(position, orders=spatial_structures['spherical_harmonics'])
         return spatial_structures
 
     def __mul__(self, weight):
