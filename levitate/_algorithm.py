@@ -105,7 +105,7 @@ class Algorithm:
                                    calc_values=self.calc_values, calc_jacobians=self.calc_jacobians)
 
     def __rmul__(self, weight):
-        return self * weight
+        return self.__mul__(weight)
 
     def __matmul__(self, position):
         position = np.asarray(position)
@@ -115,10 +115,15 @@ class Algorithm:
                               calc_values=self.calc_values, calc_jacobians=self.calc_jacobians)
 
     def __add__(self, other):
+        if other == 0:
+            return self
         if type(self) == type(other):
             return AlgorithmPoint(self, other)
         else:
             return NotImplemented
+
+    def __radd__(self, other):
+        return self.__add__(other)
 
     def __sub__(self, vector):
         return VectorBase(algorithm=self, target_vector=vector)
@@ -156,7 +161,10 @@ class BoundAlgorithm(Algorithm):
             return self._cashed_spatial_structures
 
     def __add__(self, other):
+        if other == 0:
+            return self
         try:
+            other.weights  # If other has weights it's a cost function type object and should not be addable with self
             if np.allclose(self.position, other.position):
                 return super().__add__(other)
             else:
@@ -268,6 +276,8 @@ class VectorBase:
         return obj
 
     def __add__(self, other):
+        if other == 0:
+            return self
         if type(self) == type(other) or type(other) == type(self).__bases__[1]:
             return AlgorithmPoint(self, other)
         else:
@@ -322,6 +332,8 @@ class AlgorithmPoint(Algorithm):
         return [algorithm.calc_values(**{key: requirements[key] for key in algorithm.calc_values.requires}) for algorithm in self.algorithms]
 
     def __add__(self, other):
+        if other == 0:
+            return self
         if type(other) in type(self).__bases__:
             new = type(self)(*self.algorithms, other)
         elif type(other) == type(self):
@@ -329,9 +341,6 @@ class AlgorithmPoint(Algorithm):
         else:
             return NotImplemented
         return new
-
-    def __radd__(self, other):
-        return self + other
 
     def __iadd__(self, other):
         add_element = False
@@ -454,15 +463,14 @@ class AlgorithmCollection(BoundAlgorithmPoint):
         return values
 
     def __add__(self, other):
+        if other == 0:
+            return self
         try:
             other.position
         except AttributeError:
             return NotImplemented
         else:
             return AlgorithmCollection(*self.algorithms, other)
-
-    def __radd__(self, other):
-        return self + other
 
     def __iadd__(self, other):
         if type(other) == type(self):
