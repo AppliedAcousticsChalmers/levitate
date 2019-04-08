@@ -19,8 +19,8 @@ ind_ders = np.einsum('i, ji...->ji...', array.amplitudes * np.exp(1j * array.pha
 sum_ders = np.sum(ind_ders, axis=1)
 
 
-def test_gorkov_divergence():
-    algorithm = levitate.algorithms.gorkov_divergence(array)
+def test_gorkov_gradient():
+    algorithm = levitate.algorithms.gorkov_gradient(array)
     calc_values, calc_jacobians = algorithm.calc_values, algorithm.calc_jacobians
 
     val_1 = calc_values(sum_ders[..., 0])

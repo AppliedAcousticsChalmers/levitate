@@ -6,11 +6,11 @@ from ._algorithm import algorithm, requires
 
 
 @algorithm
-def gorkov_divergence(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
+def gorkov_gradient(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
     """
-    Create gorkov divergence calculation functions.
+    Create gorkov gradient calculation functions.
 
-    Creates functions which calculates the gorkov divergence and the jacobian of
+    Creates functions which calculates the gorkov gradient and the jacobian of
     the field specified using spaial derivatives of the pressure.
 
     Parameters
