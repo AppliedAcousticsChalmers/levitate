@@ -121,7 +121,7 @@ examples: $(examples_plots)  ## Runs the example scripts and plots the output.
 $(BUILDDIR)/$(EXAMPLESDIR)/%.html: $(EXAMPLESDIR)/%.py
 	$(dir_guard)
 	python $<
-	mv $(shell echo $@ | sed -E 's/$(BUILDDIR)\/$(EXAMPLESDIR)\/(.*)/\1/') $@
+	mv $(shell basename $@) $@
 
 .PHONY: clean_examples
 clean_examples:

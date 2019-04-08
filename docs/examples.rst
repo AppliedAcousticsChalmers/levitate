@@ -22,6 +22,7 @@ Field Superposition
 Complex Setups
 --------------
 .. literalinclude:: ../examples/complex_setup.py
+    :language: python
 
 .. raw:: html
     :file: ../build/examples/complex_setup.html
