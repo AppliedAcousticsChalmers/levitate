@@ -164,7 +164,6 @@ class BoundAlgorithm(Algorithm):
         if other == 0:
             return self
         try:
-            other.weights  # If other has weights it's a cost function type object and should not be addable with self
             if np.allclose(self.position, other.position):
                 return super().__add__(other)
             else:
@@ -465,6 +464,12 @@ class AlgorithmCollection(BoundAlgorithmPoint):
     def __add__(self, other):
         if other == 0:
             return self
+        elif isinstance(self, CostFunctionCollection) and not isinstance(other, CostFunction):
+            # Make sure that we are not adding bound algorithms to cost function collections
+            return NotImplemented
+        elif isinstance(other, CostFunction) and not isinstance(self, CostFunctionCollection):
+            # Make sure that we are not adding cost functions to algorithm collections
+            return NotImplemented
         try:
             other.position
         except AttributeError:
@@ -477,6 +482,12 @@ class AlgorithmCollection(BoundAlgorithmPoint):
             for algorithm in other.algorithms:
                 self += algorithm
             return self
+        elif isinstance(self, CostFunctionCollection) and not isinstance(other, CostFunction):
+            # Make sure that we are not adding bound algorithms to cost function collections
+            return NotImplemented
+        elif isinstance(other, CostFunction) and not isinstance(self, CostFunctionCollection):
+            # Make sure that we are not adding cost functions to algorithm collections
+            return NotImplemented
         try:
             other_pos = other.position
         except AttributeError:
