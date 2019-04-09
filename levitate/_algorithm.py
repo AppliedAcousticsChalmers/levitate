@@ -8,10 +8,11 @@ def algorithm(func):
 
     @functools.wraps(func)
     def wrapper(array, *args, weight=None, position=None, **kwargs):
+        outputs = func(array, *args, **kwargs)
         try:
-            values, jacobians = func(array=array, *args, **kwargs)
+            values, jacobians = outputs
         except TypeError:
-            values = func(array=array, *args, **kwargs)
+            values = outputs
             jacobians = None
         if weight is None and position is None:
             obj = Algorithm(array, calc_values=values, calc_jacobians=jacobians, name=func.__name__)
@@ -38,7 +39,10 @@ def algorithm(func):
 
 
 def requires(**requirements):
-    possible_requirements = ['pressure_derivs_summed', 'pressure_derivs_individual']
+    possible_requirements = [
+        'pressure_derivs_summed', 'pressure_derivs_individual',
+        'spherical_harmonics_summed', 'spherical_harmonics_individual',
+    ]
     for requirement in requirements:
         if requirement not in possible_requirements:
             raise NotImplementedError("Requirement '{}' is not implemented for an algorithm. The possible requests are: {}".format(requirement, possible_requirements))
@@ -74,6 +78,9 @@ class Algorithm:
         if 'pressure_derivs' in spatial_structures:
             requirements['pressure_derivs_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, spatial_structures['pressure_derivs'])
             requirements['pressure_derivs_summed'] = np.sum(requirements['pressure_derivs_individual'], axis=1)
+        if 'spherical_harmonics' in spatial_structures:
+            requirements['spherical_harmonics_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, spatial_structures['spherical_harmonics'])
+            requirements['spherical_harmonics_summed'] = np.sum(requirements['spherical_harmonics_individual'], axis=1)
         return requirements
 
     def _spatial_structures(self, position):
@@ -82,11 +89,15 @@ class Algorithm:
         for key, value in self.requires.items():
             if key.find('pressure_derivs') > -1:
                 spatial_structures['pressure_derivs'] = max(value, spatial_structures.get('pressure_derivs', -1))
+            elif key.find('spherical_harmonics') > -1:
+                spatial_structures['spherical_harmonics'] = max(value, spatial_structures.get('spherical_harmonics', -1))
             else:
                 raise ValueError("Unknown requirement '{}'".format(key))
         # Replace the requets with values calculated by the array
         if 'pressure_derivs' in spatial_structures:
-            spatial_structures['pressure_derivs'] = self.array.spatial_derivatives(position, orders=spatial_structures['pressure_derivs'])
+            spatial_structures['pressure_derivs'] = self.array.pressure_derivs(position, orders=spatial_structures['pressure_derivs'])
+        if 'spherical_harmonics' in spatial_structures:
+            spatial_structures['spherical_harmonics'] = self.array.spherical_harmonics(position, orders=spatial_structures['spherical_harmonics'])
         return spatial_structures
 
     def __mul__(self, weight):
@@ -94,7 +105,7 @@ class Algorithm:
                                    calc_values=self.calc_values, calc_jacobians=self.calc_jacobians)
 
     def __rmul__(self, weight):
-        return self * weight
+        return self.__mul__(weight)
 
     def __matmul__(self, position):
         position = np.asarray(position)
@@ -104,10 +115,15 @@ class Algorithm:
                               calc_values=self.calc_values, calc_jacobians=self.calc_jacobians)
 
     def __add__(self, other):
+        if other == 0:
+            return self
         if type(self) == type(other):
             return AlgorithmPoint(self, other)
         else:
             return NotImplemented
+
+    def __radd__(self, other):
+        return self.__add__(other)
 
     def __sub__(self, vector):
         return VectorBase(algorithm=self, target_vector=vector)
@@ -145,6 +161,8 @@ class BoundAlgorithm(Algorithm):
             return self._cashed_spatial_structures
 
     def __add__(self, other):
+        if other == 0:
+            return self
         try:
             if np.allclose(self.position, other.position):
                 return super().__add__(other)
@@ -257,6 +275,8 @@ class VectorBase:
         return obj
 
     def __add__(self, other):
+        if other == 0:
+            return self
         if type(self) == type(other) or type(other) == type(self).__bases__[1]:
             return AlgorithmPoint(self, other)
         else:
@@ -311,6 +331,8 @@ class AlgorithmPoint(Algorithm):
         return [algorithm.calc_values(**{key: requirements[key] for key in algorithm.calc_values.requires}) for algorithm in self.algorithms]
 
     def __add__(self, other):
+        if other == 0:
+            return self
         if type(other) in type(self).__bases__:
             new = type(self)(*self.algorithms, other)
         elif type(other) == type(self):
@@ -318,9 +340,6 @@ class AlgorithmPoint(Algorithm):
         else:
             return NotImplemented
         return new
-
-    def __radd__(self, other):
-        return self + other
 
     def __iadd__(self, other):
         add_element = False
@@ -443,6 +462,14 @@ class AlgorithmCollection(BoundAlgorithmPoint):
         return values
 
     def __add__(self, other):
+        if other == 0:
+            return self
+        elif isinstance(self, CostFunctionCollection) and not isinstance(other, CostFunction):
+            # Make sure that we are not adding bound algorithms to cost function collections
+            return NotImplemented
+        elif isinstance(other, CostFunction) and not isinstance(self, CostFunctionCollection):
+            # Make sure that we are not adding cost functions to algorithm collections
+            return NotImplemented
         try:
             other.position
         except AttributeError:
@@ -450,14 +477,17 @@ class AlgorithmCollection(BoundAlgorithmPoint):
         else:
             return AlgorithmCollection(*self.algorithms, other)
 
-    def __radd__(self, other):
-        return self + other
-
     def __iadd__(self, other):
         if type(other) == type(self):
             for algorithm in other.algorithms:
                 self += algorithm
             return self
+        elif isinstance(self, CostFunctionCollection) and not isinstance(other, CostFunction):
+            # Make sure that we are not adding bound algorithms to cost function collections
+            return NotImplemented
+        elif isinstance(other, CostFunction) and not isinstance(self, CostFunctionCollection):
+            # Make sure that we are not adding cost functions to algorithm collections
+            return NotImplemented
         try:
             other_pos = other.position
         except AttributeError:

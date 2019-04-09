@@ -211,7 +211,7 @@ def test_Array_calculations():
         [ 1.08776311e+08+1.38835519e+09j,  1.27205284e+09-6.61021567e+08j, 9.17940305e+08-1.12790795e+09j, -1.42445727e+09-4.56323268e+08j],
         [ 8.12193376e+07+1.15079185e+09j,  9.57197835e+08-4.88115774e+08j, 6.93574595e+08-8.40914649e+08j, -9.64000841e+08-3.15741830e+08j],
         [-1.50835913e+08-2.13718486e+09j, -1.96477450e+09+1.00192185e+09j, -1.35412183e+09+1.64178574e+09j,  2.08021234e+09+6.81337634e+08j]])
-    np.testing.assert_allclose(array.spatial_derivatives(pos), expected_result)
+    np.testing.assert_allclose(array.pressure_derivs(pos), expected_result)
 
     pos = np.stack(np.mgrid[-10e-3:10e-3:5j, -10e-3:10e-3:4j, -10e-3:10e-3:2j], 0)
     expected_result = np.array([
