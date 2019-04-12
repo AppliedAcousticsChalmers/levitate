@@ -333,9 +333,12 @@ class AlgorithmPoint(Algorithm):
     def __add__(self, other):
         if other == 0:
             return self
-        if type(other) in type(self).__bases__:
+        other_type = type(other)
+        if VectorBase in other_type.__bases__:
+            other_type = other_type.__bases__[1]
+        if other_type in type(self).__bases__:
             new = type(self)(*self.algorithms, other)
-        elif type(other) == type(self):
+        elif other_type == type(self):
             new = type(self)(*self.algorithms, *other.algorithms)
         else:
             return NotImplemented
