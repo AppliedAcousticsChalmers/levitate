@@ -28,6 +28,9 @@ def _minimize_sequence(function_sequence, array,
 
     try:
         iter(variable_amplitudes)
+        if type(variable_amplitudes) == str:
+            # Strings are iterable, but 'Phases first' should be repeated
+            raise TypeError
     except TypeError:
         variable_amplitudes = itertools.repeat(variable_amplitudes)
 
@@ -55,10 +58,11 @@ def _minimize_sequence(function_sequence, array,
 
     results = []
     opt_results = []
+    result = start_values
     for idx, (functions, real_imag, var_amp, const_trans, basinhop, clbck, precl, min_kwarg) in enumerate(zip(function_sequence, use_real_imag, variable_amplitudes, constrain_transducers, basinhopping, callback, precall, minimize_kwargs)):
-        start_values = precl(start_values, idx).copy()
+        start_values = precl(result, idx).copy()
         result, opt_res = minimize(functions, array, use_real_imag=real_imag, variable_amplitudes=var_amp, constrain_transducers=const_trans,
-                                   basinhopping=basinhop, return_optim_status=True, minimize_kwargs=min_kwarg)
+                                   basinhopping=basinhop, return_optim_status=True, minimize_kwargs=min_kwarg, start_values=start_values)
         results.append(result.copy())
         opt_results.append(opt_res)
         if clbck(array=array, result=result, optim_status=opt_res, idx=idx) is False:

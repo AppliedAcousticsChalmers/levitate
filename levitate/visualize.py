@@ -350,6 +350,8 @@ class Visualizer:
             return np.clip(distance - tolerance, 0, None)
         bead_close.terminal = True
         outs = solve_ivp(f, (0, time_interval), np.asarray(start_pos), events=bead_close, vectorized=True, dense_output=return_path)
+        if outs.message != 'A termination event occurred.':
+            print('End criterion not met. Final path position might not be close to trap location.')
         if return_path:
             if return_path is True:
                 return_path = 200
