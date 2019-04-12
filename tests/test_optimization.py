@@ -29,6 +29,8 @@ operating_point = large_array.complex_amplitudes
 
 
 @pytest.mark.parametrize("func, weight", [
+    (levitate.algorithms.gorkov_potential, 1),
+    (levitate.algorithms.gorkov_potential, np.random.uniform(-10, 10, 1)),
     (levitate.algorithms.gorkov_gradient, (1, 0, 0)),
     (levitate.algorithms.gorkov_gradient, (0, 1, 0)),
     (levitate.algorithms.gorkov_gradient, (0, 0, 1)),
