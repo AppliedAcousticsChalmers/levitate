@@ -242,7 +242,7 @@ class TransducerArray:
 
             self._pressure_derivs = self.array.pressure_derivs(positions, orders)
             self._existing_orders = orders
-            self._last_positions = positions
+            self._last_positions = positions.copy()  # In case the position is modified externally we need to keep a separate reference
             return self._pressure_derivs
 
         def pressure(self, positions):
