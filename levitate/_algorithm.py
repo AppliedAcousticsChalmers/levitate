@@ -40,6 +40,7 @@ def algorithm(func):
 
 def requires(**requirements):
     possible_requirements = [
+        'complex_transducer_amplitudes',
         'pressure_derivs_summed', 'pressure_derivs_individual',
         'spherical_harmonics_summed', 'spherical_harmonics_individual',
     ]
@@ -75,6 +76,8 @@ class Algorithm:
 
     def _evaluate_requirements(self, complex_transducer_amplitudes, spatial_structures):
         requirements = {}
+        if 'complex_transducer_amplitudes' in self.requires:
+            requirements['complex_transducer_amplitudes'] = complex_transducer_amplitudes
         if 'pressure_derivs' in spatial_structures:
             requirements['pressure_derivs_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, spatial_structures['pressure_derivs'])
             requirements['pressure_derivs_summed'] = np.sum(requirements['pressure_derivs_individual'], axis=1)
@@ -91,7 +94,7 @@ class Algorithm:
                 spatial_structures['pressure_derivs'] = max(value, spatial_structures.get('pressure_derivs', -1))
             elif key.find('spherical_harmonics') > -1:
                 spatial_structures['spherical_harmonics'] = max(value, spatial_structures.get('spherical_harmonics', -1))
-            else:
+            elif key != 'complex_transducer_amplitudes':
                 raise ValueError("Unknown requirement '{}'".format(key))
         # Replace the requets with values calculated by the array
         if 'pressure_derivs' in spatial_structures:
