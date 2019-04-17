@@ -52,9 +52,9 @@ def test_gorkov_differentiations():
 
 @pytest.mark.parametrize("algorithm, value_at_pos_1, real_jacobian_at_pos_1, imag_jacobian_at_pos_1", [
     (levitate.algorithms.gorkov_potential,
-        [-6.19402404e-13],
-        [[-6.08626619e-13, -6.30178190e-13]],
-        [[-1.21656276e-12, 1.21656276e-12]]
+        -6.19402404e-13,
+        [-6.08626619e-13, -6.30178190e-13],
+        [-1.21656276e-12, 1.21656276e-12]
      ),
     (levitate.algorithms.gorkov_gradient,
         [2.30070037e-11, -1.62961537e-12, -2.44442306e-12],
@@ -72,9 +72,9 @@ def test_gorkov_differentiations():
         [[3.89064704e-10, -3.89064704e-10], [8.13263002e-10, -8.13263002e-10], [1.21989450e-09, -1.21989450e-09]]
      ),
     (levitate.algorithms.pressure_squared_magnitude,
-        [2.10706889e+02],
-        [[2.07034544e+02, 2.14379234e+02]],
-        [[4.15076576e+02, -4.15076576e+02]],
+        2.10706889e+02,
+        [2.07034544e+02, 2.14379234e+02],
+        [4.15076576e+02, -4.15076576e+02],
      ),
     (levitate.algorithms.velocity_squared_magnitude,
         [8.93991803e-05, 3.55387889e-04, 7.99622751e-04],

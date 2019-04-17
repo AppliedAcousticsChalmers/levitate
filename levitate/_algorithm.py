@@ -3,39 +3,41 @@ import functools
 import textwrap
 
 
-def algorithm(func):
-    func.__doc__ = func.__doc__ or 'Parameters\n----------\n'
+def algorithm(ndim):
+    def algorithm(func):
+        func.__doc__ = func.__doc__ or 'Parameters\n----------\n'
 
-    @functools.wraps(func)
-    def wrapper(array, *args, weight=None, position=None, **kwargs):
-        outputs = func(array, *args, **kwargs)
-        try:
-            values, jacobians = outputs
-        except TypeError:
-            values = outputs
-            jacobians = None
-        if weight is None and position is None:
-            obj = Algorithm(array, calc_values=values, calc_jacobians=jacobians, name=func.__name__)
-        elif weight is None:
-            obj = BoundAlgorithm(array, calc_values=values, calc_jacobians=jacobians, name=func.__name__, position=position)
-        elif position is None:
-            obj = UnboundCostFunction(array, calc_values=values, calc_jacobians=jacobians, name=func.__name__, weight=weight)
-        elif weight is not None and position is not None:
-            obj = CostFunction(array, calc_values=values, calc_jacobians=jacobians, name=func.__name__, weight=weight, position=position)
-        return obj
-    wrapper.__doc__ = textwrap.dedent(wrapper.__doc__).rstrip('\n') + textwrap.dedent("""
-        weight : numeric, optional
-            Directly converting the algorithm to a cost function for use in optimizations.
-        position : 3 element numeric, optional
-            Directly binds the algorithm to one or more points in space for efficient execution.
+        @functools.wraps(func)
+        def wrapper(array, *args, weight=None, position=None, **kwargs):
+            outputs = func(array, *args, **kwargs)
+            try:
+                values, jacobians = outputs
+            except TypeError:
+                values = outputs
+                jacobians = None
+            if weight is None and position is None:
+                obj = Algorithm(array, calc_values=values, calc_jacobians=jacobians, name=func.__name__, ndim=ndim)
+            elif weight is None:
+                obj = BoundAlgorithm(array, calc_values=values, calc_jacobians=jacobians, name=func.__name__, ndim=ndim, position=position)
+            elif position is None:
+                obj = UnboundCostFunction(array, calc_values=values, calc_jacobians=jacobians, name=func.__name__, ndim=ndim, weight=weight)
+            elif weight is not None and position is not None:
+                obj = CostFunction(array, calc_values=values, calc_jacobians=jacobians, name=func.__name__, ndim=ndim, weight=weight, position=position)
+            return obj
+        wrapper.__doc__ = textwrap.dedent(wrapper.__doc__).rstrip('\n') + textwrap.dedent("""
+            weight : numeric, optional
+                Directly converting the algorithm to a cost function for use in optimizations.
+            position : 3 element numeric, optional
+                Directly binds the algorithm to one or more points in space for efficient execution.
 
-        Returns
-        -------
-        algorithm : `Algorithm`
-            An Algorithm object or a subclass thereof, depending on whether weight or position
-            was supplied in the call.
-        """)
-    return wrapper
+            Returns
+            -------
+            algorithm : `Algorithm`
+                An Algorithm object or a subclass thereof, depending on whether weight or position
+                was supplied in the call.
+            """)
+        return wrapper
+    return algorithm
 
 
 def requires(**requirements):
@@ -60,8 +62,11 @@ def requires(**requirements):
 class Algorithm:
     _str_format_spec = '{:%cls%name}'
 
-    def __init__(self, array, *, calc_values, calc_jacobians=None, name=None):
+    def __init__(self, array, *, calc_values, calc_jacobians=None, name=None, ndim=None):
         self.name = name
+        self.ndim = ndim
+        value_indices = ''.join(chr(ord('i') + idx) for idx in range(self.ndim))
+        self._sum_str = value_indices + ', ' + value_indices + '...'
         self.calc_values = calc_values
         self.calc_jacobians = calc_jacobians
         self.array = array
@@ -104,7 +109,7 @@ class Algorithm:
         return spatial_structures
 
     def __mul__(self, weight):
-        return UnboundCostFunction(array=self.array, name=self.name, weight=weight,
+        return UnboundCostFunction(array=self.array, name=self.name, weight=weight, ndim=self.ndim,
                                    calc_values=self.calc_values, calc_jacobians=self.calc_jacobians)
 
     def __rmul__(self, weight):
@@ -114,7 +119,7 @@ class Algorithm:
         position = np.asarray(position)
         if position.ndim < 1 or position.shape[0] != 3:
             return NotImplemented
-        return BoundAlgorithm(array=self.array, name=self.name, position=position,
+        return BoundAlgorithm(array=self.array, name=self.name, position=position, ndim=self.ndim,
                               calc_values=self.calc_values, calc_jacobians=self.calc_jacobians)
 
     def __add__(self, other):
@@ -175,10 +180,10 @@ class BoundAlgorithm(Algorithm):
             return NotImplemented
 
     def __mul__(self, weight):
-        weight = np.atleast_1d(weight)
+        weight = np.asarray(weight)
         if weight.dtype == object:
             return NotImplemented
-        return CostFunction(array=self.array, name=self.name, weight=weight, position=self.position,
+        return CostFunction(array=self.array, name=self.name, ndim=self.ndim, weight=weight, position=self.position,
                             calc_values=self.calc_values, calc_jacobians=self.calc_jacobians)
 
 
@@ -187,7 +192,10 @@ class UnboundCostFunction(Algorithm):
 
     def __init__(self, array, *, calc_values, calc_jacobians, weight, name=None, **kwargs):
         super().__init__(array=array, calc_values=calc_values, calc_jacobians=calc_jacobians, name=name, **kwargs)
-        self.weight = np.atleast_1d(weight)
+        self.weight = np.asarray(weight)
+        if self.weight.ndim < self.ndim:
+            extra_dims = self.ndim - self.weight.ndim
+            self.weight.shape = (1,) * extra_dims + self.weight.shape
         for key, value in calc_jacobians.requires.items():
             self.requires[key] = max(value, self.requires.get(key, -1))
 
@@ -196,7 +204,7 @@ class UnboundCostFunction(Algorithm):
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
         values = self.calc_values(**{key: requirements[key] for key in self.calc_values.requires})
         jacobians = self.calc_jacobians(**{key: requirements[key] for key in self.calc_jacobians.requires})
-        return np.einsum('i, i...', self.weight, values), np.einsum('i, i...', self.weight, jacobians)
+        return np.einsum(self._sum_str, self.weight, values), np.einsum(self._sum_str, self.weight, jacobians)
 
     def __mul__(self, weight):
         return super().__mul__(self.weight * weight)
@@ -205,7 +213,7 @@ class UnboundCostFunction(Algorithm):
         position = np.asarray(position)
         if position.ndim < 1 or position.shape[0] != 3:
             return NotImplemented
-        return CostFunction(array=self.array, name=self.name, weight=self.weight, position=position,
+        return CostFunction(array=self.array, name=self.name, ndim=self.ndim, weight=self.weight, position=position,
                             calc_values=self.calc_values, calc_jacobians=self.calc_jacobians)
 
 
@@ -221,7 +229,7 @@ class CostFunction(UnboundCostFunction, BoundAlgorithm):
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
         values = self.calc_values(**{key: requirements[key] for key in self.calc_values.requires})
         jacobians = self.calc_jacobians(**{key: requirements[key] for key in self.calc_jacobians.requires})
-        return np.einsum('i, i...', self.weight, values), np.einsum('i, i...', self.weight, jacobians)
+        return np.einsum(self._sum_str, self.weight, values), np.einsum(self._sum_str, self.weight, jacobians)
 
 
 class VectorBase:
@@ -255,13 +263,13 @@ class VectorBase:
             values = algorithm.calc_values(**{key: kwargs[key] for key in algorithm.calc_values.requires})
             values -= self.target_vector.reshape([-1] + (values.ndim - 1) * [1])
             jacobians = algorithm.calc_jacobians(**{key: kwargs[key] for key in algorithm.calc_jacobians.requires})
-            return 2 * np.einsum('ij..., i...->ij...', jacobians, values)
+            return 2 * jacobians * values.reshape(values.shape[:self.ndim] + (1,) + values.shape[self.ndim:])
         calc_jacobians.requires = algorithm.calc_jacobians.requires.copy()
         for key, value in algorithm.calc_values.requires.items():
             calc_jacobians.requires[key] = max(value, calc_jacobians.requires.get(key, -1))
         calc_jacobians.is_vector = True
 
-        super().__init__(array=algorithm.array, calc_values=calc_values, calc_jacobians=calc_jacobians, name=algorithm.name, **kwargs)
+        super().__init__(array=algorithm.array, calc_values=calc_values, calc_jacobians=calc_jacobians, name=algorithm.name, ndim=algorithm.ndim, **kwargs)
 
     def __matmul__(self, position):
         obj = super().__matmul__(position)
@@ -425,8 +433,8 @@ class UnboundCostFunctionPoint(AlgorithmPoint, UnboundCostFunction):
         value = 0
         jacobians = 0
         for algorithm in self.algorithms:
-            value += np.einsum('i,i...', algorithm.weight, algorithm.calc_values(**{key: requirements[key] for key in algorithm.calc_values.requires}))
-            jacobians += np.einsum('i, i...', algorithm.weight, algorithm.calc_jacobians(**{key: requirements[key] for key in algorithm.calc_jacobians.requires}))
+            value += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.calc_values(**{key: requirements[key] for key in algorithm.calc_values.requires}))
+            jacobians += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.calc_jacobians(**{key: requirements[key] for key in algorithm.calc_jacobians.requires}))
         return value, jacobians
 
     def __matmul__(self, position):
@@ -440,8 +448,8 @@ class CostFunctionPoint(UnboundCostFunctionPoint, BoundAlgorithmPoint, CostFunct
         value = 0
         jacobians = 0
         for algorithm in self.algorithms:
-            value += np.einsum('i,i...', algorithm.weight, algorithm.calc_values(**{key: requirements[key] for key in algorithm.calc_values.requires}))
-            jacobians += np.einsum('i, i...', algorithm.weight, algorithm.calc_jacobians(**{key: requirements[key] for key in algorithm.calc_jacobians.requires}))
+            value += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.calc_values(**{key: requirements[key] for key in algorithm.calc_values.requires}))
+            jacobians += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.calc_jacobians(**{key: requirements[key] for key in algorithm.calc_jacobians.requires}))
         return value, jacobians
 
 

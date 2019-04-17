@@ -5,7 +5,7 @@ from . import materials
 from ._algorithm import algorithm, requires
 
 
-@algorithm
+@algorithm(ndim=0)
 def gorkov_potential(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
     """
     Create gorkov potential calculation algorithm.
@@ -33,17 +33,17 @@ def gorkov_potential(array, radius_sphere=1e-3, sphere_material=materials.Styrof
     def calc_values(pressure_derivs_summed):
         values = pressure_coefficient * np.real(pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[0]))
         values -= gradient_coefficient * np.real(pressure_derivs_summed[1:4] * np.conj(pressure_derivs_summed[1:4])).sum(axis=0)
-        return values[None, ...]
+        return values
 
     @requires(pressure_derivs_summed=1, pressure_derivs_individual=1)
     def calc_jacobians(pressure_derivs_summed, pressure_derivs_individual):
         jacobians = pressure_coefficient * 2 * pressure_derivs_individual[0] * np.conj(pressure_derivs_summed[0])
         jacobians -= gradient_coefficient * 2 * (pressure_derivs_individual[1:4] * np.conj(pressure_derivs_summed[1:4, None])).sum(axis=0)
-        return jacobians[None, ...]
+        return jacobians
     return calc_values, calc_jacobians
 
 
-@algorithm
+@algorithm(ndim=1)
 def gorkov_gradient(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
     """
     Create gorkov gradient calculation functions.
@@ -85,7 +85,7 @@ def gorkov_gradient(array, radius_sphere=1e-3, sphere_material=materials.Styrofo
     return calc_values, calc_jacobians
 
 
-@algorithm
+@algorithm(ndim=1)
 def gorkov_laplacian(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
     """
     Create gorkov laplacian calculation functions.
@@ -127,7 +127,7 @@ def gorkov_laplacian(array, radius_sphere=1e-3, sphere_material=materials.Styrof
     return calc_values, calc_jacobians
 
 
-@algorithm
+@algorithm(ndim=1)
 def second_order_force(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
     """
     Create second order radiation force calculation functions.
@@ -181,7 +181,7 @@ def second_order_force(array, radius_sphere=1e-3, sphere_material=materials.Styr
     return calc_values, calc_jacobians
 
 
-@algorithm
+@algorithm(ndim=1)
 def second_order_stiffness(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
     """
     Create second order radiation stiffness calculation functions.
@@ -235,7 +235,7 @@ def second_order_stiffness(array, radius_sphere=1e-3, sphere_material=materials.
     return calc_values, calc_jacobians
 
 
-@algorithm
+@algorithm(ndim=1)
 def second_order_curl(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
     f_1 = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
     f_2 = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
@@ -263,7 +263,7 @@ def second_order_curl(array, radius_sphere=1e-3, sphere_material=materials.Styro
     return calc_values, calc_jacobians
 
 
-@algorithm
+@algorithm(ndim=0)
 def pressure_squared_magnitude(array=None):
     """
     Create pressure squared magnitude calculation functions.
@@ -279,15 +279,15 @@ def pressure_squared_magnitude(array=None):
     """
     @requires(pressure_derivs_summed=0)
     def calc_values(pressure_derivs_summed):
-        return np.real(pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[0]))[None, ...]
+        return np.real(pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[0]))#[None, ...]
 
     @requires(pressure_derivs_summed=0, pressure_derivs_individual=0)
     def calc_jacobians(pressure_derivs_summed, pressure_derivs_individual):
-        return (2 * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[0])[None, ...]
+        return (2 * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[0])#[None, ...]
     return calc_values, calc_jacobians
 
 
-@algorithm
+@algorithm(ndim=1)
 def velocity_squared_magnitude(array):
     """
     Create velocity squared magnitude calculation functions.
@@ -313,7 +313,7 @@ def velocity_squared_magnitude(array):
     return calc_values, calc_jacobians
 
 
-@algorithm
+@algorithm(ndim=1)
 def spherical_harmonics_force(array, orders, radius_sphere=1e-3, sphere_material=materials.Styrofoam, scattering_model='Hard sphere'):
     from . import spherical_harmonics_index as sph_idx
     from scipy.special import spherical_jn, spherical_yn

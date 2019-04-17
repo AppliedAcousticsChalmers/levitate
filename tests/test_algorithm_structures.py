@@ -18,7 +18,7 @@ sum_ders = np.sum(ind_ders, axis=1)
 pressure_derivs_algorithms = [
     levitate.algorithms.gorkov_gradient,
     levitate.algorithms.gorkov_laplacian,
-    levitate.algorithms.pressure_squared_magnitude,
+    levitate.algorithms.velocity_squared_magnitude,
 ]
 
 
@@ -43,7 +43,7 @@ def test_BoundAlgorithm(func, pos):
     np.testing.assert_allclose((algorithm@pos)(array.complex_amplitudes), algorithm(array.complex_amplitudes, pos))
 
 
-@pytest.mark.parametrize("weight", [np.random.uniform(-10, 10), (1, 0, 0), (0, 1, 0), (0, 0, 1), np.random.uniform(-10, 10, 3)])
+@pytest.mark.parametrize("weight", [np.random.uniform(-10, 10, 1), (1, 0, 0), (0, 1, 0), (0, 0, 1), np.random.uniform(-10, 10, 3)])
 @pytest.mark.parametrize("func", pressure_derivs_algorithms)
 def test_UnboundCostFunction(func, weight):
     algorithm = func(array) * weight
@@ -86,9 +86,6 @@ def test_CostFunction(func, weight, pos):
 @pytest.mark.parametrize("func", pressure_derivs_algorithms)
 @pytest.mark.parametrize("target", [(1, 0, 0), (0, 1, 0), (0, 0, 1), np.random.uniform(-10, 10, 3)])
 def test_VectorAlgorithm(func, target, pos):
-    if func == levitate.algorithms.pressure_squared_magnitude:
-        # This function cannot handle vector targets.
-        return
     algorithm = func(array)
     np.testing.assert_allclose((algorithm - target)(array.complex_amplitudes, pos), np.abs(algorithm(array.complex_amplitudes, pos) - np.asarray(target).reshape([-1] + (pos.ndim - 1) * [1]))**2)
 
@@ -97,9 +94,6 @@ def test_VectorAlgorithm(func, target, pos):
 @pytest.mark.parametrize("func", pressure_derivs_algorithms)
 @pytest.mark.parametrize("target", [np.random.uniform(-10, 10, 3)])
 def test_VectorBoundAlgorithm(func, target, pos):
-    if func == levitate.algorithms.pressure_squared_magnitude:
-        # This function cannot handle vector targets.
-        return
     algorithm = func(array) - target
     np.testing.assert_allclose((algorithm@pos)(array.complex_amplitudes), algorithm(array.complex_amplitudes, pos))
 
@@ -108,9 +102,6 @@ def test_VectorBoundAlgorithm(func, target, pos):
 @pytest.mark.parametrize("weight", [np.random.uniform(-10, 10, 3)])
 @pytest.mark.parametrize("target", [(1, 0, 0), (0, 1, 0), (0, 0, 1), np.random.uniform(-10, 10, 3)])
 def test_VectorUnboundCostFunction(func, target, weight):
-    if func == levitate.algorithms.pressure_squared_magnitude:
-        # This function cannot handle vector targets.
-        return
     algorithm = (func(array) - target) * weight
     calc_values, calc_jacobians = algorithm.calc_values, algorithm.calc_jacobians
 
@@ -136,13 +127,10 @@ def test_VectorUnboundCostFunction(func, target, weight):
 
 
 @pytest.mark.parametrize("func", pressure_derivs_algorithms)
-@pytest.mark.parametrize("weight", [np.random.uniform(-10, 10), np.random.uniform(-10, 10, 3)])
+@pytest.mark.parametrize("weight", [np.random.uniform(-10, 10, 1), np.random.uniform(-10, 10, 3)])
 @pytest.mark.parametrize("target", [np.random.uniform(-10, 10, 3)])
 @pytest.mark.parametrize("pos", [pos_0, pos_both])
 def test_VectorCostFunction(func, weight, target, pos):
-    if func == levitate.algorithms.pressure_squared_magnitude:
-        # This function cannot handle vector targets.
-        return
     algorithm = (func(array) - target) * weight
     val, jac = (algorithm@pos)(array.complex_amplitudes)
     val_ub, jac_ub = algorithm(array.complex_amplitudes, pos)
