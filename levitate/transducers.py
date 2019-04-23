@@ -256,6 +256,7 @@ class PointSource(TransducerModel):
             derivatives[16] = wavefront_derivatives[0] * directivity_derivatives[16] + directivity_derivatives[0] * wavefront_derivatives[16] + wavefront_derivatives[3] * directivity_derivatives[5] + directivity_derivatives[3] * wavefront_derivatives[5] + 2 * (wavefront_derivatives[2] * directivity_derivatives[9] + directivity_derivatives[2] * wavefront_derivatives[9])
             derivatives[17] = wavefront_derivatives[0] * directivity_derivatives[17] + directivity_derivatives[0] * wavefront_derivatives[17] + wavefront_derivatives[1] * directivity_derivatives[6] + directivity_derivatives[1] * wavefront_derivatives[6] + 2 * (wavefront_derivatives[3] * directivity_derivatives[8] + directivity_derivatives[3] * wavefront_derivatives[8])
             derivatives[18] = wavefront_derivatives[0] * directivity_derivatives[18] + directivity_derivatives[0] * wavefront_derivatives[18] + wavefront_derivatives[2] * directivity_derivatives[6] + directivity_derivatives[2] * wavefront_derivatives[6] + 2 * (wavefront_derivatives[3] * directivity_derivatives[9] + directivity_derivatives[3] * wavefront_derivatives[9])
+            derivatives[19] = wavefront_derivatives[0] * directivity_derivatives[19] + wavefront_derivatives[19] * directivity_derivatives[0] + wavefront_derivatives[1] * directivity_derivatives[9] + wavefront_derivatives[2] * directivity_derivatives[8] + wavefront_derivatives[3] * directivity_derivatives[7] + directivity_derivatives[1] * wavefront_derivatives[9] + directivity_derivatives[2] * wavefront_derivatives[8] + directivity_derivatives[3] * wavefront_derivatives[7]
 
         derivatives *= self.p0
         return derivatives
@@ -311,7 +312,7 @@ class PointSource(TransducerModel):
 
         if orders > 2:
             const = (3 - 3 * jkr - kr**2) * phase / r**5
-            coeff = ((jkr - 1) * (15 - kr**2) + 5 * kr**2) * phase / r**7
+            coeff = (-15 + 15 * jkr + 6 * kr**2 - 1j * kr**3) * phase / r**7
             derivatives[10] = diff[0] * (3 * const + diff[0]**2 * coeff)
             derivatives[11] = diff[1] * (3 * const + diff[1]**2 * coeff)
             derivatives[12] = diff[2] * (3 * const + diff[2]**2 * coeff)
@@ -321,6 +322,7 @@ class PointSource(TransducerModel):
             derivatives[16] = diff[2] * (const + diff[1]**2 * coeff)
             derivatives[17] = diff[0] * (const + diff[2]**2 * coeff)
             derivatives[18] = diff[1] * (const + diff[2]**2 * coeff)
+            derivatives[19] = diff[0] * diff[1] * diff[2] * coeff
 
         return derivatives
 
@@ -376,6 +378,7 @@ class PointSource(TransducerModel):
             finite_difference_coefficients['yyz'] = (np.array([[0, 1, 1], [0, -1, -1], [0, 1, -1], [0, -1, 1], [0, 0, 1], [0, 0, -1]]).T, np.array([0.5, -0.5, -0.5, 0.5, -1, 1]))  # Alt -- (np.array([[0, 2, 1], [0, -2, -1], [0, 2, -1], [0, -2, 1], [0, 0, 1], [0, 0, -1]]), [0.125, -0.125, -0.125, 0.125, -0.25, 0.25])
             finite_difference_coefficients['zzx'] = (np.array([[1, 0, 1], [-1, 0, -1], [-1, 0, 1], [1, 0, -1], [1, 0, 0], [-1, 0, 0]]).T, np.array([0.5, -0.5, -0.5, 0.5, -1, 1]))  # Alt -- (np.array([[1, 0, 2], [-1, 0, -2], [-1, 0, 2], [1, 0, -2], [1, 0, 0], [-1, 0, 0]]), [0.125, -0.125, -0.125, 0.125, -0.25, 0.25])
             finite_difference_coefficients['zzy'] = (np.array([[0, 1, 1], [0, -1, -1], [0, -1, 1], [0, 1, -1], [0, 1, 0], [0, -1, 0]]).T, np.array([0.5, -0.5, -0.5, 0.5, -1, 1]))  # Alt -- (np.array([[0, 1, 2], [0, -1, -2], [0, -1, 2], [0, 1, -2], [0, 1, 0], [0, -1, 0]]), [0.125, -0.125, -0.125, 0.125, -0.25, 0.25])
+            finite_difference_coefficients['xyz'] = (np.array([[1, 1, 1], [-1, -1, -1], [1, -1, -1], [-1, 1, 1], [-1, 1, -1], [1, -1, 1], [-1, -1, 1], [1, 1, -1]]).T, np.array([1, -1, 1, -1, 1, -1, 1, -1]) * 0.125)
 
         derivatives = np.empty((num_pressure_derivs[orders],) + receiver_positions.shape[1:], dtype=np.complex128)
         h = 1 / self.k
@@ -598,6 +601,7 @@ class PlaneWaveTransducer(TransducerModel):
             derivatives[16] = 1j * self.k * source_normal[2] * derivatives[5]
             derivatives[17] = 1j * self.k * source_normal[0] * derivatives[6]
             derivatives[18] = 1j * self.k * source_normal[1] * derivatives[6]
+            derivatives[19] = 1j * self.k * source_normal[2] * derivatives[7]
         return derivatives
 
 
@@ -793,6 +797,7 @@ class CircularRing(PointSource):
             cos_dy2dz = (-15 * diff[1]**2 * diff[2] * dot + 3 * r2 * (diff[1]**2 * n[2] + 2 * diff[1] * diff[2] * n[1] + diff[2] * dot) - r4 * n[2]) / r7 / norm
             cos_dz2dx = (-15 * diff[2]**2 * diff[0] * dot + 3 * r2 * (diff[2]**2 * n[0] + 2 * diff[2] * diff[0] * n[2] + diff[0] * dot) - r4 * n[0]) / r7 / norm
             cos_dz2dy = (-15 * diff[2]**2 * diff[1] * dot + 3 * r2 * (diff[2]**2 * n[1] + 2 * diff[2] * diff[1] * n[2] + diff[1] * dot) - r4 * n[1]) / r7 / norm
+            cos_dxdydz = (-15 * diff[0] * diff[1] * diff[2] * dot + 3 * r2 * (n[0] * diff[1] * diff[2] + n[1] * diff[0] * diff[2] + n[2] * diff[0] * diff[1])) / r7 / norm
 
             with np.errstate(invalid='ignore'):
                 J3_xi3 = np.where(sin == 0, 1 / 48, (4 * J2_xi2 - J1_xi) / ka_sin**2)
@@ -806,5 +811,6 @@ class CircularRing(PointSource):
             derivatives[16] = third_order_const * cos_dy**2 * cos_dz + second_order_const * (cos_dy2 * cos_dz + 2 * cos_dydz * cos_dy) + first_order_const * cos_dy2dz
             derivatives[17] = third_order_const * cos_dz**2 * cos_dx + second_order_const * (cos_dz2 * cos_dx + 2 * cos_dxdz * cos_dz) + first_order_const * cos_dz2dx
             derivatives[18] = third_order_const * cos_dz**2 * cos_dy + second_order_const * (cos_dz2 * cos_dy + 2 * cos_dydz * cos_dz) + first_order_const * cos_dz2dy
+            derivatives[19] = third_order_const * cos_dx * cos_dy * cos_dz + second_order_const * (cos_dx * cos_dydz + cos_dy * cos_dxdz + cos_dz * cos_dxdy) + first_order_const * cos_dxdydz
 
         return derivatives
