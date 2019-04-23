@@ -263,6 +263,107 @@ def second_order_curl(array, radius_sphere=1e-3, sphere_material=materials.Styro
     return calc_values, calc_jacobians
 
 
+@algorithm(ndim=2)
+def second_order_force_gradient(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
+    """
+    Create second order radiation force gradient calculation function.
+
+    Creates the algorithm object needed to calculated the gradient matrix of the
+    radiation force on a small spherical bead.
+
+    Parameters
+    ----------
+    array : TransducerArray
+        The object modeling the array.
+    radius_sphere : float, default 1e-3
+        Radius of the spherical beads.
+    sphere_material : Material
+        The material of the sphere, default Styrofoam.
+    """
+    f_1 = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
+    f_2 = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
+
+    ka = array.k * radius_sphere
+    k_square = array.k**2
+    psi_0 = -2 * ka**6 / 9 * (f_1**2 + f_2**2 / 4 + f_1 * f_2) - 1j * ka**3 / 3 * (2 * f_1 + f_2)
+    psi_1 = -ka**6 / 18 * f_2**2 + 1j * ka**3 / 3 * f_2
+    force_coeff = -np.pi / array.k**5 * array.medium.compressibility
+
+    # Including the j factors from the paper directly in the coefficients.
+    psi_0 *= 1j
+    psi_1 *= 1j
+
+    @requires(pressure_derivs_summed=3)
+    def calc_values(pressure_derivs_summed):
+        values = np.zeros((3, 3) + pressure_derivs_summed.shape[1:])
+        values[0, 0] = np.real(  # F_{x,x}
+            k_square * psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[4]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[1]))
+            + k_square * psi_1 * (pressure_derivs_summed[4] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[1]))
+            + 3 * psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[10]) + pressure_derivs_summed[4] * np.conj(pressure_derivs_summed[4]))
+            + 3 * psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[13]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[7]))
+            + 3 * psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[14]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[8]))
+        )
+        values[0, 1] = np.real(  # F_{x,y}
+            k_square * psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[7]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[1]))
+            + k_square * psi_1 * (pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[2]))
+            + 3 * psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[13]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[4]))
+            + 3 * psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[15]) + pressure_derivs_summed[5] * np.conj(pressure_derivs_summed[7]))
+            + 3 * psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[8]))
+        )
+        values[0, 2] = np.real(  # F_{x,z}
+            k_square * psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[8]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[1]))
+            + k_square * psi_1 * (pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[3]))
+            + 3 * psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[14]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[4]))
+            + 3 * psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[7]))
+            + 3 * psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[17]) + pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[8]))
+        )
+        values[1, 0] = np.real(  # F_{y,x}
+            k_square * psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[7]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[2]))
+            + k_square * psi_1 * (pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[1]))
+            + 3 * psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[13]) + pressure_derivs_summed[4] * np.conj(pressure_derivs_summed[7]))
+            + 3 * psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[15]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[5]))
+            + 3 * psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[9]))
+        )
+        values[1, 1] = np.real(  # F_{y,y}
+            k_square * psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[5]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[2]))
+            + k_square * psi_1 * (pressure_derivs_summed[5] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[2]))
+            + 3 * psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[15]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[7]))
+            + 3 * psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[11]) + pressure_derivs_summed[5] * np.conj(pressure_derivs_summed[5]))
+            + 3 * psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[16]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[9]))
+        )
+        values[1, 2] = np.real(  # F_{y,z}
+            k_square * psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[9]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[2]))
+            + k_square * psi_1 * (pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[3]))
+            + 3 * psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[7]))
+            + 3 * psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[16]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[5]))
+            + 3 * psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[18]) + pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[9]))
+        )
+        values[2, 0] = np.real(  # F_{z,x}
+            k_square * psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[8]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[3]))
+            + k_square * psi_1 * (pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[1]))
+            + 3 * psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[14]) + pressure_derivs_summed[4] * np.conj(pressure_derivs_summed[8]))
+            + 3 * psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[9]))
+            + 3 * psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[17]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[6]))
+        )
+        values[2, 1] = np.real(  # F_{z,y}
+            k_square * psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[9]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[3]))
+            + k_square * psi_1 * (pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[2]))
+            + 3 * psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[8]))
+            + 3 * psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[16]) + pressure_derivs_summed[5] * np.conj(pressure_derivs_summed[9]))
+            + 3 * psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[18]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[6]))
+        )
+        values[2, 2] = np.real(  # F_{z,z}
+            k_square * psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[6]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[3]))
+            + k_square * psi_1 * (pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[3]))
+            + 3 * psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[17]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[8]))
+            + 3 * psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[18]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[9]))
+            + 3 * psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[12]) + pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[6]))
+        )
+        return values * force_coeff
+
+    return calc_values
+
+
 @algorithm(ndim=0)
 def pressure_squared_magnitude(array=None):
     """

@@ -9,6 +9,70 @@ from levitate.materials import Air
 Air.c = 343
 Air.rho = 1.2
 
+large_array = levitate.arrays.RectangularArray(shape=(9, 8))
+pos = np.array([-23, 12, 34.1]) * 1e-3
+large_array.phases = large_array.focus_phases(pos) + large_array.vortex_signature()
+
+
+def test_gorkov_differentiations():
+    amps = large_array.complex_amplitudes
+    potential = levitate.algorithms.gorkov_potential(large_array)
+    gradient = levitate.algorithms.gorkov_gradient(large_array)
+    delta = 1e-9
+    implemented_gradient = gradient(amps, pos)
+
+    x_plus = pos + np.array([delta, 0, 0])
+    x_minus = pos - np.array([delta, 0, 0])
+    y_plus = pos + np.array([0, delta, 0])
+    y_minus = pos - np.array([0, delta, 0])
+    z_plus = pos + np.array([0, 0, delta])
+    z_minus = pos - np.array([0, 0, delta])
+
+    dUdx = (potential(amps, x_plus) - potential(amps, x_minus)) / (2 * delta)
+    dUdy = (potential(amps, y_plus) - potential(amps, y_minus)) / (2 * delta)
+    dUdz = (potential(amps, z_plus) - potential(amps, z_minus)) / (2 * delta)
+    np.testing.assert_allclose(implemented_gradient[0], dUdx)
+    np.testing.assert_allclose(implemented_gradient[1], dUdy)
+    np.testing.assert_allclose(implemented_gradient[2], dUdz)
+
+    implemented_laplacian = levitate.algorithms.gorkov_laplacian(large_array)(amps, pos)
+    d2Udx2 = (gradient(amps, x_plus)[0] - gradient(amps, x_minus)[0]) / (2 * delta)
+    d2Udy2 = (gradient(amps, y_plus)[1] - gradient(amps, y_minus)[1]) / (2 * delta)
+    d2Udz2 = (gradient(amps, z_plus)[2] - gradient(amps, z_minus)[2]) / (2 * delta)
+    np.testing.assert_allclose(implemented_laplacian[0], d2Udx2)
+    np.testing.assert_allclose(implemented_laplacian[1], d2Udy2)
+    np.testing.assert_allclose(implemented_laplacian[2], d2Udz2)
+
+
+def test_second_order_implementations():
+    amps = large_array.complex_amplitudes
+    force = levitate.algorithms.second_order_force(large_array)
+    stiffness = levitate.algorithms.second_order_stiffness(large_array)
+    gradient = levitate.algorithms.second_order_force_gradient(large_array)
+    curl = levitate.algorithms.second_order_curl(large_array)
+
+    delta = 1e-9
+    x_plus = pos + np.array([delta, 0, 0])
+    x_minus = pos - np.array([delta, 0, 0])
+    y_plus = pos + np.array([0, delta, 0])
+    y_minus = pos - np.array([0, delta, 0])
+    z_plus = pos + np.array([0, 0, delta])
+    z_minus = pos - np.array([0, 0, delta])
+
+    dFdx = (force(amps, x_plus) - force(amps, x_minus)) / (2 * delta)
+    dFdy = (force(amps, y_plus) - force(amps, y_minus)) / (2 * delta)
+    dFdz = (force(amps, z_plus) - force(amps, z_minus)) / (2 * delta)
+
+    implemented_stiffness = stiffness(amps, pos)
+    np.testing.assert_allclose(implemented_stiffness, [dFdx[0], dFdy[1], dFdz[2]])
+
+    implemented_curl = curl(amps, pos)
+    np.testing.assert_allclose(implemented_curl, [dFdy[2] - dFdz[1], dFdz[0] - dFdx[2], dFdx[1] - dFdy[0]])
+
+    implemented_gradient = gradient(amps, pos)
+    np.testing.assert_allclose(implemented_gradient, np.stack([dFdx, dFdy, dFdz], axis=1))
+
+
 array = levitate.arrays.RectangularArray(shape=(2, 1))
 pos_1 = np.array([0.1, 0.2, 0.3])
 pos_2 = np.array([-0.15, 1.27, 0.001])
@@ -18,36 +82,6 @@ array.phases = array.focus_phases((pos_1 + pos_2) / 2)
 spat_ders = array.pressure_derivs(both_pos, orders=3)
 ind_ders = np.einsum('i, ji...->ji...', array.amplitudes * np.exp(1j * array.phases), spat_ders)
 sum_ders = np.sum(ind_ders, axis=1)
-
-
-def test_gorkov_differentiations():
-    amps = array.complex_amplitudes
-    potential = levitate.algorithms.gorkov_potential(array)
-    gradient = levitate.algorithms.gorkov_gradient(array)
-    delta = 1e-6
-    implemented_gradient = gradient(amps, pos_1)
-
-    x_plus = pos_1 + np.array([delta, 0, 0])
-    x_minus = pos_1 - np.array([delta, 0, 0])
-    y_plus = pos_1 + np.array([0, delta, 0])
-    y_minus = pos_1 - np.array([0, delta, 0])
-    z_plus = pos_1 + np.array([0, 0, delta])
-    z_minus = pos_1 - np.array([0, 0, delta])
-
-    dUdx = (potential(amps, x_plus) - potential(amps, x_minus)) / (2 * delta)
-    dUdy = (potential(amps, y_plus) - potential(amps, y_minus)) / (2 * delta)
-    dUdz = (potential(amps, z_plus) - potential(amps, z_minus)) / (2 * delta)
-    np.testing.assert_allclose(implemented_gradient[0], dUdx)
-    np.testing.assert_allclose(implemented_gradient[1], dUdy)
-    np.testing.assert_allclose(implemented_gradient[2], dUdz)
-
-    implemented_laplacian = levitate.algorithms.gorkov_laplacian(array)(amps, pos_1)
-    d2Udx2 = (gradient(amps, x_plus)[0] - gradient(amps, x_minus)[0]) / (2 * delta)
-    d2Udy2 = (gradient(amps, y_plus)[1] - gradient(amps, y_minus)[1]) / (2 * delta)
-    d2Udz2 = (gradient(amps, z_plus)[2] - gradient(amps, z_minus)[2]) / (2 * delta)
-    np.testing.assert_allclose(implemented_laplacian[0], d2Udx2)
-    np.testing.assert_allclose(implemented_laplacian[1], d2Udy2)
-    np.testing.assert_allclose(implemented_laplacian[2], d2Udz2)
 
 
 @pytest.mark.parametrize("algorithm, value_at_pos_1, real_jacobian_at_pos_1, imag_jacobian_at_pos_1", [
