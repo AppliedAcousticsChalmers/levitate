@@ -57,6 +57,9 @@ class TransducerArray:
         Wavelength in air, corresponding to `freq`.
     """
 
+    _repr_fmt_spec = '{:%cls(transducer_model=%transducer_model_full, transducer_size=%transducer_size,\n\ttransducer_positions=%transducer_positions,\n\ttransducer_normals=%transducer_normals)}'
+    _str_fmt_spec = '{:%cls(transducer_model=%transducer_model): %num_transducers transducers}'
+
     def __init__(self, transducer_positions, transducer_normals,
                  transducer_model=None, transducer_size=10e-3, transducer_kwargs=None,
                  medium=Air, **kwargs
@@ -85,6 +88,24 @@ class TransducerArray:
         self.phases = np.zeros(self.num_transducers)
 
         self.visualize = Visualizer(self)
+
+    def __format__(self, fmt_spec):
+        s_out = fmt_spec
+        s_out = s_out.replace('%cls', self.__class__.__name__).replace('%num_transducers', str(self.num_transducers))
+        s_out = s_out.replace('%transducer_size', str(self.transducer_size))
+        s_out = s_out.replace('%medium_full', repr(self.medium)).replace('%medium', str(self.medium))
+        s_out = s_out.replace('%transducer_model_full', repr(self.transducer_model)).replace('%transducer_model', str(self.transducer_model))
+        s_out = s_out.replace('%transducer_positions', repr(self.transducer_positions)).replace('%transducer_normals', repr(self.transducer_normals))
+        return s_out
+
+    def __repr__(self):
+        return self._repr_fmt_spec.format(self)
+
+    def _repr_pretty_(self, p, cycle):
+        p.text(str(self))
+
+    def __str__(self):
+        return self._str_fmt_spec.format(self)
 
     @property
     def k(self):
@@ -341,10 +362,19 @@ class RectangularArray(TransducerArray):
         The in-plane rotation of the array around the normal.
     """
 
+    _str_fmt_spec = '{:%cls(transducer_model=%transducer_model, %grid_args)}'
+
     def __init__(self, shape=16, spread=10e-3, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
+        self._grid_args = {'shape': shape, 'spread': spread, 'offset': offset, 'normal': normal, 'rotation': rotation}  # Used for nice sting formating
         positions, normals = self.grid_generator(shape=shape, spread=spread, offset=offset, normal=normal, rotation=rotation, **kwargs)
         kwargs.setdefault('transducer_size', spread)
         super().__init__(positions, normals, **kwargs)
+
+    def __format__(self, fmt_spec):
+        grid_args_str = ''
+        for key, value in self._grid_args.items():
+            grid_args_str += str(key) + '=' + str(value) + ', '
+        return super().__format__(fmt_spec).replace('%grid_args', grid_args_str.rstrip(', '))
 
     @classmethod
     def grid_generator(cls, shape=None, spread=None, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
@@ -508,14 +538,30 @@ class DoublesidedArray:
 
     def __new__(cls, ctype, *args, **kwargs):
         """Create a new instance of the metaclass."""
+        str_fmt_spec = ctype._str_fmt_spec
+        if '%grid_args' not in str_fmt_spec:
+            before, after = str_fmt_spec.split(')')
+            str_fmt_spec = before + ', %grid_args)' + after
         obj = ctype.__new__(ctype)
-        obj.__class__ = type('Doublesided{}'.format(ctype.__name__), (DoublesidedArray, ctype), {})
+        obj.__class__ = type('Doublesided{}'.format(ctype.__name__), (DoublesidedArray, ctype), {'_str_fmt_spec': str_fmt_spec})
         return obj
 
     def __init__(self, ctype, separation, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
         # positions, normals = self.doublesided_generator(separation, offset=offset, normal=normal, rotation=rotation, **kwargs)
         super().__init__(separation=separation, offset=offset, normal=normal, rotation=rotation, **kwargs)
+        if not hasattr(self, '_grid_args'):
+            self._grid_args = {}
+        self._grid_args['separation'] = separation
+        self._grid_args['offset'] = offset
+        self._grid_args['normal'] = normal
+        self._grid_args['rotation'] = rotation
         # TransducerArray.__init__(self, positions, normals, **kwargs)
+
+    def __format__(self, fmt_spec):
+        grid_args_str = ''
+        for key, value in self._grid_args.items():
+            grid_args_str += str(key) + '=' + str(value) + ', '
+        return super().__format__(fmt_spec).replace('%grid_args', grid_args_str.rstrip(', '))
 
     @classmethod
     def grid_generator(cls, separation=None, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):

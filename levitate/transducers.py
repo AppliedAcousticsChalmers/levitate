@@ -36,6 +36,9 @@ class TransducerModel:
 
     """
 
+    _repr_fmt_spec = '{:%cls(freq=%freq, p0=%p0, medium=%mediumfull)}'
+    _str_fmt_spec = '{:%cls(freq=%freq, p0=%p0, medium=%medium)}'
+
     def __init__(self, freq=40e3, p0=6, medium=Air, **kwargs):
         self.medium = medium
         self.freq = freq
@@ -44,6 +47,18 @@ class TransducerModel:
         # The datasheet specifies 120 dB SPL @ 0.3 m, which corresponds to ~6 Pa @ 1 m
         for key, value in kwargs.items():
             setattr(self, key, value)
+
+    def __format__(self, fmt_spec):
+        return fmt_spec.replace('%cls', self.__class__.__name__).replace('%freq', str(self.freq)).replace('%p0', str(self.p0)).replace('%mediumfull', repr(self.medium)).replace('%medium', str(self.medium))
+
+    def __str__(self):
+        return self._str_fmt_spec.format(self)
+
+    def __repr__(self):
+        return self._repr_fmt_spec.format(self)
+
+    def _repr_pretty_(self, p, cycle):
+        p.text(str(self))
 
     @property
     def k(self):
@@ -454,7 +469,9 @@ class ReflectingTransducer:
 
     def __new__(cls, ctype, *args, **kwargs):
         obj = ctype.__new__(ctype)
-        obj.__class__ = type('Reflecting{}'.format(ctype.__name__), (ReflectingTransducer, ctype), {})
+        _str_fmt_spec = ctype._str_fmt_spec.rstrip(')}') + ', plane_distance=%plane_distance, plane_normal=%plane_normal, reflection_coefficient=%reflection_coefficient)}'
+        _repr_fmt_spec = ctype._repr_fmt_spec.rstrip(')}') + ', plane_distance=%plane_distance, plane_normal=%plane_normal, reflection_coefficient=%reflection_coefficient)}'
+        obj.__class__ = type('Reflecting{}'.format(ctype.__name__), (ReflectingTransducer, ctype), {'_str_fmt_spec': _str_fmt_spec, '_repr_fmt_spec': _repr_fmt_spec})
         return obj
 
     def __init__(self, ctype, plane_distance, plane_normal=(0, 0, 1), reflection_coefficient=1, *args, **kwargs):
@@ -463,6 +480,9 @@ class ReflectingTransducer:
         self.plane_normal = np.asarray(plane_normal, dtype='float64')
         self.plane_normal /= (self.plane_normal**2).sum()**0.5
         self.reflection_coefficient = reflection_coefficient
+
+    def __format__(self, fmt_spec):
+        return super().__format__(fmt_spec).replace('%plane_distance', str(self.plane_distance)).replace('%plane_normal', str(list(self.plane_normal))).replace('%reflection_coefficient', str(self.reflection_coefficient))
 
     def greens_function(self, source_position, source_normal, receiver_positions):
         """Evaluate the transducer radiation.
@@ -618,9 +638,15 @@ class CircularPiston(PointSource):
         See `TransducerModel`
     """
 
+    _repr_fmt_spec = '{:%cls(freq=%freq, p0=%p0, effective_radius=%effective_radius, medium=%mediumfull)}'
+    _str_fmt_spec = '{:%cls(freq=%freq, p0=%p0, effective_radius=%effective_radius, medium=%medium)}'
+
     def __init__(self, effective_radius, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.effective_radius = effective_radius
+
+    def __format__(self, fmt_spec):
+        return super().__format__(fmt_spec).replace('%effective_radius', str(self.effective_radius))
 
     def directivity(self, source_position, source_normal, receiver_positions):
         r"""Evaluate transducer directivity.
@@ -674,9 +700,15 @@ class CircularRing(PointSource):
         See `TransducerModel`
     """
 
+    _repr_fmt_spec = '{:%cls(freq=%freq, p0=%p0, effective_radius=%effective_radius, medium=%mediumfull)}'
+    _str_fmt_spec = '{:%cls(freq=%freq, p0=%p0, effective_radius=%effective_radius, medium=%medium)}'
+
     def __init__(self, effective_radius, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.effective_radius = effective_radius
+
+    def __format__(self, fmt_spec):
+        return super().__format__(fmt_spec).replace('%effective_radius', str(self.effective_radius))
 
     def directivity(self, source_position, source_normal, receiver_positions):
         r"""Evaluate transducer directivity.
