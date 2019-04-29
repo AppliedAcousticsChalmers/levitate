@@ -372,39 +372,9 @@ class RectangularArray(TransducerArray):
 
     def __init__(self, shape=16, spread=10e-3, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
         self._grid_args = {'shape': shape, 'spread': spread, 'offset': offset, 'normal': normal, 'rotation': rotation}  # Used for nice sting formating
-        positions, normals = self.grid_generator(shape=shape, spread=spread, offset=offset, normal=normal, rotation=rotation, **kwargs)
-        kwargs.setdefault('transducer_size', spread)
-        super().__init__(positions, normals, **kwargs)
-
-    def __format__(self, fmt_spec):
-        grid_args_str = ''
-        for key, value in self._grid_args.items():
-            grid_args_str += str(key) + '=' + str(value) + ', '
-        return super().__format__(fmt_spec).replace('%grid_args', grid_args_str.rstrip(', '))
-
-    @classmethod
-    def grid_generator(cls, shape=None, spread=None, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
-        """Create a grid with positions and normals.
-
-        See `RectangularArray` for parameters and description.
-
-        Returns
-        -------
-        positions : numpy.ndarray
-            The positions of the array elements, shape 3xN.
-        normals : numpy.ndarray
-            The normals of the array elements, shape 3xN.
-        """
-        if not hasattr(shape, '__len__') or len(shape) == 1:
-            shape = (shape, shape)
         normal = np.asarray(normal, dtype='float64')
         normal /= (normal**2).sum()**0.5
-        x = np.linspace(-(shape[0] - 1) / 2, (shape[0] - 1) / 2, shape[0]) * spread
-        y = np.linspace(-(shape[1] - 1) / 2, (shape[1] - 1) / 2, shape[1]) * spread
-
-        X, Y, Z = np.meshgrid(x, y, 0)
-        positions = np.stack((X.flatten(), Y.flatten(), Z.flatten()))
-        normals = np.tile(normal.reshape((3, 1)), (1, positions.shape[1]))
+        positions, normals = self._grid_generator(shape=shape, spread=spread, normal=normal, **kwargs)
 
         if normal[0] != 0 or normal[1] != 0:
             # We need to rotate the grid to get the correct normal
@@ -428,8 +398,40 @@ class RectangularArray(TransducerArray):
 
         positions = rotation_matrix.dot(positions)
         positions += np.asarray(offset).reshape([3] + (positions.ndim - 1) * [1])
-        return positions, normals
 
+        kwargs.setdefault('transducer_size', spread)
+        kwargs.setdefault('transducer_positions', positions)
+        kwargs.setdefault('transducer_normals', normals)
+        super().__init__(**kwargs)
+
+    def __format__(self, fmt_spec):
+        grid_args_str = ''
+        for key, value in self._grid_args.items():
+            grid_args_str += str(key) + '=' + str(value) + ', '
+        return super().__format__(fmt_spec).replace('%grid_args', grid_args_str.rstrip(', '))
+
+    @classmethod
+    def _grid_generator(cls, shape=None, spread=None, normal=(0, 0, 1), **kwargs):
+        """Create a grid with positions and normals.
+
+        See `RectangularArray` for parameters and description.
+
+        Returns
+        -------
+        positions : numpy.ndarray
+            The positions of the array elements, shape 3xN.
+        normals : numpy.ndarray
+            The normals of the array elements, shape 3xN.
+        """
+        if not hasattr(shape, '__len__') or len(shape) == 1:
+            shape = (shape, shape)
+        x = np.linspace(-(shape[0] - 1) / 2, (shape[0] - 1) / 2, shape[0]) * spread
+        y = np.linspace(-(shape[1] - 1) / 2, (shape[1] - 1) / 2, shape[1]) * spread
+
+        X, Y, Z = np.meshgrid(x, y, 0)
+        positions = np.stack((X.flatten(), Y.flatten(), Z.flatten()))
+        normals = np.tile(normal.reshape((3, 1)), (1, positions.shape[1]))
+        return positions, normals
 
     def signature(self, position=None, stype=None, *args, **kwargs):
         """Calculate phase signatures of the array.
@@ -621,32 +623,15 @@ class DoublesidedArray:
 
 
 class DragonflyArray(RectangularArray):
+    """Rectangular array with Ultrahaptics Dragonfly U5 layout.
+
+    This is a 16x16 element array where the order of the transducer elements
+    are the same as the iteration order in the Ultrahaptics SDK. Otherwise
+    behaves exactly like a `RectangularArray`.
+    """
+
 
     @classmethod
-    def grid_generator(cls, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
+    def _grid_generator(cls, **kwargs):
         from .hardware import dragonfly_grid
-        positions, normals = dragonfly_grid
-
-        if normal[0] != 0 or normal[1] != 0:
-            # We need to rotate the grid to get the correct normal
-            rotation_vector = np.cross(normal, (0, 0, 1))
-            rotation_vector /= (rotation_vector**2).sum()**0.5
-            cross_product_matrix = np.array([[0, rotation_vector[2], -rotation_vector[1]],
-                                             [-rotation_vector[2], 0, rotation_vector[0]],
-                                             [rotation_vector[1], -rotation_vector[0], 0]])
-            cos = normal[2]
-            sin = (1 - cos**2)**0.5
-            rotation_matrix = (cos * np.eye(3) + sin * cross_product_matrix + (1 - cos) * np.outer(rotation_vector, rotation_vector))
-        else:
-            rotation_matrix = np.eye(3)
-        if rotation != 0:
-            cross_product_matrix = np.array([[0, normal[2], -normal[1]],
-                                             [-normal[2], 0, normal[0]],
-                                             [normal[1], -normal[0], 0]])
-            cos = np.cos(-rotation)
-            sin = np.sin(-rotation)
-            rotation_matrix = (cos * np.eye(3) + sin * cross_product_matrix + (1 - cos) * np.outer(normal, normal)).dot(rotation_matrix)
-
-        positions = rotation_matrix.dot(positions)
-        positions += np.asarray(offset).reshape([3] + (positions.ndim - 1) * [1])
-        return positions, normals
+        return dragonfly_grid
