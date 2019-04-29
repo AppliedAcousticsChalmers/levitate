@@ -254,10 +254,10 @@ class TransducerArray:
         def pressure_derivs(self, positions, orders=3):
             """Cashed wrapper around `TransducerArray.pressure_derivs`."""
             if (
-                self._pressure_derivs is not None and
-                self._existing_orders >= orders and
-                positions.shape == self._last_positions.shape and
-                np.allclose(positions, self._last_positions)
+                self._pressure_derivs is not None
+                and self._existing_orders >= orders
+                and positions.shape == self._last_positions.shape
+                and np.allclose(positions, self._last_positions)
             ):
                 return self._pressure_derivs
 
@@ -266,7 +266,7 @@ class TransducerArray:
             self._last_positions = positions.copy()  # In case the position is modified externally we need to keep a separate reference
             return self._pressure_derivs
 
-        def pressure(self, positions):
+        def pressure(self, positions, complex_amplitudes=None):
             """Calculate the pressure field.
 
             Parameters
@@ -280,10 +280,11 @@ class TransducerArray:
             pressure : numpy.ndarray
                 The complex pressure amplitudes, shape (...) as the positions.
             """
-            return np.einsum('i..., i', self.pressure_derivs(positions, orders=0)[0], self.array.complex_amplitudes)
+            complex_amplitudes = complex_amplitudes if complex_amplitudes is not None else self.array.complex_amplitudes
+            return np.einsum('i..., i', self.pressure_derivs(positions, orders=0)[0], complex_amplitudes)
             # return self._cost_functions.pressure(self.array, pressure_derivs=self.pressure_derivs(positions, orders=0))(self.array.phases, self.array.amplitudes)
 
-        def velocity(self, positions):
+        def velocity(self, positions, complex_amplitudes=None):
             """Calculate the velocity field.
 
             Parameters
@@ -297,10 +298,11 @@ class TransducerArray:
             velocity : numpy.ndarray
                 The complex vector particle velocity, shape (3, ...) as the positions.
             """
-            return np.einsum('ji..., i->j...', self.pressure_derivs(positions, orders=1)[1:4], self.array.complex_amplitudes) / (1j * self.array.omega * self.array.medium.rho)
+            complex_amplitudes = complex_amplitudes if complex_amplitudes is not None else self.array.complex_amplitudes
+            return np.einsum('ji..., i->j...', self.pressure_derivs(positions, orders=1)[1:4], complex_amplitudes) / (1j * self.array.omega * self.array.medium.rho)
             # return self._cost_functions.velocity(self.array, pressure_derivs=self.pressure_derivs(positions, orders=1))(self.array.phases, self.array.amplitudes)
 
-        def force(self, positions, **kwargs):
+        def force(self, positions, complex_amplitudes=None, **kwargs):
             """Calculate the force field.
 
             Parameters
@@ -314,10 +316,11 @@ class TransducerArray:
             force : numpy.ndarray
                 The vector radiation force, shape (3, ...) as the positions.
             """
-            summed_derivs = np.einsum('ji..., i->j...', self.pressure_derivs(positions, orders=2), self.array.complex_amplitudes)
+            complex_amplitudes = complex_amplitudes if complex_amplitudes is not None else self.array.complex_amplitudes
+            summed_derivs = np.einsum('ji..., i->j...', self.pressure_derivs(positions, orders=2), complex_amplitudes)
             return TransducerArray.PersistentFieldEvaluator._force(self.array, **kwargs).calc_values(summed_derivs)
 
-        def stiffness(self, positions, **kwargs):
+        def stiffness(self, positions, complex_amplitudes=None, **kwargs):
             """Calculate the stiffness field.
 
             Parameters
@@ -331,7 +334,8 @@ class TransducerArray:
             force : numpy.ndarray
                 The radiation stiffness, shape (...) as the positions.
             """
-            summed_derivs = np.einsum('ji..., i->j...', self.pressure_derivs(positions, orders=3), self.array.complex_amplitudes)
+            complex_amplitudes = complex_amplitudes if complex_amplitudes is not None else self.array.complex_amplitudes
+            summed_derivs = np.einsum('ji..., i->j...', self.pressure_derivs(positions, orders=3), complex_amplitudes)
             return TransducerArray.PersistentFieldEvaluator._stiffness(self.array, **kwargs).calc_values(summed_derivs)
 
 
