@@ -68,6 +68,7 @@ class TransducerArray:
         transducer_kwargs = transducer_kwargs or {}
         self.medium = medium
         transducer_kwargs['medium'] = self.medium
+        self._extra_print_args = {}
 
         if transducer_model is None:
             from .transducers import PointSource
@@ -96,6 +97,8 @@ class TransducerArray:
         s_out = s_out.replace('%medium_full', repr(self.medium)).replace('%medium', str(self.medium))
         s_out = s_out.replace('%transducer_model_full', repr(self.transducer_model)).replace('%transducer_model', str(self.transducer_model))
         s_out = s_out.replace('%transducer_positions', repr(self.transducer_positions)).replace('%transducer_normals', repr(self.transducer_normals))
+        for key, value in self._extra_print_args.items():
+            s_out = s_out.replace('%' + key, str(value))
         return s_out
 
     def __repr__(self):
@@ -368,10 +371,10 @@ class RectangularArray(TransducerArray):
         The in-plane rotation of the array around the normal.
     """
 
-    _str_fmt_spec = '{:%cls(transducer_model=%transducer_model, %grid_args)}'
+    _str_fmt_spec = '{:%cls(transducer_model=%transducer_model, shape=%shape, spread=%spread, offset=%offset, normal=%normal, rotation=%rotation)}'
 
     def __init__(self, shape=16, spread=10e-3, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
-        self._grid_args = {'shape': shape, 'spread': spread, 'offset': offset, 'normal': normal, 'rotation': rotation}  # Used for nice sting formating
+        extra_print_args = {'shape': shape, 'spread': spread, 'offset': offset, 'normal': normal, 'rotation': rotation}
         normal = np.asarray(normal, dtype='float64')
         normal /= (normal**2).sum()**0.5
         positions, normals = self._grid_generator(shape=shape, spread=spread, normal=normal, **kwargs)
@@ -403,12 +406,7 @@ class RectangularArray(TransducerArray):
         kwargs.setdefault('transducer_positions', positions)
         kwargs.setdefault('transducer_normals', normals)
         super().__init__(**kwargs)
-
-    def __format__(self, fmt_spec):
-        grid_args_str = ''
-        for key, value in self._grid_args.items():
-            grid_args_str += str(key) + '=' + str(value) + ', '
-        return super().__format__(fmt_spec).replace('%grid_args', grid_args_str.rstrip(', '))
+        self._extra_print_args.update(extra_print_args)
 
     @classmethod
     def _grid_generator(cls, shape=None, spread=None, normal=(0, 0, 1), **kwargs):
@@ -546,10 +544,12 @@ class DoublesidedArray(TransducerArray):
         The normal of the reflection plane.
     """
 
+    _str_fmt_spec = '{:%cls(%array, separation=%separation, normal=%normal, offset=%offset)}'
 
     def __init__(self, array, separation, normal=(0, 0, 1), offset=(0, 0, 0), **kwargs):
         if type(array) is type:
             array = array(normal=normal, **kwargs)
+        extra_print_args = {'separation': separation, 'normal': normal, 'offset': offset, 'array': str(array)}
         normal = np.asarray(normal, dtype='float64').copy()
         normal /= (normal**2).sum()**0.5
         offset = np.asarray(offset).copy()
@@ -564,20 +564,9 @@ class DoublesidedArray(TransducerArray):
             transducer_normals=np.concatenate([lower_normals, upper_normals], axis=1),
             transducer_model=array.transducer_model, transducer_size=array.transducer_size,
         )
-        if not hasattr(self, '_grid_args'):
-            self._grid_args = {}
-        self._grid_args['separation'] = separation
-        self._grid_args['offset'] = offset
-        self._grid_args['normal'] = normal
-        self._grid_args['rotation'] = rotation
+        self._extra_print_args.update(extra_print_args)
 
         self._array_type = type(array)
-
-    def __format__(self, fmt_spec):
-        grid_args_str = ''
-        for key, value in self._grid_args.items():
-            grid_args_str += str(key) + '=' + str(value) + ', '
-        return super().__format__(fmt_spec).replace('%grid_args', grid_args_str.rstrip(', '))
 
     def signature(self, position=None, stype=None, *args, **kwargs):
         """Calculate phase signatures of the array.
@@ -633,6 +622,7 @@ class DragonflyArray(RectangularArray):
     behaves exactly like a `RectangularArray`.
     """
 
+    _str_fmt_spec = '{:%cls(transducer_model=%transducer_model, offset=%offset, normal=%normal, rotation=%rotation)}'
 
     @classmethod
     def _grid_generator(cls, **kwargs):
