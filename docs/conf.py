@@ -60,6 +60,7 @@ autodoc_default_options = {
     'member-order': 'bysource',
     'special-members': '__call__',
 }
+autodoc_member_order = 'bysource'
 
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True

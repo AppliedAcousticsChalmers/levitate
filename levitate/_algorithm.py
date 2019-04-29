@@ -288,7 +288,10 @@ class VectorBase:
     def __add__(self, other):
         if other == 0:
             return self
-        if type(self) == type(other) or type(other) == type(self).__bases__[1]:
+        other_type = type(other)
+        if VectorBase in other_type.__bases__:
+            other_type = other_type.__bases__[1]
+        if other_type == type(self).__bases__[1]:
             return AlgorithmPoint(self, other)
         else:
             return NotImplemented
