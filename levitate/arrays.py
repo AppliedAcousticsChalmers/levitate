@@ -513,73 +513,71 @@ class RectangularArray(TransducerArray):
         return super().signature(position, stype=stype, *args, **kwargs)
 
 
-class DoublesidedArray:
+class DoublesidedArray(TransducerArray):
     """TransducerArray implementation for doublesided arrays.
 
     Creates a doublesided array based on mirroring a singlesided array.
+    This can easily be used to create standard doublesided arrays by using
+    the same normal for the mirroring as for the original array. If a different
+    normal is used it is possible to create e.g. v-shaped arrays.
+
+        1) The singlesided array is "centered" at the origin, where "center" is
+           defined as the mean coordinate of the elements.
+        2) The singlsided array is shifted with half of the separation in the
+           opposite direction of the normal to create the "lower" half.
+        3) The "upper" half is created by mirroring the "lower" half in the plane
+           described by the normal.
+        4) Both halves are offset with a specified vector.
+
+    Note that only the orientation of the initial array matters, not the
+    overall position.
 
     Parameters
     ----------
-    ctype : Subclass of `TransducerArray`
-        A class representing a singlesided array. Needs to implement `grid_generator`.
+    array : Instance or (sub)class of `TransducerArray`.
+        The singlesided object used to the creation of the doublesided array.
+        Classes will be instantiated to gererate the array, using all input
+        arguments except `array`, `separation`, and `offset`.
     separation : float
         The distance between the two halves, along the normal.
     offset : array_like, 3 elements
         The placement of the center between the two arrays.
     normal : array_like, 3 elements
-        The normal of the first half.
-    rotation : float, default 0
-        The rotation around the normal of the first half.
-    **kwargs
-        Remaining arguments will be passed to the initializer for the singlesided array.
+        The normal of the reflection plane.
     """
 
-    def __new__(cls, ctype, *args, **kwargs):
-        """Create a new instance of the metaclass."""
-        str_fmt_spec = ctype._str_fmt_spec
-        if '%grid_args' not in str_fmt_spec:
-            before, after = str_fmt_spec.split(')')
-            str_fmt_spec = before + ', %grid_args)' + after
-        obj = ctype.__new__(ctype)
-        obj.__class__ = type('Doublesided{}'.format(ctype.__name__), (DoublesidedArray, ctype), {'_str_fmt_spec': str_fmt_spec})
-        return obj
 
-    def __init__(self, ctype, separation, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
-        # positions, normals = self.doublesided_generator(separation, offset=offset, normal=normal, rotation=rotation, **kwargs)
-        super().__init__(separation=separation, offset=offset, normal=normal, rotation=rotation, **kwargs)
+    def __init__(self, array, separation, normal=(0, 0, 1), offset=(0, 0, 0), **kwargs):
+        if type(array) is type:
+            array = array(normal=normal, **kwargs)
+        normal = np.asarray(normal, dtype='float64').copy()
+        normal /= (normal**2).sum()**0.5
+        offset = np.asarray(offset).copy()
+        lower_positions = array.transducer_positions - 0.5 * separation * normal[:, None]
+        lower_positions -= np.mean(array.transducer_positions, axis=1)[:, None]
+        upper_positions = lower_positions - 2 * np.sum(lower_positions * normal[:, None], axis=0) * normal[:, None]
+        lower_normals = array.transducer_normals.copy()
+        normal_proj = np.sum(lower_normals * normal[:, None], axis=0) * normal[:, None]
+        upper_normals = lower_normals - 2 * normal_proj
+        super().__init__(
+            transducer_positions=np.concatenate([lower_positions, upper_positions], axis=1) + offset[:, None],
+            transducer_normals=np.concatenate([lower_normals, upper_normals], axis=1),
+            transducer_model=array.transducer_model, transducer_size=array.transducer_size,
+        )
         if not hasattr(self, '_grid_args'):
             self._grid_args = {}
         self._grid_args['separation'] = separation
         self._grid_args['offset'] = offset
         self._grid_args['normal'] = normal
         self._grid_args['rotation'] = rotation
-        # TransducerArray.__init__(self, positions, normals, **kwargs)
+
+        self._array_type = type(array)
 
     def __format__(self, fmt_spec):
         grid_args_str = ''
         for key, value in self._grid_args.items():
             grid_args_str += str(key) + '=' + str(value) + ', '
         return super().__format__(fmt_spec).replace('%grid_args', grid_args_str.rstrip(', '))
-
-    @classmethod
-    def grid_generator(cls, separation=None, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
-        """Create a double sided transducer grid.
-
-        See `DoublesidedArray`.
-
-        Returns
-        -------
-        positions : numpy.ndarray
-            3xN array with the positions of the elements.
-        normals : numpy.ndarray
-            3xN array with the normals of the elements.
-        """
-        normal = np.asarray(normal, dtype='float64')
-        normal /= (normal**2).sum()**0.5
-
-        pos_1, norm_1 = super().grid_generator(offset=offset - 0.5 * separation * normal, normal=normal, rotation=rotation, **kwargs)
-        pos_2, norm_2 = super().grid_generator(offset=offset + 0.5 * separation * normal, normal=-normal, rotation=-rotation, **kwargs)
-        return np.concatenate([pos_1, pos_2], axis=1), np.concatenate([norm_1, norm_2], axis=1)
 
     def signature(self, position=None, stype=None, *args, **kwargs):
         """Calculate phase signatures of the array.
@@ -619,6 +617,11 @@ class DoublesidedArray:
             return TransducerArray.signature(self, position, stype=stype, *args, **kwargs)
         if stype.lower().strip() == 'doublesided':
             return np.where(np.arange(self.num_transducers) < self.num_transducers // 2, 0, np.pi)
+        try:
+            return self._array_type.signature(self, position, stype=stype, *args, **kwargs)
+        except TypeError as e:
+            if str(e) != 'super(type, obj): obj must be an instance or subtype of type':
+                raise
         return super().signature(self, position, stype=stype, *args, **kwargs)
 
 
