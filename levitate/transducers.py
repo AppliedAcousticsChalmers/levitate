@@ -438,8 +438,8 @@ class PointSource(TransducerModel):
         return self.p0 * 4 * np.pi * 1j * self.k * directivity * coefficients
 
 
-class ReflectingTransducer:
-    """Metaclass for transducers with planar reflectors.
+class TransducerReflector(TransducerModel):
+    """Class for transducers with planar reflectors.
 
     This class can be used to add reflectors to all transducer models.
     This uses the image source method, so only infinite planar reflectors are
@@ -447,48 +447,77 @@ class ReflectingTransducer:
 
     Parameters
     ----------
-    ctype : class
-        The class implementing the transducer model.
+    transducer : `TrnsducerModel` instance or (sub)class
+        The base transducer to reflect. If passed a class it will be instantiated
+        with the remaining arguments not used by the reflector.
     plane_distance : float
         The distance between the array and the reflector, along the normal.
     plane_normal : array_like, default (0,0,1)
         3 element vector with the plane normal.
     reflection_coefficient : complex float, default 1
         Reflection coefficient to tune the magnitude and phase of the reflection.
-    *args
-        Passed to ctype initializer
-    **kwargs
-        Passed to ctype initializer
 
     Returns
     -------
     transducer
-        An object of a dynamically created class, inheriting from ReflectingTransducer and ctype.
+        The transducer model with reflections.
 
     """
 
-    def __new__(cls, ctype, *args, **kwargs):
-        obj = ctype.__new__(ctype)
-        _str_fmt_spec = ctype._str_fmt_spec.rstrip(')}') + ', plane_distance=%plane_distance, plane_normal=%plane_normal, reflection_coefficient=%reflection_coefficient)}'
-        _repr_fmt_spec = ctype._repr_fmt_spec.rstrip(')}') + ', plane_distance=%plane_distance, plane_normal=%plane_normal, reflection_coefficient=%reflection_coefficient)}'
-        obj.__class__ = type('Reflecting{}'.format(ctype.__name__), (ReflectingTransducer, ctype), {'_str_fmt_spec': _str_fmt_spec, '_repr_fmt_spec': _repr_fmt_spec})
-        return obj
+    _repr_fmt_spec = '{:%cls(transducer=%transducer_full, plane_distance=%plane_distance, plane_normal=%plane_normal, reflection_coefficient=%reflection_coefficient)}'
+    _str_fmt_spec = '{:%cls(transducer=%transducer, plane_distance=%plane_distance, plane_normal=%plane_normal, reflection_coefficient=%reflection_coefficient)}'
 
-    def __init__(self, ctype, plane_distance, plane_normal=(0, 0, 1), reflection_coefficient=1, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, transducer, plane_distance, plane_normal=(0, 0, 1), reflection_coefficient=1, *args, **kwargs):
+        if type(transducer) is type:
+            transducer = transducer(*args, **kwargs)
+        self._transducer = transducer
         self.plane_distance = plane_distance
         self.plane_normal = np.asarray(plane_normal, dtype='float64')
         self.plane_normal /= (self.plane_normal**2).sum()**0.5
         self.reflection_coefficient = reflection_coefficient
 
-    def __format__(self, fmt_spec):
-        return super().__format__(fmt_spec).replace('%plane_distance', str(self.plane_distance)).replace('%plane_normal', str(list(self.plane_normal))).replace('%reflection_coefficient', str(self.reflection_coefficient))
+    def __format__(self, fmt_str):
+        s_out = fmt_str.replace('%transducer_full', repr(self._transducer)).replace('%transducer', str(self._transducer))
+        s_out = s_out.replace('%plane_distance', str(self.plane_distance)).replace('%plane_normal', str(tuple(self.plane_normal)))
+        s_out = s_out.replace('%reflection_coefficient', str(self.reflection_coefficient))
+        return super().__format__(s_out)
+
+    @property
+    def omega(self):
+        return self._transducer.omega
+
+    @omega.setter
+    def omega(self, val):
+        self._transducer.omega = val
+
+    @property
+    def k(self):
+        return self._transducer.k
+
+    @k.setter
+    def k(self, val):
+        self._transducer.k = val
+
+    @property
+    def medium(self):
+        return self._transducer.medium
+
+    @medium.setter
+    def medium(self, val):
+        self._transducer.medium = val
+
+    @property
+    def p0(self):
+        return self._transducer.p0
+
+    @p0.setter
+    def p0(self, val):
+        self._transducer.p0 = val
 
     def greens_function(self, source_position, source_normal, receiver_positions):
-        """Evaluate the transducer radiation.
+        r"""Evaluate the pressure at a point.
 
-        This evaluates the Green's function for the underlying transducer model,
-        using the main source and the image source.
+        The equation is that of a plane wave, :math:`G(\vec x) = p_0 \exp(j\vec k \cdot \vec x)`.
 
         Parameters
         ----------
@@ -503,19 +532,16 @@ class ReflectingTransducer:
         Returns
         -------
         out : numpy.ndarray
-            The pressure at the locations, shape (...) as `receiver_positions`
+            The pressure at the locations, shape (...) as `receiver_positions`.
         """
-        direct = super().greens_function(source_position, source_normal, receiver_positions)
+        direct = self._transducer.greens_function(source_position, source_normal, receiver_positions)
         mirror_position = source_position - 2 * self.plane_normal * ((source_position * self.plane_normal).sum() - self.plane_distance)
         mirror_normal = source_normal - 2 * self.plane_normal * (source_normal * self.plane_normal).sum()
-        reflected = super().greens_function(mirror_position, mirror_normal, receiver_positions)
+        reflected = self._transducer.greens_function(mirror_position, mirror_normal, receiver_positions)
         return direct + self.reflection_coefficient * reflected
 
     def pressure_derivs(self, source_position, source_normal, receiver_positions, orders=3, **kwargs):
-        """Calculate the spatial derivatives of the transducer radiation.
-
-        This calculates the spatial derivatives for the underlying transducer model,
-        using the main source and the image source.
+        """Calculate the spatial derivatives of the greens function.
 
         Parameters
         ----------
@@ -532,14 +558,14 @@ class ReflectingTransducer:
         Returns
         -------
         derivatives : numpy.ndarray
-            Array with the calculated derivatives. Has the shape (M,...) where M is the number of spatial
+            Array with the calculated derivatives. Has the shape (M, ...) where M is the number of spatial
             derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`, and the remaining
             dimensions are as `receiver_positions`.
         """
-        direct = super().pressure_derivs(source_position, source_normal, receiver_positions, orders, **kwargs)
+        direct = self._transducer.pressure_derivs(source_position, source_normal, receiver_positions, orders, **kwargs)
         mirror_position = source_position - 2 * self.plane_normal * ((source_position * self.plane_normal).sum() - self.plane_distance)
         mirror_normal = source_normal - 2 * self.plane_normal * (source_normal * self.plane_normal).sum()
-        reflected = super().pressure_derivs(mirror_position, mirror_normal, receiver_positions, orders, **kwargs)
+        reflected = self._transducer.pressure_derivs(mirror_position, mirror_normal, receiver_positions, orders, **kwargs)
         return direct + self.reflection_coefficient * reflected
 
 
