@@ -176,7 +176,7 @@ class TransducerArray:
         phase = np.mod(phase + np.pi, 2 * np.pi) - np.pi  # Wrap phase to [-pi, pi]
         return phase
 
-    def signature(self, focus, phases=None):
+    def signature(self, position, phases=None, stype=None):
         """Calculate the phase signature of the array.
 
         The signature of an array if the phase of the transducer elements
@@ -185,8 +185,8 @@ class TransducerArray:
 
         Parameters
         ----------
-        focus : array_like
-            Three element array with a location for where the signature is relative to.
+        position : array_like
+            Three element array with a position for where the signature is relative to.
         phases : numpy.ndarray, optional
             The phases of which to calculate the signature.
             Will default to the current phases in the array.
@@ -196,9 +196,11 @@ class TransducerArray:
         signature : numpy.ndarray
             The signature wrapped to the interval [-pi, pi].
         """
+        if stype is not None:
+            raise NotImplementedError("Unknown phase signature '{}' for array of type `{}`".format(stype, self.__class__.__name__))
         if phases is None:
             phases = self.phases
-        focus_phases = self.focus_phases(focus)
+        focus_phases = self.focus_phases(position)
         return np.mod(phases - focus_phases + np.pi, 2 * np.pi) - np.pi
 
     def pressure_derivs(self, positions, orders=3):
@@ -428,95 +430,85 @@ class RectangularArray(TransducerArray):
         positions += np.asarray(offset).reshape([3] + (positions.ndim - 1) * [1])
         return positions, normals
 
-    def twin_signature(self, position=(0, 0), angle=None):
-        """Get the twin trap signature.
 
-        The twin trap signature should be added to focusing phases for a specific point
-        in order to create a twin trap at that location. The twin signature shifts the
-        phase of half of the elements by pi, splitting the array along a straight line.
+    def signature(self, position=None, stype=None, *args, **kwargs):
+        """Calculate phase signatures of the array.
+
+        The signature of an array if the phase of the transducer elements
+        when the phase required to focus all elements to a specific point
+        has been removed. If `stype` if set to one of the available
+        signatures: 'twin', 'vortex', or 'bottle', the corresponding
+        signature is returned.
+
+        The signatures and the additional keyword parameters for them are:
+
+        Current signature (`stype=None`)
+            Calculates the current phase signature. See `TransducerArray.signature`
+
+            phases (`numpy.ndarray`, optional)
+                The phases of which to calculate the signature.
+                Will default to the current phases in the array.
+
+        Twin signature (`stype='twin'`)
+            Calculates the twin trap signature which shifts the phase of half
+            of the elements by pi, splitting the array along a straight line.
+
+            angle (`float`, optional)
+                The angle between the x-axis and the dividing line.
+                Default is to create a line perpendicular to the line from the
+                center of the array to `position`.
+
+        Vortex signature (`stype='vortex'`)
+            Calculates the vortex trap signature which phase shifts the
+            elements in the array according to their angle in the coordinate
+            plane.
+
+            angle (`float`, optional)
+                Additional angle to rotate the phase signature with.
+
+        Bottle signature (`stype='bottle'`)
+            Calculates the bottle trap signature which phase shifts the
+            elements in the array according to their distance from the center,
+            creating an inner zone and an outer zone of equal area with a
+            relative shift of pi.
+
+            radius (`float`, optional)
+                A custom radius to use for the division of transducers.
+                The default is to use equal area partition based on the
+                rectangular area occupied by each transducer. This gives the
+                same number of transducers in the two groups for square arrays.
 
         Parameters
         ----------
-        position : array_like, default (0, 0)
-            The center position for the signature, the line goes through this point.
-        angle : float, optional
-            The angle between the x-axis and the dividing line.
-            Default is to create a line perpendicular to the line from the center of the array
-            to `position`.
+        position : array_like
+            Three element array with a location for where the signature is relative to.
+        stype : None, 'twin', 'bottle', 'vortex'. Default None
+            Chooses which type of signature to calculate.
 
         Returns
         -------
         signature : numpy.ndarray
-            The twin signature.
-
-        Todo
-        ----
-        This is not at all working for arrays where the normal is not (0, 0, 1).
+            The signature wrapped to the interval [-pi, pi].
         """
-        if angle is None:
-            angle = np.arctan2(position[1], position[0]) + np.pi / 2
-        signature = np.arctan2(self.transducer_positions[1] - position[1], self.transducer_positions[0] - position[0]) - angle
-        signature = np.round(np.mod(signature / (2 * np.pi), 1))
-        signature = (signature - 0.5) * np.pi
-        return signature
-
-    def vortex_signature(self, position=(0, 0), angle=0):
-        """Get the vortex trap signature.
-
-        The vortex trap signature should be added to focusing phases for a specific point
-        in order to create a vortex trap at that location. The vortex signature phase shifts
-        the elements in the array according to their angle in the coordinate plane.
-
-        Parameters
-        ----------
-        position : array_like, default (0, 0)
-            The center position for the signature.
-        angle : float, default 0
-            An angle which will be added to the rotation, in radians.
-
-        Returns
-        -------
-        signature : numpy.ndarray
-            The vortex signature.
-
-        Todo
-        ----
-            This is not at all working for arrays where the normal is not (0, 0, 1).
-        """
-        return np.arctan2(self.transducer_positions[1] - position[1], self.transducer_positions[0] - position[0]) + angle
-
-    def bottle_signature(self, position=(0, 0), radius=None):
-        """Get the bottle trap signature.
-
-        The bottle trap signature should be added to focusing phases for a specific point
-        in order to create a bottle trap at that location. The bottle signature phase shifts
-        the elements in the array according to their distance from the center, creating
-        an inner zone and an outer zone of equal area with a relative shift of pi.
-
-        Parameters
-        ----------
-        position : array_like, default (0, 0)
-            The center position for the signature.
-        radius : numeric, optional
-            A custom radius to use for the division of transducers.
-            The default is to use equal area partition based on the rectangular
-            area occupied by each transducer. This gives the same number of transducers
-            in the two groups for square arrays.
-
-        Returns
-        -------
-        signature : numpy.ndarray
-            The bottle signature.
-
-        Todo
-        ----
-            This is not at all working for arrays where the normal is not (0, 0, 1).
-        """
-        position = np.asarray(position)[:2]
-        if radius is None:
-            A = self.num_transducers * self.transducer_size**2
-            radius = (A / 2 / np.pi)**0.5
-        return np.where(np.sum((self.transducer_positions[:2] - position[:, None])**2, axis=0) > radius**2, np.pi, 0)
+        if stype is None:
+            return TransducerArray.signature(self, position, stype=stype, *args, **kwargs)
+        position = position if position is not None else (0, 0, 0)
+        if stype.lower().strip() == 'twin':
+            angle = kwargs.get('angle', None)
+            if angle is None:
+                angle = np.arctan2(position[1], position[0]) + np.pi / 2
+            signature = np.arctan2(self.transducer_positions[1] - position[1], self.transducer_positions[0] - position[0]) - angle
+            signature = np.round(np.mod(signature / (2 * np.pi), 1))
+            signature = (signature - 0.5) * np.pi
+            return signature
+        if stype.lower().strip() == 'vortex':
+            angle = kwargs.get('angle', 0)
+            return np.arctan2(self.transducer_positions[1] - position[1], self.transducer_positions[0] - position[0]) + angle
+        if stype.lower().strip() == 'bottle':
+            position = np.asarray(position)[:2]
+            radius = kwargs.get('radius', (self.num_transducers / 2 / np.pi)**0.5 * self.transducer_size)
+            return np.where(np.sum((self.transducer_positions[:2] - position[:, None])**2, axis=0) > radius**2, np.pi, 0)
+        return super().signature(position, stype=stype, *args, **kwargs)
 
 
 class DoublesidedArray:
@@ -587,19 +579,45 @@ class DoublesidedArray:
         pos_2, norm_2 = super().grid_generator(offset=offset + 0.5 * separation * normal, normal=-normal, rotation=-rotation, **kwargs)
         return np.concatenate([pos_1, pos_2], axis=1), np.concatenate([norm_1, norm_2], axis=1)
 
-    def doublesided_signature(self):
-        """Get the doublesided trap signature.
+    def signature(self, position=None, stype=None, *args, **kwargs):
+        """Calculate phase signatures of the array.
 
-        The doublesided trap signature should be added to focusing phases for a specific point
-        in order to create a trap at that location. The doublesided signature phase shifts
-        the elements in one side of the array by pi.
+        The signature of an array if the phase of the transducer elements
+        when the phase required to focus all elements to a specific point
+        has been removed. If `stype` if set to one of the available
+        signatures the corresponding signature is returned. The signatures
+        of the array used when creating the doublesided array are also available.
+
+        The signatures and the additional keyword parameters for them are:
+
+        Current signature (`stype=None`)
+            Calculates the current phase signature. See `TransducerArray.signature`
+
+            phases (`numpy.ndarray`, optional)
+                The phases of which to calculate the signature.
+                Will default to the current phases in the array.
+
+        Doublesided signature (`stype='doublesided'`)
+            Calculates the doublesided trap signature which shifts the phase
+            of one side of the array half of the elements by pi.
+
+        Parameters
+        ----------
+        position : array_like
+            Three element array with a location for where the signature is relative to.
+        stype : None, 'doublesided', etc. Default None
+            Chooses which type of signature to calculate.
 
         Returns
         -------
         signature : numpy.ndarray
-            The doublesided signature.
+            The signature wrapped to the interval [-pi, pi].
         """
-        return np.where(np.arange(self.num_transducers) < self.num_transducers // 2, 0, np.pi)
+        if stype is None:
+            return TransducerArray.signature(self, position, stype=stype, *args, **kwargs)
+        if stype.lower().strip() == 'doublesided':
+            return np.where(np.arange(self.num_transducers) < self.num_transducers // 2, 0, np.pi)
+        return super().signature(self, position, stype=stype, *args, **kwargs)
 
 
 class DragonflyArray(RectangularArray):

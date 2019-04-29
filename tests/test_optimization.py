@@ -4,7 +4,7 @@ import levitate
 
 pos = np.array([5, -2, 80]) * 1e-3
 array = levitate.arrays.RectangularArray(shape=2)
-array.phases = array.focus_phases(pos) + array.twin_signature()
+array.phases = array.focus_phases(pos) + array.signature(stype='twin')
 
 
 def test_minimize_phases_amplitudes():

@@ -6,7 +6,7 @@ array = levitate.arrays.RectangularArray(shape=(4, 5))
 pos_0 = np.array([0.1, 0.2, 0.3])
 pos_1 = np.array([-0.15, 1.27, 0.001])
 pos_both = np.stack((pos_0, pos_1), axis=1)
-array.phases = array.focus_phases((pos_0 + pos_1) / 2) + array.twin_signature()
+array.phases = array.focus_phases((pos_0 + pos_1) / 2) + array.signature(stype='twin')
 
 spat_ders = array.pressure_derivs(pos_both, orders=3)
 ind_ders = np.einsum('i, ji...->ji...', array.amplitudes * np.exp(1j * array.phases), spat_ders)

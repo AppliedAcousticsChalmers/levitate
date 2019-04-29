@@ -146,7 +146,7 @@ def test_double_sided_grid():
     np.testing.assert_allclose(array.transducer_positions, expected_positions)
     np.testing.assert_allclose(array.transducer_normals, expected_normals)
     expected_signature = np.array([0, 0, 0, 0, np.pi, np.pi, np.pi, np.pi])
-    np.testing.assert_allclose(array.doublesided_signature(), expected_signature)
+    np.testing.assert_allclose(array.signature(stype='doublesided'), expected_signature)
 
 
 def test_Array_basics():
@@ -165,14 +165,14 @@ def test_Array_basics():
     array = levitate.arrays.RectangularArray(shape=(4, 4), transducer_model=PlaneWaveTransducer)
     pos = np.array([7e-3, -3e-3, 70e-3])
     np.testing.assert_allclose(array.focus_phases(pos), np.array([+2.069588782645e+00, -2.511641902621e+00, -1.794667262208e+00, -2.103144086214e+00, +2.763870843565e+00, -1.794667262208e+00, -1.067679552580e+00, -1.380498791671e+00, +2.465230031099e+00, -2.103144086214e+00, -1.380498791671e+00, -1.691434660688e+00, +1.189733359830e+00, +2.863786956082e+00, -2.714709695304e+00, -3.017860322253e+00]))
-    np.testing.assert_allclose(array.twin_signature(pos), np.array([-1.570796326795e+00, -1.570796326795e+00, +1.570796326795e+00, +1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, +1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, +1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, +1.570796326795e+00]))
-    np.testing.assert_allclose(array.vortex_signature(pos), np.array([-2.642245931910e+00, -2.356194490192e+00, -1.735945004210e+00, -9.827937232473e-01, -3.050932766389e+00, -2.976443976175e+00, -2.356194490192e+00, -2.449786631269e-01, +2.792821650006e+00, +2.553590050042e+00, +1.815774989922e+00, +7.853981633974e-01, +2.455863142684e+00, +2.158798930342e+00, +1.681453547969e+00, +1.152571997216e+00]))
-    np.testing.assert_allclose(array.bottle_signature(pos), np.array([+3.141592653590e+00, +3.141592653590e+00, +0.000000000000e+00, +0.000000000000e+00, +3.141592653590e+00, +0.000000000000e+00, +0.000000000000e+00, +0.000000000000e+00, +3.141592653590e+00, +0.000000000000e+00, +0.000000000000e+00, +0.000000000000e+00, +3.141592653590e+00, +3.141592653590e+00, +3.141592653590e+00, +3.141592653590e+00]))
+    np.testing.assert_allclose(array.signature(pos, stype='twin'), np.array([-1.570796326795e+00, -1.570796326795e+00, +1.570796326795e+00, +1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, +1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, +1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, +1.570796326795e+00]))
+    np.testing.assert_allclose(array.signature(pos, stype='vortex'), np.array([-2.642245931910e+00, -2.356194490192e+00, -1.735945004210e+00, -9.827937232473e-01, -3.050932766389e+00, -2.976443976175e+00, -2.356194490192e+00, -2.449786631269e-01, +2.792821650006e+00, +2.553590050042e+00, +1.815774989922e+00, +7.853981633974e-01, +2.455863142684e+00, +2.158798930342e+00, +1.681453547969e+00, +1.152571997216e+00]))
+    np.testing.assert_allclose(array.signature(pos, stype='bottle'), np.array([+3.141592653590e+00, +3.141592653590e+00, +0.000000000000e+00, +0.000000000000e+00, +3.141592653590e+00, +0.000000000000e+00, +0.000000000000e+00, +0.000000000000e+00, +3.141592653590e+00, +0.000000000000e+00, +0.000000000000e+00, +0.000000000000e+00, +3.141592653590e+00, +3.141592653590e+00, +3.141592653590e+00, +3.141592653590e+00]))
     pos = np.array([0.1, -0.2, 0.3])
     np.testing.assert_allclose(array.focus_phases(pos), np.array([-1.4782875, 0.70451472, 2.70433793, -1.76613547, 1.07535199, -3.05482743, -1.08272084, 0.70451472, -2.79668059, -0.67375749, 1.27038374, 3.03192953, -0.52217161, 1.57048339, -2.79668059, -1.0609514]))
-    np.testing.assert_allclose(array.twin_signature(pos), np.array([-1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633]))
-    np.testing.assert_allclose(array.vortex_signature(), np.array([-2.35619449, -1.89254688, -1.24904577, -0.78539816, -2.8198421, -2.35619449, -0.78539816, -0.32175055, 2.8198421, 2.35619449, 0.78539816, 0.32175055, 2.35619449, 1.89254688, 1.24904577, 0.78539816]))
-    np.testing.assert_allclose(array.bottle_signature(), np.array([3.14159265, 0., 0., 3.14159265, 0., 0., 0., 0., 0., 0., 0., 0., 3.14159265, 0., 0., 3.14159265]))
+    np.testing.assert_allclose(array.signature(pos, stype='twin'), np.array([-1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633, -1.57079633]))
+    np.testing.assert_allclose(array.signature(stype='vortex'), np.array([-2.35619449, -1.89254688, -1.24904577, -0.78539816, -2.8198421, -2.35619449, -0.78539816, -0.32175055, 2.8198421, 2.35619449, 0.78539816, 0.32175055, 2.35619449, 1.89254688, 1.24904577, 0.78539816]))
+    np.testing.assert_allclose(array.signature(stype='bottle'), np.array([3.14159265, 0., 0., 3.14159265, 0., 0., 0., 0., 0., 0., 0., 0., 3.14159265, 0., 0., 3.14159265]))
 
 
 def test_Array_visualizer():
@@ -181,7 +181,7 @@ def test_Array_visualizer():
     p_trace = array.visualize.pressure()
     t_trace = array.visualize.transducers()
     pos = np.array([0, 0, 0.05])
-    signature = array.twin_signature(angle=np.pi)
+    signature = array.signature(angle=np.pi, stype='twin')
     array.phases = array.focus_phases(pos) + signature
     trap_pos = array.visualize.find_trap(pos)
     np.testing.assert_allclose(pos, trap_pos, atol=0.1e-3)

@@ -11,7 +11,7 @@ Air.rho = 1.2
 
 large_array = levitate.arrays.RectangularArray(shape=(9, 8))
 pos = np.array([-23, 12, 34.1]) * 1e-3
-large_array.phases = large_array.focus_phases(pos) + large_array.vortex_signature()
+large_array.phases = large_array.focus_phases(pos) + large_array.signature(stype='vortex')
 
 
 def test_gorkov_differentiations():
