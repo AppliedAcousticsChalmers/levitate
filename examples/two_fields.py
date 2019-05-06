@@ -11,7 +11,7 @@ from plotly.offline import plot
 array = levitate.arrays.RectangularArray((21, 12))
 trap_pos = np.array([-20e-3, 0, 60e-3])
 haptics_pos = np.array([40e-3, 0, 90e-3])
-array.phases = array.focus_phases(trap_pos) + array.twin_signature(trap_pos) + 0.2 * np.random.uniform(-np.pi, np.pi, array.num_transducers)
+array.phases = array.focus_phases(trap_pos) + array.signature(trap_pos, stype='twin') + 0.2 * np.random.uniform(-np.pi, np.pi, array.num_transducers)
 
 # The fields are superposed using mutual quiet zones, created by minimizing the
 # pressure and velocity at the secondary point in each field.

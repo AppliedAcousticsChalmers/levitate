@@ -10,7 +10,7 @@ from plotly.offline import plot
 
 pos = np.array([0, 0, 80e-3])
 array = levitate.arrays.RectangularArray(9)
-array.phases = array.focus_phases(pos) + array.twin_signature() + 0.2 * np.random.uniform(-np.pi, np.pi, array.num_transducers)
+array.phases = array.focus_phases(pos) + array.signature(stype='twin') + 0.2 * np.random.uniform(-np.pi, np.pi, array.num_transducers)
 
 # Create the cost functions and minimize them.
 point = levitate.algorithms.gorkov_laplacian(array) * (-100, -100, -1) + levitate.algorithms.pressure_squared_magnitude(array) * 1e-3
