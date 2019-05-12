@@ -62,15 +62,27 @@ def requires(**requirements):
 class Algorithm:
     _str_format_spec = '{:%cls%name}'
 
-    def __init__(self, array, *, calc_values, calc_jacobians=None, name=None, ndim=None):
-        self.name = name
-        self.ndim = ndim
+    def __init__(self, array, *, algorithm, **kwargs):
+        self.algorithm = algorithm
         value_indices = ''.join(chr(ord('i') + idx) for idx in range(self.ndim))
         self._sum_str = value_indices + ', ' + value_indices + '...'
-        self.calc_values = calc_values
-        self.calc_jacobians = calc_jacobians
-        self.array = array
-        self.requires = calc_values.requires.copy()
+        self.requires = self.calc_values.requires.copy()
+
+    @property
+    def name(self):
+        return self.algorithm.__class__.__name__
+    @property
+    def calc_values(self):
+        return self.algorithm.calc_values
+    @property
+    def calc_jacobians(self):
+        return self.algorithm.calc_jacobians
+    @property
+    def ndim(self):
+        return self.algorithm.ndim
+    @property
+    def array(self):
+        return self.algorithm.array
 
     def __call__(self, complex_transducer_amplitudes, position):
         # Prepare the requirements dict
@@ -109,8 +121,7 @@ class Algorithm:
         return spatial_structures
 
     def __mul__(self, weight):
-        return UnboundCostFunction(array=self.array, name=self.name, weight=weight, ndim=self.ndim,
-                                   calc_values=self.calc_values, calc_jacobians=self.calc_jacobians)
+        return UnboundCostFunction(array=self.array, name=self.name, weight=weight, algorithm=self.algorithm)
 
     def __rmul__(self, weight):
         return self.__mul__(weight)
@@ -119,8 +130,7 @@ class Algorithm:
         position = np.asarray(position)
         if position.ndim < 1 or position.shape[0] != 3:
             return NotImplemented
-        return BoundAlgorithm(array=self.array, name=self.name, position=position, ndim=self.ndim,
-                              calc_values=self.calc_values, calc_jacobians=self.calc_jacobians)
+        return BoundAlgorithm(array=self.array, name=self.name, position=position, algorithm=self.algorithm)
 
     def __add__(self, other):
         if other == 0:
@@ -152,8 +162,8 @@ class Algorithm:
 class BoundAlgorithm(Algorithm):
     _str_format_spec = '{:%cls%name%position}'
 
-    def __init__(self, array, *, calc_values, position, calc_jacobians=None, name=None, **kwargs):
-        super().__init__(array=array, calc_values=calc_values, calc_jacobians=calc_jacobians, name=name, **kwargs)
+    def __init__(self, array, *, algorithm, position, name=None, **kwargs):
+        super().__init__(array=array, algorithm=algorithm, name=name, **kwargs)
         self.position = position
 
     def __call__(self, complex_transducer_amplitudes):
@@ -183,20 +193,19 @@ class BoundAlgorithm(Algorithm):
         weight = np.asarray(weight)
         if weight.dtype == object:
             return NotImplemented
-        return CostFunction(array=self.array, name=self.name, ndim=self.ndim, weight=weight, position=self.position,
-                            calc_values=self.calc_values, calc_jacobians=self.calc_jacobians)
+        return CostFunction(array=self.array, name=self.name, weight=weight, position=self.position, algorithm=self.algorithm)
 
 
 class UnboundCostFunction(Algorithm):
     _str_format_spec = '{:%cls%name%weight}'
 
-    def __init__(self, array, *, calc_values, calc_jacobians, weight, name=None, **kwargs):
-        super().__init__(array=array, calc_values=calc_values, calc_jacobians=calc_jacobians, name=name, **kwargs)
+    def __init__(self, array, *, algorithm, weight, name=None, **kwargs):
+        super().__init__(array=array, algorithm=algorithm, name=name, **kwargs)
         self.weight = np.asarray(weight)
         if self.weight.ndim < self.ndim:
             extra_dims = self.ndim - self.weight.ndim
             self.weight.shape = (1,) * extra_dims + self.weight.shape
-        for key, value in calc_jacobians.requires.items():
+        for key, value in self.calc_jacobians.requires.items():
             self.requires[key] = max(value, self.requires.get(key, -1))
 
     def __call__(self, complex_transducer_amplitudes, position):
@@ -213,16 +222,15 @@ class UnboundCostFunction(Algorithm):
         position = np.asarray(position)
         if position.ndim < 1 or position.shape[0] != 3:
             return NotImplemented
-        return CostFunction(array=self.array, name=self.name, ndim=self.ndim, weight=self.weight, position=position,
-                            calc_values=self.calc_values, calc_jacobians=self.calc_jacobians)
+        return CostFunction(array=self.array, name=self.name, weight=self.weight, position=position, algorithm=self.algorithm)
 
 
 class CostFunction(UnboundCostFunction, BoundAlgorithm):
     _str_format_spec = '{:%cls%name%weight%position}'
 
     # Inharitance order is important here, we need to resolve to UnboundCostFunction.__mul__ and not BoundAlgorithm.__mul__
-    def __init__(self, array, *, calc_values, calc_jacobians, weight, position, name=None, **kwargs):
-        super().__init__(array=array, calc_values=calc_values, calc_jacobians=calc_jacobians, name=name, weight=weight, position=position, **kwargs)
+    def __init__(self, array, *, algorithm, weight, position, name=None, **kwargs):
+        super().__init__(array=array, algorithm=algorithm, name=name, weight=weight, position=position, **kwargs)
 
     def __call__(self, complex_transducer_amplitudes):
         spatial_structures = self._spatial_structures()
