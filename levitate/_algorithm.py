@@ -165,7 +165,7 @@ class Algorithm:
         return self.__add__(other)
 
     def __sub__(self, vector):
-        return VectorBase(algorithm=self, target_vector=vector)
+        return VectorAlgorithm(algorithm=self, target_vector=vector)
 
     def __str__(self, not_api_call=True):
         return self._str_format_spec.format(self)
@@ -210,6 +210,9 @@ class BoundAlgorithm(Algorithm):
         except AttributeError:
             return NotImplemented
 
+    def __sub__(self, vector):
+        return VectorBoundAlgorithm(algorithm=self, target_vector=vector, position=self.position)
+
     def __mul__(self, weight):
         weight = np.asarray(weight)
         if weight.dtype == object:
@@ -239,6 +242,9 @@ class UnboundCostFunction(Algorithm):
     def __mul__(self, weight):
         return super().__mul__(self.weight * weight)
 
+    def __sub__(self, vector):
+        return VectorUnboundCostFunction(algorithm=self, target_vector=vector, weight=self.weight)
+
     def __matmul__(self, position):
         position = np.asarray(position)
         if position.ndim < 1 or position.shape[0] != 3:
@@ -260,59 +266,38 @@ class CostFunction(UnboundCostFunction, BoundAlgorithm):
         jacobians = self.calc_jacobians(**{key: requirements[key] for key in self.calc_jacobians.requires})
         return np.einsum(self._sum_str, self.weight, values), np.einsum(self._sum_str, self.weight, jacobians)
 
+    def __sub__(self, vector):
+        return VectorCostFunction(algorithm=self, target_vector=vector, weight=self.weight, position=self.position)
 
-class VectorBase:
 
-    def __new__(cls, algorithm, *, target_vector, **kwargs):
-        alg_type = type(algorithm)
-        obj = alg_type.__new__(alg_type)
-        obj.__class__ = type('Vector{}'.format(alg_type.__name__), (VectorBase, alg_type), {})
-        return obj
-
-    def __init__(self, algorithm, *, target_vector, **kwargs):
+class VectorBase(Algorithm):
+    def __init__(self, algorithm, target_vector, **kwargs):
+        if type(self) == VectorBase:
+            raise AssertionError('`VectorBase` should never be directly instantiated!')
+        self.calc_values.requires.update(algorithm.calc_values.requires)
+        self.calc_jacobians.requires.update(algorithm.calc_jacobians.requires)
+        for key, value in algorithm.calc_values.requires.items():
+            self.calc_jacobians.requires[key] = max(value, self.calc_jacobians.requires.get(key, -1))
+        super().__init__(algorithm=algorithm, **kwargs)
         target_vector = np.asarray(target_vector)
         self.target_vector = target_vector
-        if hasattr(algorithm, 'weight'):
-            kwargs['weight'] = algorithm.weight
-        if hasattr(algorithm, 'position'):
-            kwargs['position'] = algorithm.position
 
-        @functools.wraps(algorithm.calc_values)
-        def calc_values(**kwargs):
-            values = algorithm.calc_values(**kwargs)
-            values -= target_vector.reshape([-1] + (values.ndim - 1) * [1])
-            return np.real(values * np.conj(values))
-        calc_values.requires = algorithm.calc_values.requires.copy()
-        calc_values.is_vector = True
+    @property
+    def name(self):
+        return self.algorithm.name
 
-        # This form would be better since it does not rely on the explicit arguments,
-        # but it requires that the arguments of all algorithms are in line with the requirements
-        @functools.wraps(algorithm.calc_jacobians)
-        def calc_jacobians(**kwargs):
-            values = algorithm.calc_values(**{key: kwargs[key] for key in algorithm.calc_values.requires})
-            values -= self.target_vector.reshape([-1] + (values.ndim - 1) * [1])
-            jacobians = algorithm.calc_jacobians(**{key: kwargs[key] for key in algorithm.calc_jacobians.requires})
-            return 2 * jacobians * values.reshape(values.shape[:self.ndim] + (1,) + values.shape[self.ndim:])
-        calc_jacobians.requires = algorithm.calc_jacobians.requires.copy()
-        for key, value in algorithm.calc_values.requires.items():
-            calc_jacobians.requires[key] = max(value, calc_jacobians.requires.get(key, -1))
-        calc_jacobians.is_vector = True
+    @requires()
+    def calc_values(self, **kwargs):
+        values = self.algorithm.calc_values(**kwargs)
+        values -= self.target_vector.reshape([-1] + (values.ndim - 1) * [1])
+        return np.real(values * np.conj(values))
 
-        super().__init__(array=algorithm.array, calc_values=calc_values, calc_jacobians=calc_jacobians, name=algorithm.name, ndim=algorithm.ndim, **kwargs)
-
-    def __matmul__(self, position):
-        obj = super().__matmul__(position)
-        alg_type = type(obj)
-        obj.__class__ = type('Vector{}'.format(alg_type.__name__), (VectorBase, alg_type), {})
-        obj.target_vector = self.target_vector
-        return obj
-
-    def __mul__(self, weight):
-        obj = super().__mul__(weight)
-        alg_type = type(obj)
-        obj.__class__ = type('Vector{}'.format(alg_type.__name__), (VectorBase, alg_type), {})
-        obj.target_vector = self.target_vector
-        return obj
+    @requires()
+    def calc_jacobians(self, **kwargs):
+        values = self.algorithm.calc_values(**{key: kwargs[key] for key in self.algorithm.calc_values.requires})
+        values -= self.target_vector.reshape([-1] + (values.ndim - 1) * [1])
+        jacobians = self.algorithm.calc_jacobians(**{key: kwargs[key] for key in self.algorithm.calc_jacobians.requires})
+        return 2 * jacobians * values.reshape(values.shape[:self.ndim] + (1,) + values.shape[self.ndim:])
 
     def __add__(self, other):
         if other == 0:
@@ -328,6 +313,46 @@ class VectorBase:
     def __format__(self, format_spec):
         format_spec = format_spec.replace('%name', '||%name - %vector||^2').replace('%vector', str(self.target_vector))
         return super().__format__(format_spec)
+
+
+class VectorAlgorithm(VectorBase, Algorithm):
+    def __matmul__(self, position):
+        algorithm = self.algorithm @ position
+        return VectorBoundAlgorithm(algorithm=algorithm, target_vector=self.target_vector, position=algorithm.position)
+
+    def __mul__(self, weight):
+        algorithm = self.algorithm * weight
+        return VectorUnboundCostFunction(algorithm=algorithm, target_vector=self.target_vector, weight=algorithm.weight)
+
+
+class VectorBoundAlgorithm(VectorBase, BoundAlgorithm):
+    def __matmul__(self, position):
+        algorithm = self.algorithm @ position
+        return VectorBoundAlgorithm(algorithm=algorithm, target_vector=self.target_vector, position=algorithm.position)
+
+    def __mul__(self, weight):
+        algorithm = self.algorithm * weight
+        return VectorCostFunction(algorithm=algorithm, target_vector=self.target_vector, weight=algorithm.weight, position=algorithm.position)
+
+
+class VectorUnboundCostFunction(VectorBase, UnboundCostFunction):
+    def __matmul__(self, position):
+        algorithm = self.algorithm @ position
+        return VectorCostFunction(algorithm=algorithm, target_vector=self.target_vector, position=algorithm.position, weight=algorithm.weight)
+
+    def __mul__(self, weight):
+        algorithm = self.algorithm * weight
+        return VectorUnboundCostFunction(algorithm=algorithm, target_vector=self.target_vector, weight=algorithm.weight)
+
+
+class VectorCostFunction(VectorBase, CostFunction):
+    def __matmul__(self, position):
+        algorithm = self.algorithm @ position
+        return VectorCostFunction(algorithm=algorithm, target_vector=self.target_vector, position=algorithm.position, weight=algorithm.weight)
+
+    def __mul__(self, weight):
+        algorithm = self.algorithm * weight
+        return VectorCostFunction(algorithm=algorithm, target_vector=self.target_vector, weight=algorithm.weight, position=algorithm.position)
 
 
 class AlgorithmPoint(Algorithm):
