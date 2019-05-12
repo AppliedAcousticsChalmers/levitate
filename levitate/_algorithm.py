@@ -387,11 +387,17 @@ class AlgorithmPoint(Algorithm):
         return obj
 
     def __init__(self, *algorithms):
-        self.array = algorithms[0].array
         self.algorithms = []
         self.requires = {}
         for algorithm in algorithms:
             self += algorithm
+
+    def __getnewargs__(self):
+        return tuple(self.algorithms)
+
+    @property
+    def array(self):
+        return self.algorithms[0].array
 
     def __call__(self, complex_transducer_amplitudes, position):
         # Prepare the requirements dict
