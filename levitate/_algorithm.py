@@ -62,7 +62,7 @@ def requires(**requirements):
 class Algorithm:
     _str_format_spec = '{:%cls%name}'
 
-    def __init__(self, array, *, algorithm, **kwargs):
+    def __init__(self, algorithm):
         self.algorithm = algorithm
         value_indices = ''.join(chr(ord('i') + idx) for idx in range(self.ndim))
         self._sum_str = value_indices + ', ' + value_indices + '...'
@@ -121,7 +121,7 @@ class Algorithm:
         return spatial_structures
 
     def __mul__(self, weight):
-        return UnboundCostFunction(array=self.array, name=self.name, weight=weight, algorithm=self.algorithm)
+        return UnboundCostFunction(weight=weight, algorithm=self.algorithm)
 
     def __rmul__(self, weight):
         return self.__mul__(weight)
@@ -130,7 +130,7 @@ class Algorithm:
         position = np.asarray(position)
         if position.ndim < 1 or position.shape[0] != 3:
             return NotImplemented
-        return BoundAlgorithm(array=self.array, name=self.name, position=position, algorithm=self.algorithm)
+        return BoundAlgorithm(position=position, algorithm=self.algorithm)
 
     def __add__(self, other):
         if other == 0:
@@ -162,8 +162,8 @@ class Algorithm:
 class BoundAlgorithm(Algorithm):
     _str_format_spec = '{:%cls%name%position}'
 
-    def __init__(self, array, *, algorithm, position, name=None, **kwargs):
-        super().__init__(array=array, algorithm=algorithm, name=name, **kwargs)
+    def __init__(self, algorithm, position, **kwargs):
+        super().__init__(algorithm=algorithm, **kwargs)
         self.position = position
 
     def __call__(self, complex_transducer_amplitudes):
@@ -193,14 +193,14 @@ class BoundAlgorithm(Algorithm):
         weight = np.asarray(weight)
         if weight.dtype == object:
             return NotImplemented
-        return CostFunction(array=self.array, name=self.name, weight=weight, position=self.position, algorithm=self.algorithm)
+        return CostFunction(weight=weight, position=self.position, algorithm=self.algorithm)
 
 
 class UnboundCostFunction(Algorithm):
     _str_format_spec = '{:%cls%name%weight}'
 
-    def __init__(self, array, *, algorithm, weight, name=None, **kwargs):
-        super().__init__(array=array, algorithm=algorithm, name=name, **kwargs)
+    def __init__(self, algorithm, weight, **kwargs):
+        super().__init__(algorithm=algorithm, **kwargs)
         self.weight = np.asarray(weight)
         if self.weight.ndim < self.ndim:
             extra_dims = self.ndim - self.weight.ndim
@@ -222,15 +222,15 @@ class UnboundCostFunction(Algorithm):
         position = np.asarray(position)
         if position.ndim < 1 or position.shape[0] != 3:
             return NotImplemented
-        return CostFunction(array=self.array, name=self.name, weight=self.weight, position=position, algorithm=self.algorithm)
+        return CostFunction(weight=self.weight, position=position, algorithm=self.algorithm)
 
 
 class CostFunction(UnboundCostFunction, BoundAlgorithm):
     _str_format_spec = '{:%cls%name%weight%position}'
 
     # Inharitance order is important here, we need to resolve to UnboundCostFunction.__mul__ and not BoundAlgorithm.__mul__
-    def __init__(self, array, *, algorithm, weight, position, name=None, **kwargs):
-        super().__init__(array=array, algorithm=algorithm, name=name, weight=weight, position=position, **kwargs)
+    def __init__(self, algorithm, weight, position, **kwargs):
+        super().__init__(algorithm=algorithm, weight=weight, position=position, **kwargs)
 
     def __call__(self, complex_transducer_amplitudes):
         spatial_structures = self._spatial_structures()
