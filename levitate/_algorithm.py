@@ -40,6 +40,27 @@ def algorithm(ndim):
     return algorithm
 
 
+class AlgorithmImplementation:
+    def __new__(cls, array, *cls_args, weight=None, position=None, **cls_kwargs):
+        obj = object.__new__(cls)  # Call __new__ from object to use a "normal" __new__ method. calling cls.__new__ would give infinite recursion
+        obj.__init__(array, *cls_args, **cls_kwargs)  # Manually instantiate the object since the automatic __init__ call is skipped
+        if weight is None and position is None:
+            alg = Algorithm(algorithm=obj)
+        elif weight is None:
+            alg = BoundAlgorithm(algorithm=obj, position=position)
+        elif position is None:
+            alg = UnboundCostFunction(algorithm=obj, weight=weight)
+        elif weight is not None and position is not None:
+            alg = CostFunction(algorithm=obj, weight=weight, position=position)
+        return alg
+
+    def __init__(self, array, *args, **kwargs):
+        self.array = array
+
+    def __getnewargs__(self):
+        return (self.array, )
+
+
 def requires(**requirements):
     possible_requirements = [
         'complex_transducer_amplitudes',

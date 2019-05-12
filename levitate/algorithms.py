@@ -2,7 +2,32 @@
 
 import numpy as np
 from . import materials
-from ._algorithm import algorithm, requires
+from ._algorithm import algorithm, requires, AlgorithmImplementation
+
+
+class GorkovPotential(AlgorithmImplementation):
+    ndim = 0
+
+    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
+        super().__init__(array, *args, **kwargs)
+        V = 4 / 3 * np.pi * radius_sphere**3
+        monopole_coefficient = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
+        dipole_coefficient = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
+        preToVel = 1 / (array.omega * array.medium.rho)  # Converting velocity to pressure gradient using equation of motion
+        self.pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
+        self.gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
+
+    @requires(pressure_derivs_summed=1)
+    def calc_values(self, pressure_derivs_summed):
+        values = self.pressure_coefficient * np.real(pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[0]))
+        values -= self.gradient_coefficient * np.real(pressure_derivs_summed[1:4] * np.conj(pressure_derivs_summed[1:4])).sum(axis=0)
+        return values
+
+    @requires(pressure_derivs_summed=1, pressure_derivs_individual=1)
+    def calc_jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+        jacobians = self.pressure_coefficient * 2 * pressure_derivs_individual[0] * np.conj(pressure_derivs_summed[0])
+        jacobians -= self.gradient_coefficient * 2 * (pressure_derivs_individual[1:4] * np.conj(pressure_derivs_summed[1:4, None])).sum(axis=0)
+        return jacobians
 
 
 @algorithm(ndim=0)
