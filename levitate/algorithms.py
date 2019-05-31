@@ -136,8 +136,7 @@ class GorkovLaplacian(AlgorithmImplementation):
         return jacobians * 2
 
 
-@algorithm(ndim=1)
-def second_order_force(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
+class SecondOrderForce(AlgorithmImplementation):
     """
     Create second order radiation force calculation functions.
 
@@ -157,37 +156,41 @@ def second_order_force(array, radius_sphere=1e-3, sphere_material=materials.Styr
     sphere_material : Material
         The material of the sphere, default Styrofoam.
     """
-    f_1 = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
-    f_2 = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
 
-    ka = array.k * radius_sphere
-    k_square = array.k**2
-    psi_0 = -2 * ka**6 / 9 * (f_1**2 + f_2**2 / 4 + f_1 * f_2) - 1j * ka**3 / 3 * (2 * f_1 + f_2)
-    psi_1 = -ka**6 / 18 * f_2**2 + 1j * ka**3 / 3 * f_2
-    force_coeff = -np.pi / array.k**5 * array.medium.compressibility
+    ndim = 1
 
-    # Including the j factors from the paper directly in the coefficients.
-    psi_0 *= 1j
-    psi_1 *= 1j
+    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
+        super().__init__(array, *args, **kwargs)
+        f_1 = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
+        f_2 = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
+
+        ka = array.k * radius_sphere
+        self.k_square = array.k**2
+        self.psi_0 = -2 * ka**6 / 9 * (f_1**2 + f_2**2 / 4 + f_1 * f_2) - 1j * ka**3 / 3 * (2 * f_1 + f_2)
+        self.psi_1 = -ka**6 / 18 * f_2**2 + 1j * ka**3 / 3 * f_2
+        self.force_coeff = -np.pi / array.k**5 * array.medium.compressibility
+
+        # Including the j factors from the paper directly in the coefficients.
+        self.psi_0 *= 1j
+        self.psi_1 *= 1j
 
     @requires(pressure_derivs_summed=2)
-    def calc_values(pressure_derivs_summed):
-        values = np.real(k_square * psi_0 * pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[[1, 2, 3]]))
-        values += np.real(k_square * psi_1 * pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[0]))
-        values += np.real(3 * psi_1 * pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[[4, 7, 8]]))
-        values += np.real(3 * psi_1 * pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[[7, 5, 9]]))
-        values += np.real(3 * psi_1 * pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[[8, 9, 6]]))
-        return values * force_coeff
+    def calc_values(self, pressure_derivs_summed):
+        values = np.real(self.k_square * self.psi_0 * pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[[1, 2, 3]]))
+        values += np.real(self.k_square * self.psi_1 * pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[0]))
+        values += np.real(3 * self.psi_1 * pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[[4, 7, 8]]))
+        values += np.real(3 * self.psi_1 * pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[[7, 5, 9]]))
+        values += np.real(3 * self.psi_1 * pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[[8, 9, 6]]))
+        return values * self.force_coeff
 
     @requires(pressure_derivs_summed=2, pressure_derivs_individual=2)
-    def calc_jacobians(pressure_derivs_summed, pressure_derivs_individual):
-        jacobians = k_square * (psi_0 * pressure_derivs_individual[0] * np.conj(pressure_derivs_summed[[1, 2, 3], None]) + np.conj(psi_0) * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[[1, 2, 3]])
-        jacobians += k_square * (psi_1 * pressure_derivs_individual[[1, 2, 3]] * np.conj(pressure_derivs_summed[0]) + np.conj(psi_1) * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[0])
-        jacobians += 3 * (psi_1 * pressure_derivs_individual[1] * np.conj(pressure_derivs_summed[[4, 7, 8], None]) + np.conj(psi_1) * np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[4, 7, 8]])
-        jacobians += 3 * (psi_1 * pressure_derivs_individual[2] * np.conj(pressure_derivs_summed[[7, 5, 9], None]) + np.conj(psi_1) * np.conj(pressure_derivs_summed[2]) * pressure_derivs_individual[[7, 5, 9]])
-        jacobians += 3 * (psi_1 * pressure_derivs_individual[3] * np.conj(pressure_derivs_summed[[8, 9, 6], None]) + np.conj(psi_1) * np.conj(pressure_derivs_summed[3]) * pressure_derivs_individual[[8, 9, 6]])
-        return jacobians * force_coeff
-    return calc_values, calc_jacobians
+    def calc_jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+        jacobians = self.k_square * (self.psi_0 * pressure_derivs_individual[0] * np.conj(pressure_derivs_summed[[1, 2, 3], None]) + np.conj(self.psi_0) * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[[1, 2, 3]])
+        jacobians += self.k_square * (self.psi_1 * pressure_derivs_individual[[1, 2, 3]] * np.conj(pressure_derivs_summed[0]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[0])
+        jacobians += 3 * (self.psi_1 * pressure_derivs_individual[1] * np.conj(pressure_derivs_summed[[4, 7, 8], None]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[4, 7, 8]])
+        jacobians += 3 * (self.psi_1 * pressure_derivs_individual[2] * np.conj(pressure_derivs_summed[[7, 5, 9], None]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[2]) * pressure_derivs_individual[[7, 5, 9]])
+        jacobians += 3 * (self.psi_1 * pressure_derivs_individual[3] * np.conj(pressure_derivs_summed[[8, 9, 6], None]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[3]) * pressure_derivs_individual[[8, 9, 6]])
+        return jacobians * self.force_coeff
 
 
 @algorithm(ndim=1)
