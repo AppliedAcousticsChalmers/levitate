@@ -227,16 +227,10 @@ class TransducerArray:
             and N is the number of transducers, see `num_spatial_derivatives` and `spatial_derivative_order`,
             and the remaining dimensions are the same as the `positions` input with the first dimension removed.
         """
-        derivatives = np.empty((num_pressure_derivs[orders], self.num_transducers) + positions.shape[1:], dtype=np.complex128)
-        for idx in range(self.num_transducers):
-            derivatives[:, idx] = self.transducer_model.pressure_derivs(self.transducer_positions[:, idx], self.transducer_normals[:, idx], positions, orders)
-        return derivatives
+        return self.transducer_model.pressure_derivs(self.transducer_positions, self.transducer_normals, positions, orders)
 
     def spherical_harmonics(self, positions, orders=0):
-        coefs = np.empty(((orders + 1)**2, self.num_transducers) + positions.shape[1:], dtype=np.complex128)
-        for idx in range(self.num_transducers):
-            coefs[:, idx] = self.transducer_model.spherical_harmonics(self.transducer_positions[:, idx], self.transducer_normals[:, idx], positions, orders)
-        return coefs
+        return self.transducer_model.spherical_harmonics(self.transducer_positions, self.transducer_normals, positions, orders)
 
     class PersistentFieldEvaluator:
         """Implementation of cashed field calculations.
