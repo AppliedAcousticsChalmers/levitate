@@ -409,8 +409,7 @@ class PressureMagnitudeSquared(AlgorithmImplementation):
         return (2 * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[0])
 
 
-@algorithm(ndim=1)
-def velocity_squared_magnitude(array):
+class VelocityMagnitudeSquared(AlgorithmImplementation):
     """
     Create velocity squared magnitude calculation functions.
 
@@ -423,16 +422,20 @@ def velocity_squared_magnitude(array):
     array : TransducerArray
         The object modeling the array.
     """
-    pre_grad_2_vel_squared = 1 / (array.medium.rho * array.omega)**2
+
+    ndim = 1
+
+    def __init__(self, array, *args, **kwargs):
+        super().__init__(array, *args, **kwargs)
+        self.pre_grad_2_vel_squared = 1 / (array.medium.rho * array.omega)**2
 
     @requires(pressure_derivs_summed=1)
-    def calc_values(pressure_derivs_summed):
-        return np.real(pre_grad_2_vel_squared * pressure_derivs_summed[1:4] * np.conj(pressure_derivs_summed[1:4]))
+    def calc_values(self, pressure_derivs_summed):
+        return np.real(self.pre_grad_2_vel_squared * pressure_derivs_summed[1:4] * np.conj(pressure_derivs_summed[1:4]))
 
     @requires(pressure_derivs_summed=1, pressure_derivs_individual=1)
-    def calc_jacobians(pressure_derivs_summed, pressure_derivs_individual):
-        return 2 * pre_grad_2_vel_squared * np.conj(pressure_derivs_summed[1:4, None]) * pressure_derivs_individual[1:4]
-    return calc_values, calc_jacobians
+    def calc_jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+        return 2 * self.pre_grad_2_vel_squared * np.conj(pressure_derivs_summed[1:4, None]) * pressure_derivs_individual[1:4]
 
 
 @algorithm(ndim=1)
