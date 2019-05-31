@@ -2,7 +2,7 @@
 
 import numpy as np
 from . import materials
-from ._algorithm import algorithm, requires, AlgorithmImplementation
+from ._algorithm import requires, AlgorithmImplementation
 
 
 class GorkovPotential(AlgorithmImplementation):
@@ -46,8 +46,7 @@ class GorkovPotential(AlgorithmImplementation):
         return jacobians
 
 
-@algorithm(ndim=1)
-def gorkov_gradient(array, radius_sphere=1e-3, sphere_material=materials.Styrofoam):
+class GorkovGradient(AlgorithmImplementation):
     """
     Create gorkov gradient calculation functions.
 
@@ -63,29 +62,33 @@ def gorkov_gradient(array, radius_sphere=1e-3, sphere_material=materials.Styrofo
     sphere_material : Material
         The material of the sphere, default Styrofoam.
     """
-    V = 4 / 3 * np.pi * radius_sphere**3
-    monopole_coefficient = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
-    dipole_coefficient = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
-    preToVel = 1 / (array.omega * array.medium.rho)  # Converting velocity to pressure gradient using equation of motion
-    pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
-    gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
+
+    ndim = 1
+
+    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
+        super().__init__(array, *args, **kwargs)
+        V = 4 / 3 * np.pi * radius_sphere**3
+        monopole_coefficient = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
+        dipole_coefficient = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
+        preToVel = 1 / (array.omega * array.medium.rho)  # Converting velocity to pressure gradient using equation of motion
+        self.pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
+        self.gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
 
     @requires(pressure_derivs_summed=2)
-    def calc_values(pressure_derivs_summed):
-        values = np.real(pressure_coefficient * np.conj(pressure_derivs_summed[0]) * pressure_derivs_summed[1:4])  # Pressure parts
-        values -= np.real(gradient_coefficient * np.conj(pressure_derivs_summed[1]) * pressure_derivs_summed[[4, 7, 8]])  # Vx parts
-        values -= np.real(gradient_coefficient * np.conj(pressure_derivs_summed[2]) * pressure_derivs_summed[[7, 5, 9]])  # Vy parts
-        values -= np.real(gradient_coefficient * np.conj(pressure_derivs_summed[3]) * pressure_derivs_summed[[8, 9, 6]])  # Vz parts
+    def calc_values(self, pressure_derivs_summed):
+        values = np.real(self.pressure_coefficient * np.conj(pressure_derivs_summed[0]) * pressure_derivs_summed[1:4])  # Pressure parts
+        values -= np.real(self.gradient_coefficient * np.conj(pressure_derivs_summed[1]) * pressure_derivs_summed[[4, 7, 8]])  # Vx parts
+        values -= np.real(self.gradient_coefficient * np.conj(pressure_derivs_summed[2]) * pressure_derivs_summed[[7, 5, 9]])  # Vy parts
+        values -= np.real(self.gradient_coefficient * np.conj(pressure_derivs_summed[3]) * pressure_derivs_summed[[8, 9, 6]])  # Vz parts
         return values * 2
 
     @requires(pressure_derivs_summed=2, pressure_derivs_individual=2)
-    def calc_jacobians(pressure_derivs_summed, pressure_derivs_individual):
-        jacobians = pressure_coefficient * (np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[1:4] + np.conj(pressure_derivs_summed[1:4, None]) * pressure_derivs_individual[0])  # Pressure parts
-        jacobians -= gradient_coefficient * (np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[4, 7, 8]] + np.conj(pressure_derivs_summed[[4, 7, 8], None]) * pressure_derivs_individual[1])  # Vx parts
-        jacobians -= gradient_coefficient * (np.conj(pressure_derivs_summed[2]) * pressure_derivs_individual[[7, 5, 9]] + np.conj(pressure_derivs_summed[[7, 5, 9], None]) * pressure_derivs_individual[2])  # Vy parts
-        jacobians -= gradient_coefficient * (np.conj(pressure_derivs_summed[3]) * pressure_derivs_individual[[8, 9, 6]] + np.conj(pressure_derivs_summed[[8, 9, 6], None]) * pressure_derivs_individual[3])  # Vz parts
+    def calc_jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+        jacobians = self.pressure_coefficient * (np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[1:4] + np.conj(pressure_derivs_summed[1:4, None]) * pressure_derivs_individual[0])  # Pressure parts
+        jacobians -= self.gradient_coefficient * (np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[4, 7, 8]] + np.conj(pressure_derivs_summed[[4, 7, 8], None]) * pressure_derivs_individual[1])  # Vx parts
+        jacobians -= self.gradient_coefficient * (np.conj(pressure_derivs_summed[2]) * pressure_derivs_individual[[7, 5, 9]] + np.conj(pressure_derivs_summed[[7, 5, 9], None]) * pressure_derivs_individual[2])  # Vy parts
+        jacobians -= self.gradient_coefficient * (np.conj(pressure_derivs_summed[3]) * pressure_derivs_individual[[8, 9, 6]] + np.conj(pressure_derivs_summed[[8, 9, 6], None]) * pressure_derivs_individual[3])  # Vz parts
         return jacobians * 2
-    return calc_values, calc_jacobians
 
 
 @algorithm(ndim=1)
