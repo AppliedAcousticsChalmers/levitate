@@ -384,8 +384,7 @@ class SecondOrderForceGradient(AlgorithmImplementation):
         return values * self.force_coeff
 
 
-@algorithm(ndim=0)
-def pressure_squared_magnitude(array=None):
+class PressureMagnitudeSquared(AlgorithmImplementation):
     """
     Create pressure squared magnitude calculation functions.
 
@@ -398,14 +397,16 @@ def pressure_squared_magnitude(array=None):
     array : TransducerArray
         The object modeling the array, optional.
     """
+
+    ndim = 0
+
     @requires(pressure_derivs_summed=0)
-    def calc_values(pressure_derivs_summed):
-        return np.real(pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[0]))#[None, ...]
+    def calc_values(self, pressure_derivs_summed):
+        return np.real(pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[0]))
 
     @requires(pressure_derivs_summed=0, pressure_derivs_individual=0)
-    def calc_jacobians(pressure_derivs_summed, pressure_derivs_individual):
-        return (2 * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[0])#[None, ...]
-    return calc_values, calc_jacobians
+    def calc_jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+        return (2 * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[0])
 
 
 @algorithm(ndim=1)
