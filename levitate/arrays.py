@@ -248,7 +248,7 @@ class TransducerArray:
 
         """
 
-        from .algorithms import second_order_force as _force, second_order_stiffness as _stiffness
+        from .algorithms import SecondOrderForce as _force, SecondOrderStiffness as _stiffness
 
         def __init__(self, array):
             self.array = array

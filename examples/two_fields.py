@@ -17,9 +17,9 @@ array.phases = array.focus_phases(trap_pos) + array.signature(trap_pos, stype='t
 # pressure and velocity at the secondary point in each field.
 # We will need three algorithms, calculating the pressure magnitude,
 # the velocity magnitude, and the stiffenss of the trap.
-p = levitate.algorithms.pressure_squared_magnitude(array)
-v = levitate.algorithms.velocity_squared_magnitude(array)
-s = levitate.algorithms.second_order_stiffness(array)
+p = levitate.algorithms.PressureMagnitudeSquared(array)
+v = levitate.algorithms.VelocityMagnitudeSquared(array)
+s = levitate.algorithms.SecondOrderStiffness(array)
 
 # The levitation trap is found using a minimization sequence.
 # First the phases are optimized for just a trap,

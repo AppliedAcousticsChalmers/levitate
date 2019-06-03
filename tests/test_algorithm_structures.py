@@ -16,9 +16,9 @@ sum_ders = np.sum(ind_ders, axis=1)
 # Defines the algorithms to use for testing.
 # Note that the algorithm implementations themselves are tested elsewhere.
 pressure_derivs_algorithms = [
-    levitate.algorithms.gorkov_gradient,
-    levitate.algorithms.gorkov_laplacian,
-    levitate.algorithms.velocity_squared_magnitude,
+    levitate.algorithms.GorkovGradient,
+    levitate.algorithms.GorkovLaplacian,
+    levitate.algorithms.VelocityMagnitudeSquared,
 ]
 
 
