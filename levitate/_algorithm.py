@@ -159,6 +159,12 @@ class BoundAlgorithm(Algorithm):
         super().__init__(algorithm=algorithm, **kwargs)
         self.position = position
 
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and np.allclose(self.position, other.position)
+        )
+
     def __call__(self, complex_transducer_amplitudes):
         spatial_structures = self._spatial_structures()
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
@@ -204,6 +210,12 @@ class UnboundCostFunction(Algorithm):
         for key, value in self.jacobians_require.items():
             self.requires[key] = max(value, self.requires.get(key, -1))
 
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and np.allclose(self.weight, other.weight)
+        )
+
     def __call__(self, complex_transducer_amplitudes, position):
         spatial_structures = self._spatial_structures(position)
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
@@ -230,6 +242,9 @@ class CostFunction(UnboundCostFunction, BoundAlgorithm):
     # Inharitance order is important here, we need to resolve to UnboundCostFunction.__mul__ and not BoundAlgorithm.__mul__
     def __init__(self, algorithm, weight, position, **kwargs):
         super().__init__(algorithm=algorithm, weight=weight, position=position, **kwargs)
+
+    def __eq__(self, other):
+        return super().__eq__(other)
 
     def __call__(self, complex_transducer_amplitudes):
         spatial_structures = self._spatial_structures()
