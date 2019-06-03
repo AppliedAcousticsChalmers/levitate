@@ -269,6 +269,12 @@ class VectorBase(Algorithm):
         target_vector = np.asarray(target_vector)
         self.target_vector = target_vector
 
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and np.allclose(self.target_vector, other.target_vector)
+        )
+
     @property
     def name(self):
         return self.algorithm.name
