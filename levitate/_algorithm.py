@@ -75,25 +75,6 @@ def requirement(**requirements):
     return requirements
 
 
-def requires(**requirements):
-    possible_requirements = [
-        'complex_transducer_amplitudes',
-        'pressure_derivs_summed', 'pressure_derivs_individual',
-        'spherical_harmonics_summed', 'spherical_harmonics_individual',
-    ]
-    for requirement in requirements:
-        if requirement not in possible_requirements:
-            raise NotImplementedError("Requirement '{}' is not implemented for an algorithm. The possible requests are: {}".format(requirement, possible_requirements))
-
-    def wrapper(func):
-        @functools.wraps(func)
-        def wrapped(*args, **kwargs):
-            return func(*args, **kwargs)
-        wrapped.requires = requirements
-        return wrapped
-    return wrapper
-
-
 class Algorithm:
     _str_format_spec = '{:%cls%name}'
 
@@ -306,13 +287,11 @@ class VectorBase(Algorithm):
     def name(self):
         return self.algorithm.name
 
-    @requires()
     def calc_values(self, **kwargs):
         values = self.algorithm.calc_values(**kwargs)
         values -= self.target_vector.reshape([-1] + (values.ndim - 1) * [1])
         return np.real(values * np.conj(values))
 
-    @requires()
     def calc_jacobians(self, **kwargs):
         values = self.algorithm.calc_values(**{key: kwargs[key] for key in self.algorithm.values_require})
         values -= self.target_vector.reshape([-1] + (values.ndim - 1) * [1])
