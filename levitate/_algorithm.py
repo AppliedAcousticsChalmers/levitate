@@ -101,7 +101,7 @@ class Algorithm:
         self.algorithm = algorithm
         value_indices = ''.join(chr(ord('i') + idx) for idx in range(self.ndim))
         self._sum_str = value_indices + ', ' + value_indices + '...'
-        self.requires = self.calc_values.requires.copy()
+        self.requires = self.algorithm.values_require.copy()
 
     @property
     def name(self):
@@ -112,6 +112,12 @@ class Algorithm:
     @property
     def calc_jacobians(self):
         return self.algorithm.calc_jacobians
+    @property
+    def values_require(self):
+        return self.algorithm.values_require
+    @property
+    def jacobians_require(self):
+        return self.algorithm.jacobians_require
     @property
     def ndim(self):
         return self.algorithm.ndim
@@ -124,7 +130,7 @@ class Algorithm:
         spatial_structures = self._spatial_structures(position)
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
         # Call the function with the correct arguments
-        return self.calc_values(**{key: requirements[key] for key in self.calc_values.requires})
+        return self.calc_values(**{key: requirements[key] for key in self.values_require})
 
     def _evaluate_requirements(self, complex_transducer_amplitudes, spatial_structures):
         requirements = {}
@@ -204,7 +210,7 @@ class BoundAlgorithm(Algorithm):
     def __call__(self, complex_transducer_amplitudes):
         spatial_structures = self._spatial_structures()
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
-        return self.calc_values(**{key: requirements[key] for key in self.calc_values.requires})
+        return self.calc_values(**{key: requirements[key] for key in self.values_require})
 
     def _spatial_structures(self):
         try:
@@ -243,14 +249,14 @@ class UnboundCostFunction(Algorithm):
         if self.weight.ndim < self.ndim:
             extra_dims = self.ndim - self.weight.ndim
             self.weight.shape = (1,) * extra_dims + self.weight.shape
-        for key, value in self.calc_jacobians.requires.items():
+        for key, value in self.jacobians_require.items():
             self.requires[key] = max(value, self.requires.get(key, -1))
 
     def __call__(self, complex_transducer_amplitudes, position):
         spatial_structures = self._spatial_structures(position)
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
-        values = self.calc_values(**{key: requirements[key] for key in self.calc_values.requires})
-        jacobians = self.calc_jacobians(**{key: requirements[key] for key in self.calc_jacobians.requires})
+        values = self.calc_values(**{key: requirements[key] for key in self.values_require})
+        jacobians = self.calc_jacobians(**{key: requirements[key] for key in self.jacobians_require})
         return np.einsum(self._sum_str, self.weight, values), np.einsum(self._sum_str, self.weight, jacobians)
 
     def __mul__(self, weight):
@@ -276,8 +282,8 @@ class CostFunction(UnboundCostFunction, BoundAlgorithm):
     def __call__(self, complex_transducer_amplitudes):
         spatial_structures = self._spatial_structures()
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
-        values = self.calc_values(**{key: requirements[key] for key in self.calc_values.requires})
-        jacobians = self.calc_jacobians(**{key: requirements[key] for key in self.calc_jacobians.requires})
+        values = self.calc_values(**{key: requirements[key] for key in self.values_require})
+        jacobians = self.calc_jacobians(**{key: requirements[key] for key in self.jacobians_require})
         return np.einsum(self._sum_str, self.weight, values), np.einsum(self._sum_str, self.weight, jacobians)
 
     def __sub__(self, vector):
@@ -288,10 +294,10 @@ class VectorBase(Algorithm):
     def __init__(self, algorithm, target_vector, **kwargs):
         if type(self) == VectorBase:
             raise AssertionError('`VectorBase` should never be directly instantiated!')
-        self.calc_values.requires.update(algorithm.calc_values.requires)
-        self.calc_jacobians.requires.update(algorithm.calc_jacobians.requires)
-        for key, value in algorithm.calc_values.requires.items():
-            self.calc_jacobians.requires[key] = max(value, self.calc_jacobians.requires.get(key, -1))
+        self.values_require = algorithm.values_require.copy()
+        self.jacobians_require = algorithm.jacobians_require.copy()
+        for key, value in algorithm.values_require.items():
+            self.jacobians_require[key] = max(value, self.jacobians_require.get(key, -1))
         super().__init__(algorithm=algorithm, **kwargs)
         target_vector = np.asarray(target_vector)
         self.target_vector = target_vector
@@ -308,10 +314,27 @@ class VectorBase(Algorithm):
 
     @requires()
     def calc_jacobians(self, **kwargs):
-        values = self.algorithm.calc_values(**{key: kwargs[key] for key in self.algorithm.calc_values.requires})
+        values = self.algorithm.calc_values(**{key: kwargs[key] for key in self.algorithm.values_require})
         values -= self.target_vector.reshape([-1] + (values.ndim - 1) * [1])
-        jacobians = self.algorithm.calc_jacobians(**{key: kwargs[key] for key in self.algorithm.calc_jacobians.requires})
+        jacobians = self.algorithm.calc_jacobians(**{key: kwargs[key] for key in self.algorithm.jacobians_require})
         return 2 * jacobians * values.reshape(values.shape[:self.ndim] + (1,) + values.shape[self.ndim:])
+
+    # These properties are needed to not overwrite the requirements defined in the algorithm implementations.
+    @property
+    def values_require(self):
+        return self._values_require
+
+    @values_require.setter
+    def values_require(self, val):
+        self._values_require = val
+
+    @property
+    def jacobians_require(self):
+        return self._jacobians_require
+
+    @jacobians_require.setter
+    def jacobians_require(self, val):
+        self._jacobians_require = val
 
     def __add__(self, other):
         if other == 0:
@@ -416,7 +439,7 @@ class AlgorithmPoint(Algorithm):
         spatial_structures = self._spatial_structures(position)
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
         # Call the function with the correct arguments
-        return [algorithm.calc_values(**{key: requirements[key] for key in algorithm.calc_values.requires}) for algorithm in self.algorithms]
+        return [algorithm.calc_values(**{key: requirements[key] for key in algorithm.values_require}) for algorithm in self.algorithms]
 
     def __add__(self, other):
         if other == 0:
@@ -488,7 +511,7 @@ class BoundAlgorithmPoint(AlgorithmPoint, BoundAlgorithm):
     def __call__(self, complex_transducer_amplitudes):
         spatial_structures = self._spatial_structures()
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
-        return [algorithm.calc_values(**{key: requirements[key] for key in algorithm.calc_values.requires}) for algorithm in self.algorithms]
+        return [algorithm.calc_values(**{key: requirements[key] for key in algorithm.values_require}) for algorithm in self.algorithms]
 
     def __iadd__(self, other):
         try:
@@ -510,8 +533,8 @@ class UnboundCostFunctionPoint(AlgorithmPoint, UnboundCostFunction):
         value = 0
         jacobians = 0
         for algorithm in self.algorithms:
-            value += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.calc_values(**{key: requirements[key] for key in algorithm.calc_values.requires}))
-            jacobians += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.calc_jacobians(**{key: requirements[key] for key in algorithm.calc_jacobians.requires}))
+            value += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.calc_values(**{key: requirements[key] for key in algorithm.values_require}))
+            jacobians += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.calc_jacobians(**{key: requirements[key] for key in algorithm.jacobians_require}))
         return value, jacobians
 
     def __matmul__(self, position):
@@ -525,8 +548,8 @@ class CostFunctionPoint(UnboundCostFunctionPoint, BoundAlgorithmPoint, CostFunct
         value = 0
         jacobians = 0
         for algorithm in self.algorithms:
-            value += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.calc_values(**{key: requirements[key] for key in algorithm.calc_values.requires}))
-            jacobians += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.calc_jacobians(**{key: requirements[key] for key in algorithm.calc_jacobians.requires}))
+            value += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.calc_values(**{key: requirements[key] for key in algorithm.values_require}))
+            jacobians += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.calc_jacobians(**{key: requirements[key] for key in algorithm.jacobians_require}))
         return value, jacobians
 
 
