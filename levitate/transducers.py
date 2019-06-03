@@ -694,6 +694,9 @@ class CircularPiston(PointSource):
     def __format__(self, fmt_spec):
         return super().__format__(fmt_spec).replace('%effective_radius', str(self.effective_radius))
 
+    def __eq__(self, other):
+        return super().__eq__(other) and np.allclose(self.effective_radius, other.effective_radius)
+
     def directivity(self, source_positions, source_normals, receiver_positions):
         r"""Evaluate transducer directivity.
 
@@ -756,6 +759,9 @@ class CircularRing(PointSource):
 
     def __format__(self, fmt_spec):
         return super().__format__(fmt_spec).replace('%effective_radius', str(self.effective_radius))
+
+    def __eq__(self, other):
+        return super().__eq__(other) and np.allclose(self.effective_radius, other.effective_radius)
 
     def directivity(self, source_positions, source_normals, receiver_positions):
         r"""Evaluate transducer directivity.
