@@ -60,6 +60,15 @@ class TransducerModel:
     def _repr_pretty_(self, p, cycle):
         p.text(str(self))
 
+    def __eq__(self, other):
+        return (
+            type(self) == type(other)
+            and np.allclose(self.p0, other.p0)
+            and np.allclose(self.omega, other.omega)
+            and np.allclose(self.k, other.k)
+            and self.medium == other.medium
+        )
+
     @property
     def k(self):
         return self._k
