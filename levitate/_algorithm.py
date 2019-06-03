@@ -1,43 +1,4 @@
 import numpy as np
-import functools
-import textwrap
-
-
-def algorithm(ndim):
-    def algorithm(func):
-        func.__doc__ = func.__doc__ or 'Parameters\n----------\n'
-
-        @functools.wraps(func)
-        def wrapper(array, *args, weight=None, position=None, **kwargs):
-            outputs = func(array, *args, **kwargs)
-            try:
-                values, jacobians = outputs
-            except TypeError:
-                values = outputs
-                jacobians = None
-            if weight is None and position is None:
-                obj = Algorithm(array, calc_values=values, calc_jacobians=jacobians, name=func.__name__, ndim=ndim)
-            elif weight is None:
-                obj = BoundAlgorithm(array, calc_values=values, calc_jacobians=jacobians, name=func.__name__, ndim=ndim, position=position)
-            elif position is None:
-                obj = UnboundCostFunction(array, calc_values=values, calc_jacobians=jacobians, name=func.__name__, ndim=ndim, weight=weight)
-            elif weight is not None and position is not None:
-                obj = CostFunction(array, calc_values=values, calc_jacobians=jacobians, name=func.__name__, ndim=ndim, weight=weight, position=position)
-            return obj
-        wrapper.__doc__ = textwrap.dedent(wrapper.__doc__).rstrip('\n') + textwrap.dedent("""
-            weight : numeric, optional
-                Directly converting the algorithm to a cost function for use in optimizations.
-            position : 3 element numeric, optional
-                Directly binds the algorithm to one or more points in space for efficient execution.
-
-            Returns
-            -------
-            algorithm : `Algorithm`
-                An Algorithm object or a subclass thereof, depending on whether weight or position
-                was supplied in the call.
-            """)
-        return wrapper
-    return algorithm
 
 
 class AlgorithmImplementation:
