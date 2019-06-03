@@ -63,6 +63,18 @@ class AlgorithmImplementation:
         return (self.array,), {'_nowrap': True}
 
 
+def requirement(**requirements):
+    possible_requirements = [
+        'complex_transducer_amplitudes',
+        'pressure_derivs_summed', 'pressure_derivs_individual',
+        'spherical_harmonics_summed', 'spherical_harmonics_individual',
+    ]
+    for requirement in requirements:
+        if requirement not in possible_requirements:
+            raise NotImplementedError("Requirement '{}' is not implemented for an algorithm. The possible requests are: {}".format(requirement, possible_requirements))
+    return requirements
+
+
 def requires(**requirements):
     possible_requirements = [
         'complex_transducer_amplitudes',

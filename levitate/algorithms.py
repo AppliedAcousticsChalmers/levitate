@@ -2,7 +2,7 @@
 
 import numpy as np
 from . import materials
-from ._algorithm import requires, AlgorithmImplementation
+from ._algorithm import requires, AlgorithmImplementation, requirement
 from ._algorithms_legacy import *
 
 
@@ -24,6 +24,8 @@ class GorkovPotential(AlgorithmImplementation):
     """
 
     ndim = 0
+    values_require = requirement(pressure_derivs_summed=1)
+    jacobians_require = requirement(pressure_derivs_summed=1, pressure_derivs_individual=1)
 
     def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
@@ -65,6 +67,8 @@ class GorkovGradient(AlgorithmImplementation):
     """
 
     ndim = 1
+    values_require = requirement(pressure_derivs_summed=2)
+    jacobians_require = requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
     def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
@@ -110,6 +114,8 @@ class GorkovLaplacian(AlgorithmImplementation):
     """
 
     ndim = 1
+    values_require = requirement(pressure_derivs_summed=3)
+    jacobians_require = requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
 
     def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
@@ -159,6 +165,8 @@ class SecondOrderForce(AlgorithmImplementation):
     """
 
     ndim = 1
+    values_require = requirement(pressure_derivs_summed=2)
+    jacobians_require = requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
     def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
@@ -216,6 +224,8 @@ class SecondOrderStiffness(AlgorithmImplementation):
     """
 
     ndim = 1
+    values_require = requirement(pressure_derivs_summed=3)
+    jacobians_require = requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
 
     def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
@@ -254,6 +264,8 @@ class SecondOrderStiffness(AlgorithmImplementation):
 class SecondOrderCurl(AlgorithmImplementation):
 
     ndim = 1
+    values_require = requirement(pressure_derivs_summed=2)
+    jacobians_require = requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
     def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
@@ -300,6 +312,8 @@ class SecondOrderForceGradient(AlgorithmImplementation):
     """
 
     ndim = 2
+    values_require = requirement(pressure_derivs_summed=3)
+    jacobians_require = requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
 
     def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
@@ -400,6 +414,8 @@ class PressureMagnitudeSquared(AlgorithmImplementation):
     """
 
     ndim = 0
+    values_require = requirement(pressure_derivs_summed=0)
+    jacobians_require = requirement(pressure_derivs_summed=0, pressure_derivs_individual=0)
 
     @requires(pressure_derivs_summed=0)
     def calc_values(self, pressure_derivs_summed):
@@ -425,6 +441,8 @@ class VelocityMagnitudeSquared(AlgorithmImplementation):
     """
 
     ndim = 1
+    values_require = requirement(pressure_derivs_summed=1)
+    jacobians_require = requirement(pressure_derivs_summed=1, pressure_derivs_individual=1)
 
     def __init__(self, array, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
@@ -444,6 +462,8 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
 
     def __init__(self, array, orders, radius_sphere=1e-3, sphere_material=materials.Styrofoam, scattering_model='Hard sphere', *args, **kwargs):
         super().__init__(array, *args, **kwargs)
+        self.values_require = requirement(spherical_harmonics_summed=orders + 1)
+
         from . import spherical_harmonics_index as sph_idx
         from scipy.special import spherical_jn, spherical_yn
         # Create indexing arrays for sound field harmonics
