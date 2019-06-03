@@ -3,6 +3,7 @@
 import numpy as np
 from . import materials
 from ._algorithm import requires, AlgorithmImplementation
+from ._algorithms_legacy import *
 
 
 class GorkovPotential(AlgorithmImplementation):
@@ -438,84 +439,87 @@ class VelocityMagnitudeSquared(AlgorithmImplementation):
         return 2 * self.pre_grad_2_vel_squared * np.conj(pressure_derivs_summed[1:4, None]) * pressure_derivs_individual[1:4]
 
 
-@algorithm(ndim=1)
-def spherical_harmonics_force(array, orders, radius_sphere=1e-3, sphere_material=materials.Styrofoam, scattering_model='Hard sphere'):
-    from . import spherical_harmonics_index as sph_idx
-    from scipy.special import spherical_jn, spherical_yn
+class SphericalHarmonicsForce(AlgorithmImplementation):
+    ndim = 1
 
-    # Create indexing arrays for sound field harmonics
-    # N_broadcast = []  # Indices to broadcast arrays only dependent on n
-    N_M = []  # Indices for the S_n^m coefficients
-    Nr_M = []  # Indices for the S_(n+1)^m coefficients
-    Nr_Mr = []  # Indices for the S_(n+1)^(m+1) coefficients
-    N_mM = []  # Indices for the S_n^-m coefficients
-    Nr_mMr = []  # Indices for the S_(n+1)^-(m+1) coefficients
-    for n in range(0, orders + 1):  # Gives loop from 0 to orders, inclusive
-        for m in range(-n, n + 1):
-            # N_broadcast.append(n)
-            N_M.append(sph_idx(n, m))
-            Nr_M.append(sph_idx(n + 1, m))
-            Nr_Mr.append(sph_idx(n + 1, m + 1))
-            N_mM.append(sph_idx(n, -m))
-            Nr_mMr.append(sph_idx(n + 1, -1 - m))
+    def __init__(self, array, orders, radius_sphere=1e-3, sphere_material=materials.Styrofoam, scattering_model='Hard sphere', *args, **kwargs):
+        super().__init__(array, *args, **kwargs)
+        from . import spherical_harmonics_index as sph_idx
+        from scipy.special import spherical_jn, spherical_yn
+        # Create indexing arrays for sound field harmonics
+        # N_broadcast = []  # Indices to broadcast arrays only dependent on n
+        self.N_M = []  # Indices for the S_n^m coefficients
+        self.Nr_M = []  # Indices for the S_(n+1)^m coefficients
+        self.Nr_Mr = []  # Indices for the S_(n+1)^(m+1) coefficients
+        self.N_mM = []  # Indices for the S_n^-m coefficients
+        self.Nr_mMr = []  # Indices for the S_(n+1)^-(m+1) coefficients
+        for n in range(0, orders + 1):  # Gives loop from 0 to orders, inclusive
+            for m in range(-n, n + 1):
+                # N_broadcast.append(n)
+                self.N_M.append(sph_idx(n, m))
+                self.Nr_M.append(sph_idx(n + 1, m))
+                self.Nr_Mr.append(sph_idx(n + 1, m + 1))
+                self.N_mM.append(sph_idx(n, -m))
+                self.Nr_mMr.append(sph_idx(n + 1, -1 - m))
 
-    # for n_m, nr_m, nr_mr, n_mm, nr_mmr in zip(N_M, Nr_M, Nr_Mr, N_mM, Nr_mMr):
-        # print('(n,m): {}\t(n+1,m): {}\t(n+1,m+1): {}\t(n,-m): {}\t(n+1,-m-1): {}'.format(sph_idx[n_m], sph_idx[nr_m], sph_idx[nr_mr], sph_idx[n_mm], sph_idx[nr_mmr]))
+        # for n_m, nr_m, nr_mr, n_mm, nr_mmr in zip(N_M, Nr_M, Nr_Mr, N_mM, Nr_mMr):
+            # print('(n,m): {}\t(n+1,m): {}\t(n+1,m+1): {}\t(n,-m): {}\t(n+1,-m-1): {}'.format(sph_idx[n_m], sph_idx[nr_m], sph_idx[nr_mr], sph_idx[n_mm], sph_idx[nr_mmr]))
 
-    # Calculate bessel functions, hankel functions, and their derivatives
-    ka = array.k * radius_sphere
-    n = np.arange(0, orders + 2)
-    bessel_function = spherical_jn(n, ka)
-    hankel_function = bessel_function + 1j * spherical_yn(n, ka)
-    bessel_derivative = spherical_jn(n, ka, derivative=True)
-    hankel_derivative = bessel_derivative + 1j * spherical_yn(n, ka, derivative=True)
+        # Calculate bessel functions, hankel functions, and their derivatives
+        ka = array.k * radius_sphere
+        n = np.arange(0, orders + 2)
+        bessel_function = spherical_jn(n, ka)
+        hankel_function = bessel_function + 1j * spherical_yn(n, ka)
+        bessel_derivative = spherical_jn(n, ka, derivative=True)
+        hankel_derivative = bessel_derivative + 1j * spherical_yn(n, ka, derivative=True)
 
-    ka_interior = array.omega / sphere_material.c * radius_sphere
-    bessel_function_interior = spherical_jn(n, ka_interior)
-    hankel_function_interior = bessel_function_interior + 1j * spherical_yn(n, ka_interior)
-    bessel_derivative_interior = spherical_jn(n, ka_interior, derivative=True)
-    hankel_derivative_interior = bessel_derivative_interior + 1j * spherical_yn(n, ka_interior, derivative=True)
+        ka_interior = array.omega / sphere_material.c * radius_sphere
+        bessel_function_interior = spherical_jn(n, ka_interior)
+        hankel_function_interior = bessel_function_interior + 1j * spherical_yn(n, ka_interior)
+        bessel_derivative_interior = spherical_jn(n, ka_interior, derivative=True)
+        hankel_derivative_interior = bessel_derivative_interior + 1j * spherical_yn(n, ka_interior, derivative=True)
 
-    if 'hard' in scattering_model.lower():
-        # See e.g. Gumerov, Duraiswami (2004): Eq. 4.2.10, p. 146
-        scattering_coefficient = - bessel_derivative / hankel_derivative
-    if 'soft' in scattering_model.lower():
-        # See e.g. Gumerov, Duraiswami (2004): Eq. 4.2.10, p. 146
-        scattering_coefficient = - bessel_function / hankel_function
-    elif 'compressible' in scattering_model.lower():
-        # See Blackstock, Hamilton (2008): Eq. 6.88, p.193
-        relative_impedance = sphere_material.rho / array.medium.rho * sphere_material.c / array.medium.c
-        numerator = bessel_function * bessel_derivative_interior - relative_impedance * bessel_derivative * bessel_function_interior
-        denominator = hankel_function * bessel_derivative_interior - relative_impedance * hankel_derivative * bessel_function_interior
-        scattering_coefficient = - numerator / denominator
-    else:
-        raise ValueError("Unknown scattering model '{}'".format(scattering_model))
+        if 'hard' in scattering_model.lower():
+            # See e.g. Gumerov, Duraiswami (2004): Eq. 4.2.10, p. 146
+            scattering_coefficient = - bessel_derivative / hankel_derivative
+        elif 'soft' in scattering_model.lower():
+            # See e.g. Gumerov, Duraiswami (2004): Eq. 4.2.10, p. 146
+            scattering_coefficient = - bessel_function / hankel_function
+        elif 'compressible' in scattering_model.lower():
+            # See Blackstock, Hamilton (2008): Eq. 6.88, p.193
+            relative_impedance = sphere_material.rho / array.medium.rho * sphere_material.c / array.medium.c
+            numerator = bessel_function * bessel_derivative_interior - relative_impedance * bessel_derivative * bessel_function_interior
+            denominator = hankel_function * bessel_derivative_interior - relative_impedance * hankel_derivative * bessel_function_interior
+            scattering_coefficient = - numerator / denominator
+        else:
+            raise ValueError("Unknown scattering model '{}'".format(scattering_model))
 
-    psi = np.zeros(orders + 1, dtype=np.complex128)
-    for n in range(0, orders + 1):
-        psi[n] = 1j * (1 + 2 * scattering_coefficient[n]) * (1 + 2 * np.conj(scattering_coefficient[n + 1])) - 1j
+        psi = np.zeros(orders + 1, dtype=np.complex128)
+        for n in range(0, orders + 1):
+            psi[n] = 1j * (1 + 2 * scattering_coefficient[n]) * (1 + 2 * np.conj(scattering_coefficient[n + 1])) - 1j
 
-    scaling = array.medium.compressibility / (8 * array.k**2)
-    xy_coefficients = np.zeros((orders + 1)**2, dtype=np.complex128)
-    z_coefficients = np.zeros((orders + 1)**2, dtype=np.complex128)
-    idx = 0
-    for n in range(0, orders + 1):
-        denom = 1 / ((2 * n + 1) * (2 * n + 3))**0.5
-        for m in range(-n, n + 1):
-            xy_coefficients[idx] = psi[n] * ((n + m + 1) * (n + m + 2))**0.5 * denom * scaling
-            z_coefficients[idx] = -2 * psi[n] * ((n + m + 1) * (n - m + 1))**0.5 * denom * scaling
-            idx += 1
+        scaling = array.medium.compressibility / (8 * array.k**2)
+        self.xy_coefficients = np.zeros((orders + 1)**2, dtype=np.complex128)
+        self.z_coefficients = np.zeros((orders + 1)**2, dtype=np.complex128)
+        idx = 0
+        for n in range(0, orders + 1):
+            denom = 1 / ((2 * n + 1) * (2 * n + 3))**0.5
+            for m in range(-n, n + 1):
+                self.xy_coefficients[idx] = psi[n] * ((n + m + 1) * (n + m + 2))**0.5 * denom * scaling
+                self.z_coefficients[idx] = -2 * psi[n] * ((n + m + 1) * (n - m + 1))**0.5 * denom * scaling
+                idx += 1
 
-    @requires(spherical_harmonics_summed=orders + 1)
-    def calc_values(spherical_harmonics_summed):
-        Fx = np.sum(np.real(xy_coefficients[N_M] * (
-            spherical_harmonics_summed[N_M] * np.conj(spherical_harmonics_summed[Nr_Mr])
-            - spherical_harmonics_summed[N_mM] * np.conj(spherical_harmonics_summed[Nr_mMr])
+        self.calc_values.requires['spherical_harmonics_summed'] = orders + 1
+
+    @requires(spherical_harmonics_summed=1)
+    def calc_values(self, spherical_harmonics_summed):
+        Fx = np.sum(np.real(self.xy_coefficients[self.N_M] * (
+            spherical_harmonics_summed[self.N_M] * np.conj(spherical_harmonics_summed[self.Nr_Mr])
+            - spherical_harmonics_summed[self.N_mM] * np.conj(spherical_harmonics_summed[self.Nr_mMr])
         )), axis=0)
-        Fy = np.sum(np.imag(xy_coefficients[N_M] * (
-            spherical_harmonics_summed[N_M] * np.conj(spherical_harmonics_summed[Nr_Mr])
-            + spherical_harmonics_summed[N_mM] * np.conj(spherical_harmonics_summed[Nr_mMr])
+        Fy = np.sum(np.imag(self.xy_coefficients[self.N_M] * (
+            spherical_harmonics_summed[self.N_M] * np.conj(spherical_harmonics_summed[self.Nr_Mr])
+            + spherical_harmonics_summed[self.N_mM] * np.conj(spherical_harmonics_summed[self.Nr_mMr])
         )), axis=0)
-        Fz = np.sum(np.real(z_coefficients[N_M] * spherical_harmonics_summed[N_M] * np.conj(spherical_harmonics_summed[Nr_M])), axis=0)
+        Fz = np.sum(np.real(self.z_coefficients[self.N_M] * spherical_harmonics_summed[self.N_M] * np.conj(spherical_harmonics_summed[self.Nr_M])), axis=0)
         return np.stack([Fx, Fy, Fz])
-    return calc_values
