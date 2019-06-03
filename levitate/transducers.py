@@ -489,6 +489,15 @@ class TransducerReflector(TransducerModel):
         s_out = s_out.replace('%reflection_coefficient', str(self.reflection_coefficient))
         return super().__format__(s_out)
 
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and self._transducer == other._transducer
+            and np.allclose(self.plane_distance, other.plane_distance)
+            and np.allclose(self.plane_normal, other.plane_normal)
+            and np.allclose(self.reflection_coefficient, other.reflection_coefficient)
+        )
+
     @property
     def omega(self):
         return self._transducer.omega
