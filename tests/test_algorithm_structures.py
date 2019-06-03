@@ -25,7 +25,7 @@ pressure_derivs_algorithms = [
 @pytest.mark.parametrize("func", pressure_derivs_algorithms)
 def test_Algorithm(func):
     algorithm = func(array)
-    calc_values = algorithm.calc_values
+    calc_values = algorithm.values
 
     val_0 = algorithm(array.complex_amplitudes, pos_0)
     val_1 = algorithm(array.complex_amplitudes, pos_1)
@@ -47,7 +47,7 @@ def test_BoundAlgorithm(func, pos):
 @pytest.mark.parametrize("func", pressure_derivs_algorithms)
 def test_UnboundCostFunction(func, weight):
     algorithm = func(array) * weight
-    calc_values, calc_jacobians = algorithm.calc_values, algorithm.calc_jacobians
+    calc_values, calc_jacobians = algorithm.values, algorithm.jacobians
 
     val_0 = np.einsum('i..., i', calc_values(sum_ders[..., 0]), np.atleast_1d(weight))
     val_1 = np.einsum('i..., i', calc_values(sum_ders[..., 1]), np.atleast_1d(weight))
@@ -103,7 +103,7 @@ def test_VectorBoundAlgorithm(func, target, pos):
 @pytest.mark.parametrize("target", [(1, 0, 0), (0, 1, 0), (0, 0, 1), np.random.uniform(-10, 10, 3)])
 def test_VectorUnboundCostFunction(func, target, weight):
     algorithm = (func(array) - target) * weight
-    calc_values, calc_jacobians = algorithm.calc_values, algorithm.calc_jacobians
+    calc_values, calc_jacobians = algorithm.values, algorithm.jacobians
 
     val_0 = np.einsum('i..., i', calc_values(pressure_derivs_summed=sum_ders[..., 0]), np.atleast_1d(weight))
     val_1 = np.einsum('i..., i', calc_values(pressure_derivs_summed=sum_ders[..., 1]), np.atleast_1d(weight))

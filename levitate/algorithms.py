@@ -2,7 +2,7 @@
 
 import numpy as np
 from . import materials
-from ._algorithm import requires, AlgorithmImplementation
+from ._algorithm import AlgorithmImplementation, requirement
 from ._algorithms_legacy import *
 
 
@@ -24,6 +24,8 @@ class GorkovPotential(AlgorithmImplementation):
     """
 
     ndim = 0
+    values_require = requirement(pressure_derivs_summed=1)
+    jacobians_require = requirement(pressure_derivs_summed=1, pressure_derivs_individual=1)
 
     def __eq__(self, other):
         return (
@@ -41,14 +43,12 @@ class GorkovPotential(AlgorithmImplementation):
         self.pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
         self.gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
 
-    @requires(pressure_derivs_summed=1)
-    def calc_values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):
         values = self.pressure_coefficient * np.real(pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[0]))
         values -= self.gradient_coefficient * np.real(pressure_derivs_summed[1:4] * np.conj(pressure_derivs_summed[1:4])).sum(axis=0)
         return values
 
-    @requires(pressure_derivs_summed=1, pressure_derivs_individual=1)
-    def calc_jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
         jacobians = self.pressure_coefficient * 2 * pressure_derivs_individual[0] * np.conj(pressure_derivs_summed[0])
         jacobians -= self.gradient_coefficient * 2 * (pressure_derivs_individual[1:4] * np.conj(pressure_derivs_summed[1:4, None])).sum(axis=0)
         return jacobians
@@ -72,6 +72,8 @@ class GorkovGradient(AlgorithmImplementation):
     """
 
     ndim = 1
+    values_require = requirement(pressure_derivs_summed=2)
+    jacobians_require = requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
     def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
@@ -89,16 +91,14 @@ class GorkovGradient(AlgorithmImplementation):
             and np.allclose(self.gradient_coefficient, other.gradient_coefficient, atol=0)
         )
 
-    @requires(pressure_derivs_summed=2)
-    def calc_values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):
         values = np.real(self.pressure_coefficient * np.conj(pressure_derivs_summed[0]) * pressure_derivs_summed[1:4])  # Pressure parts
         values -= np.real(self.gradient_coefficient * np.conj(pressure_derivs_summed[1]) * pressure_derivs_summed[[4, 7, 8]])  # Vx parts
         values -= np.real(self.gradient_coefficient * np.conj(pressure_derivs_summed[2]) * pressure_derivs_summed[[7, 5, 9]])  # Vy parts
         values -= np.real(self.gradient_coefficient * np.conj(pressure_derivs_summed[3]) * pressure_derivs_summed[[8, 9, 6]])  # Vz parts
         return values * 2
 
-    @requires(pressure_derivs_summed=2, pressure_derivs_individual=2)
-    def calc_jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
         jacobians = self.pressure_coefficient * (np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[1:4] + np.conj(pressure_derivs_summed[1:4, None]) * pressure_derivs_individual[0])  # Pressure parts
         jacobians -= self.gradient_coefficient * (np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[4, 7, 8]] + np.conj(pressure_derivs_summed[[4, 7, 8], None]) * pressure_derivs_individual[1])  # Vx parts
         jacobians -= self.gradient_coefficient * (np.conj(pressure_derivs_summed[2]) * pressure_derivs_individual[[7, 5, 9]] + np.conj(pressure_derivs_summed[[7, 5, 9], None]) * pressure_derivs_individual[2])  # Vy parts
@@ -124,6 +124,8 @@ class GorkovLaplacian(AlgorithmImplementation):
     """
 
     ndim = 1
+    values_require = requirement(pressure_derivs_summed=3)
+    jacobians_require = requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
 
     def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
@@ -141,16 +143,14 @@ class GorkovLaplacian(AlgorithmImplementation):
             and np.allclose(self.gradient_coefficient, other.gradient_coefficient, atol=0)
         )
 
-    @requires(pressure_derivs_summed=3)
-    def calc_values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):
         values = np.real(self.pressure_coefficient * (np.conj(pressure_derivs_summed[0]) * pressure_derivs_summed[[4, 5, 6]] + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
         values -= np.real(self.gradient_coefficient * (np.conj(pressure_derivs_summed[1]) * pressure_derivs_summed[[10, 15, 17]] + pressure_derivs_summed[[4, 7, 8]] * np.conj(pressure_derivs_summed[[4, 7, 8]])))
         values -= np.real(self.gradient_coefficient * (np.conj(pressure_derivs_summed[2]) * pressure_derivs_summed[[13, 11, 18]] + pressure_derivs_summed[[7, 5, 9]] * np.conj(pressure_derivs_summed[[7, 5, 9]])))
         values -= np.real(self.gradient_coefficient * (np.conj(pressure_derivs_summed[3]) * pressure_derivs_summed[[14, 16, 12]] + pressure_derivs_summed[[8, 9, 6]] * np.conj(pressure_derivs_summed[[8, 9, 6]])))
         return values * 2
 
-    @requires(pressure_derivs_summed=3, pressure_derivs_individual=3)
-    def calc_jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
         jacobians = self.pressure_coefficient * (np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[[4, 5, 6]] + np.conj(pressure_derivs_summed[[4, 5, 6], None]) * pressure_derivs_individual[0] + 2 * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[[1, 2, 3]])
         jacobians -= self.gradient_coefficient * (np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[10, 15, 17]] + np.conj(pressure_derivs_summed[[10, 15, 17], None]) * pressure_derivs_individual[1] + 2 * np.conj(pressure_derivs_summed[[4, 7, 8], None]) * pressure_derivs_individual[[4, 7, 8]])
         jacobians -= self.gradient_coefficient * (np.conj(pressure_derivs_summed[2]) * pressure_derivs_individual[[13, 11, 18]] + np.conj(pressure_derivs_summed[[13, 11, 18], None]) * pressure_derivs_individual[2] + 2 * np.conj(pressure_derivs_summed[[7, 5, 9], None]) * pressure_derivs_individual[[7, 5, 9]])
@@ -180,6 +180,8 @@ class SecondOrderForce(AlgorithmImplementation):
     """
 
     ndim = 1
+    values_require = requirement(pressure_derivs_summed=2)
+    jacobians_require = requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
     def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
@@ -205,8 +207,7 @@ class SecondOrderForce(AlgorithmImplementation):
             and np.allclose(self.force_coeff, other.force_coeff, atol=0)
         )
 
-    @requires(pressure_derivs_summed=2)
-    def calc_values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):
         values = np.real(self.k_square * self.psi_0 * pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[[1, 2, 3]]))
         values += np.real(self.k_square * self.psi_1 * pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[0]))
         values += np.real(3 * self.psi_1 * pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[[4, 7, 8]]))
@@ -214,8 +215,7 @@ class SecondOrderForce(AlgorithmImplementation):
         values += np.real(3 * self.psi_1 * pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[[8, 9, 6]]))
         return values * self.force_coeff
 
-    @requires(pressure_derivs_summed=2, pressure_derivs_individual=2)
-    def calc_jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
         jacobians = self.k_square * (self.psi_0 * pressure_derivs_individual[0] * np.conj(pressure_derivs_summed[[1, 2, 3], None]) + np.conj(self.psi_0) * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[[1, 2, 3]])
         jacobians += self.k_square * (self.psi_1 * pressure_derivs_individual[[1, 2, 3]] * np.conj(pressure_derivs_summed[0]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[0])
         jacobians += 3 * (self.psi_1 * pressure_derivs_individual[1] * np.conj(pressure_derivs_summed[[4, 7, 8], None]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[4, 7, 8]])
@@ -246,6 +246,8 @@ class SecondOrderStiffness(AlgorithmImplementation):
     """
 
     ndim = 1
+    values_require = requirement(pressure_derivs_summed=3)
+    jacobians_require = requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
 
     def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
@@ -271,8 +273,7 @@ class SecondOrderStiffness(AlgorithmImplementation):
             and np.allclose(self.force_coeff, other.force_coeff, atol=0)
         )
 
-    @requires(pressure_derivs_summed=3)
-    def calc_values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):
         values = np.real(self.k_square * self.psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[[4, 5, 6]]) + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
         values += np.real(self.k_square * self.psi_1 * (pressure_derivs_summed[[4, 5, 6]] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
         values += np.real(3 * self.psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[[10, 15, 17]]) + pressure_derivs_summed[[4, 7, 8]] * np.conj(pressure_derivs_summed[[4, 7, 8]])))
@@ -280,8 +281,7 @@ class SecondOrderStiffness(AlgorithmImplementation):
         values += np.real(3 * self.psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[[14, 16, 12]]) + pressure_derivs_summed[[8, 9, 6]] * np.conj(pressure_derivs_summed[[8, 9, 6]])))
         return values * self.force_coeff
 
-    @requires(pressure_derivs_summed=3, pressure_derivs_individual=3)
-    def calc_jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
         jacobians = self.k_square * (self.psi_0 * pressure_derivs_individual[0] * np.conj(pressure_derivs_summed[[4, 5, 6], None]) + np.conj(self.psi_0) * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[[4, 5, 6]] + (self.psi_0 + np.conj(self.psi_0)) * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[[1, 2, 3]])
         jacobians += self.k_square * (self.psi_1 * pressure_derivs_individual[[4, 5, 6]] * np.conj(pressure_derivs_summed[0]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[[4, 5, 6], None]) * pressure_derivs_individual[0] + (self.psi_1 + np.conj(self.psi_1)) * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[[1, 2, 3]])
         jacobians += 3 * (self.psi_1 * pressure_derivs_individual[1] * np.conj(pressure_derivs_summed[[10, 15, 17], None]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[10, 15, 17]] + (self.psi_1 + np.conj(self.psi_1)) * np.conj(pressure_derivs_summed[[4, 7, 8], None]) * pressure_derivs_individual[[4, 7, 8]])
@@ -293,6 +293,8 @@ class SecondOrderStiffness(AlgorithmImplementation):
 class SecondOrderCurl(AlgorithmImplementation):
 
     ndim = 1
+    values_require = requirement(pressure_derivs_summed=2)
+    jacobians_require = requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
     def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
@@ -304,16 +306,14 @@ class SecondOrderCurl(AlgorithmImplementation):
         self.pressure_coefficient = -2 / 9 * ka**6 * (f_1**2 + f_1 * f_2) * array.k**2 * overall_coef
         self.velocity_coefficient = -3 * ka**6 / 18 * f_2**2 * overall_coef
 
-    @requires(pressure_derivs_summed=2)
-    def calc_values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):
         values = self.pressure_coefficient * np.imag(pressure_derivs_summed[[2, 3, 1]] * np.conj(pressure_derivs_summed[[3, 1, 2]]))
         values += self.velocity_coefficient * np.imag(pressure_derivs_summed[[7, 8, 4]] * np.conj(pressure_derivs_summed[[8, 4, 7]]))
         values += self.velocity_coefficient * np.imag(pressure_derivs_summed[[5, 9, 7]] * np.conj(pressure_derivs_summed[[9, 7, 5]]))
         values += self.velocity_coefficient * np.imag(pressure_derivs_summed[[9, 6, 8]] * np.conj(pressure_derivs_summed[[6, 8, 9]]))
         return values
 
-    @requires(pressure_derivs_summed=2, pressure_derivs_individual=2)
-    def calc_jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
         jacobians = 1j * self.pressure_coefficient * (np.conj(pressure_derivs_summed[[2, 3, 1], None]) * pressure_derivs_individual[[3, 1, 2]] - np.conj(pressure_derivs_summed[[3, 1, 2], None]) * pressure_derivs_individual[[2, 3, 1]])
         jacobians += 1j * self.velocity_coefficient * (np.conj(pressure_derivs_summed[[7, 8, 4], None]) * pressure_derivs_individual[[8, 4, 7]] - np.conj(pressure_derivs_summed[[8, 4, 7], None]) * pressure_derivs_individual[[7, 8, 4]])
         jacobians += 1j * self.velocity_coefficient * (np.conj(pressure_derivs_summed[[5, 9, 7], None]) * pressure_derivs_individual[[9, 7, 5]] - np.conj(pressure_derivs_summed[[9, 7, 5], None]) * pressure_derivs_individual[[5, 9, 7]])
@@ -339,6 +339,8 @@ class SecondOrderForceGradient(AlgorithmImplementation):
     """
 
     ndim = 2
+    values_require = requirement(pressure_derivs_summed=3)
+    jacobians_require = requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
 
     def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
@@ -364,8 +366,7 @@ class SecondOrderForceGradient(AlgorithmImplementation):
             and np.allclose(self.force_coeff, other.force_coeff, atol=0)
         )
 
-    @requires(pressure_derivs_summed=3)
-    def calc_values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):
         values = np.zeros((3, 3) + pressure_derivs_summed.shape[1:])
         values[0, 0] = np.real(  # F_{x,x}
             self.k_square * self.psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[4]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[1]))
@@ -448,13 +449,13 @@ class PressureMagnitudeSquared(AlgorithmImplementation):
     """
 
     ndim = 0
+    values_require = requirement(pressure_derivs_summed=0)
+    jacobians_require = requirement(pressure_derivs_summed=0, pressure_derivs_individual=0)
 
-    @requires(pressure_derivs_summed=0)
-    def calc_values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):
         return np.real(pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[0]))
 
-    @requires(pressure_derivs_summed=0, pressure_derivs_individual=0)
-    def calc_jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
         return (2 * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[0])
 
 
@@ -473,6 +474,8 @@ class VelocityMagnitudeSquared(AlgorithmImplementation):
     """
 
     ndim = 1
+    values_require = requirement(pressure_derivs_summed=1)
+    jacobians_require = requirement(pressure_derivs_summed=1, pressure_derivs_individual=1)
 
     def __init__(self, array, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
@@ -484,12 +487,10 @@ class VelocityMagnitudeSquared(AlgorithmImplementation):
             and np.allclose(self.pre_grad_2_vel_squared, other.pre_grad_2_vel_squared, atol=0)
         )
 
-    @requires(pressure_derivs_summed=1)
-    def calc_values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):
         return np.real(self.pre_grad_2_vel_squared * pressure_derivs_summed[1:4] * np.conj(pressure_derivs_summed[1:4]))
 
-    @requires(pressure_derivs_summed=1, pressure_derivs_individual=1)
-    def calc_jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
         return 2 * self.pre_grad_2_vel_squared * np.conj(pressure_derivs_summed[1:4, None]) * pressure_derivs_individual[1:4]
 
 
@@ -498,6 +499,8 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
 
     def __init__(self, array, orders, radius_sphere=1e-3, sphere_material=materials.Styrofoam, scattering_model='Hard sphere', *args, **kwargs):
         super().__init__(array, *args, **kwargs)
+        self.values_require = requirement(spherical_harmonics_summed=orders + 1)
+
         from . import spherical_harmonics_index as sph_idx
         from scipy.special import spherical_jn, spherical_yn
         # Create indexing arrays for sound field harmonics
@@ -563,18 +566,15 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
                 self.z_coefficients[idx] = -2 * psi[n] * ((n + m + 1) * (n - m + 1))**0.5 * denom * scaling
                 idx += 1
 
-        self.calc_values.requires['spherical_harmonics_summed'] = orders + 1
-
     def __eq__(self, other):
         return (
             super().__eq__(other)
-            and self.calc_values.requires['spherical_harmonics_summed'] == other.calc_values.requires['spherical_harmonics_summed']
+            and self.values_require['spherical_harmonics_summed'] == other.values_require['spherical_harmonics_summed']
             and np.allclose(self.xy_coefficients, other.xy_coefficients, atol=0)
             and np.allclose(self.z_coefficients, other.z_coefficients, atol=0)
         )
 
-    @requires(spherical_harmonics_summed=1)
-    def calc_values(self, spherical_harmonics_summed):
+    def values(self, spherical_harmonics_summed):
         Fx = np.sum(np.real(self.xy_coefficients[self.N_M] * (
             spherical_harmonics_summed[self.N_M] * np.conj(spherical_harmonics_summed[self.Nr_Mr])
             - spherical_harmonics_summed[self.N_mM] * np.conj(spherical_harmonics_summed[self.Nr_mMr])

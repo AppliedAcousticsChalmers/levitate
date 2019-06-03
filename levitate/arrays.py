@@ -334,7 +334,7 @@ class TransducerArray:
             """
             complex_amplitudes = complex_amplitudes if complex_amplitudes is not None else self.array.complex_amplitudes
             summed_derivs = np.einsum('ji..., i->j...', self.pressure_derivs(positions, orders=2), complex_amplitudes)
-            return TransducerArray.PersistentFieldEvaluator._force(self.array, **kwargs).calc_values(summed_derivs)
+            return TransducerArray.PersistentFieldEvaluator._force(self.array, **kwargs).values(summed_derivs)
 
         def stiffness(self, positions, complex_amplitudes=None, **kwargs):
             """Calculate the stiffness field.
@@ -352,7 +352,7 @@ class TransducerArray:
             """
             complex_amplitudes = complex_amplitudes if complex_amplitudes is not None else self.array.complex_amplitudes
             summed_derivs = np.einsum('ji..., i->j...', self.pressure_derivs(positions, orders=3), complex_amplitudes)
-            return TransducerArray.PersistentFieldEvaluator._stiffness(self.array, **kwargs).calc_values(summed_derivs)
+            return TransducerArray.PersistentFieldEvaluator._stiffness(self.array, **kwargs).values(summed_derivs)
 
 
 class RectangularArray(TransducerArray):

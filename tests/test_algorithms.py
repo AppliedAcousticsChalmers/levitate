@@ -118,7 +118,7 @@ sum_ders = np.sum(ind_ders, axis=1)
 ])
 def test_algorithm(algorithm, value_at_pos_1, real_jacobian_at_pos_1, imag_jacobian_at_pos_1):
     algorithm = algorithm(array)
-    calc_values, calc_jacobians = algorithm.calc_values, algorithm.calc_jacobians
+    calc_values, calc_jacobians = algorithm.values, algorithm.jacobians
 
     val_1 = calc_values(sum_ders[..., 0])
     val_2 = calc_values(sum_ders[..., 1])
