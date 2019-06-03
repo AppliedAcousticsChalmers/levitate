@@ -101,6 +101,15 @@ class TransducerArray:
             s_out = s_out.replace('%' + key, str(value))
         return s_out
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, TransducerArray)
+            and self.num_transducers == other.num_transducers
+            and np.allclose(self.transducer_positions, other.transducer_positions)
+            and np.allclose(self.transducer_normals, other.transducer_normals)
+            and self.transducer_model == other.transducer_model
+        )
+
     def __repr__(self):
         return self._repr_fmt_spec.format(self)
 
