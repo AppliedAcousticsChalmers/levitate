@@ -16,8 +16,8 @@ large_array.phases = large_array.focus_phases(pos) + large_array.signature(stype
 
 def test_gorkov_differentiations():
     amps = large_array.complex_amplitudes
-    potential = levitate.algorithms.gorkov_potential(large_array)
-    gradient = levitate.algorithms.gorkov_gradient(large_array)
+    potential = levitate.algorithms.GorkovPotential(large_array)
+    gradient = levitate.algorithms.GorkovGradient(large_array)
     delta = 1e-9
     implemented_gradient = gradient(amps, pos)
 
@@ -35,7 +35,7 @@ def test_gorkov_differentiations():
     np.testing.assert_allclose(implemented_gradient[1], dUdy)
     np.testing.assert_allclose(implemented_gradient[2], dUdz)
 
-    implemented_laplacian = levitate.algorithms.gorkov_laplacian(large_array)(amps, pos)
+    implemented_laplacian = levitate.algorithms.GorkovLaplacian(large_array)(amps, pos)
     d2Udx2 = (gradient(amps, x_plus)[0] - gradient(amps, x_minus)[0]) / (2 * delta)
     d2Udy2 = (gradient(amps, y_plus)[1] - gradient(amps, y_minus)[1]) / (2 * delta)
     d2Udz2 = (gradient(amps, z_plus)[2] - gradient(amps, z_minus)[2]) / (2 * delta)
@@ -44,12 +44,12 @@ def test_gorkov_differentiations():
     np.testing.assert_allclose(implemented_laplacian[2], d2Udz2)
 
 
-def test_second_order_implementations():
+def test_SecondOrder_implementations():
     amps = large_array.complex_amplitudes
-    force = levitate.algorithms.second_order_force(large_array)
-    stiffness = levitate.algorithms.second_order_stiffness(large_array)
-    gradient = levitate.algorithms.second_order_force_gradient(large_array)
-    curl = levitate.algorithms.second_order_curl(large_array)
+    force = levitate.algorithms.SecondOrderForce(large_array)
+    stiffness = levitate.algorithms.SecondOrderStiffness(large_array)
+    gradient = levitate.algorithms.SecondOrderForceGradient(large_array)
+    curl = levitate.algorithms.SecondOrderCurl(large_array)
 
     delta = 1e-9
     x_plus = pos + np.array([delta, 0, 0])
@@ -85,32 +85,32 @@ sum_ders = np.sum(ind_ders, axis=1)
 
 
 @pytest.mark.parametrize("algorithm, value_at_pos_1, real_jacobian_at_pos_1, imag_jacobian_at_pos_1", [
-    (levitate.algorithms.gorkov_potential,
+    (levitate.algorithms.GorkovPotential,
         -6.19402404e-13,
         [-6.08626619e-13, -6.30178190e-13],
         [-1.21656276e-12, 1.21656276e-12]
      ),
-    (levitate.algorithms.gorkov_gradient,
+    (levitate.algorithms.GorkovGradient,
         [2.30070037e-11, -1.62961537e-12, -2.44442306e-12],
         [[2.30839871e-11, 2.29300203e-11], [-1.69118632e-12, -1.56804442e-12], [-2.53677948e-12, -2.35206663e-12]],
         [[1.79047948e-11, -1.79047948e-11], [9.84604578e-13, -9.84604578e-13], [1.47690687e-12, -1.47690687e-12]]
      ),
-    (levitate.algorithms.gorkov_laplacian,
+    (levitate.algorithms.GorkovLaplacian,
         [-3.98121194e-10, 8.74737783e-12, 2.98666962e-11],
         [[-3.98912624e-10, -3.97329763e-10], [8.96724049e-12, 8.52751518e-12], [3.07462056e-11, 2.89871868e-11]],
         [[3.33886801e-10, -3.33886801e-10], [1.94724287e-11, -1.94724287e-11], [3.76591861e-11, -3.76591861e-11]]
      ),
-    (levitate.algorithms.second_order_force,
+    (levitate.algorithms.SecondOrderForce,
         [1.83399145e-10, 4.15099186e-10, 6.22648779e-10],
         [[2.03139282e-10, 1.63659008e-10], [4.04354167e-10, 4.25844205e-10], [6.06531251e-10, 6.38766308e-10]],
         [[3.89064704e-10, -3.89064704e-10], [8.13263002e-10, -8.13263002e-10], [1.21989450e-09, -1.21989450e-09]]
      ),
-    (levitate.algorithms.pressure_squared_magnitude,
+    (levitate.algorithms.PressureMagnitudeSquared,
         2.10706889e+02,
         [2.07034544e+02, 2.14379234e+02],
         [4.15076576e+02, -4.15076576e+02],
      ),
-    (levitate.algorithms.velocity_squared_magnitude,
+    (levitate.algorithms.VelocityMagnitudeSquared,
         [8.93991803e-05, 3.55387889e-04, 7.99622751e-04],
         [[1.07974283e-04, 7.08240775e-05], [3.43002548e-04, 3.67773230e-04], [7.71755733e-04, 8.27489769e-04]],
         [[0.000174546016, -0.000174546016], [0.000699933899, -0.000699933899], [0.001574851272, -0.001574851272]]
