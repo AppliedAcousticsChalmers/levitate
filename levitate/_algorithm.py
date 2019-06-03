@@ -59,6 +59,9 @@ class AlgorithmImplementation:
     def __init__(self, array, *args, **kwargs):
         self.array = array
 
+    def __eq__(self, other):
+        return type(self) == type(other)
+
     def __getnewargs_ex__(self):
         return (self.array,), {'_nowrap': True}
 
@@ -90,6 +93,13 @@ class Algorithm:
         value_indices = ''.join(chr(ord('i') + idx) for idx in range(self.ndim))
         self._sum_str = value_indices + ', ' + value_indices + '...'
         self.requires = self.calc_values.requires.copy()
+
+    def __eq__(self, other):
+        return (
+            type(self) == type(other)
+            and self.algorithm == other.algorithm
+            and self.array == other.array
+        )
 
     @property
     def name(self):
