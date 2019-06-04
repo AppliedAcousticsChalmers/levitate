@@ -82,6 +82,12 @@ class AlgorithmBase(metaclass=AlgorithmMeta):
             spatial_structures['spherical_harmonics'] = self.array.spherical_harmonics(position, orders=spatial_structures['spherical_harmonics'])
         return spatial_structures
 
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    def __rmul__(self, weight):
+        return self.__mul__(weight)
+
 
 class Algorithm(AlgorithmBase):
     _str_format_spec = '{:%cls%name}'
@@ -149,12 +155,6 @@ class Algorithm(AlgorithmBase):
         if position.ndim < 1 or position.shape[0] != 3:
             return NotImplemented
         return BoundAlgorithm(position=position, algorithm=self.algorithm)
-
-    def __radd__(self, other):
-        return self.__add__(other)
-
-    def __rmul__(self, weight):
-        return self.__mul__(weight)
 
     def __str__(self, not_api_call=True):
         return self._str_format_spec.format(self)
