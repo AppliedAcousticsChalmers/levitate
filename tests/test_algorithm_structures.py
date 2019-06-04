@@ -83,6 +83,33 @@ def not_addable(a, b):
             raise TypeError('Addition of {.__name__} and {.__name__} returned {.__name__}, should fail'.format(type(a), type(b), type(a + b)))
 
 
+def mult(obj, result_cls):
+    try:
+        assert type(obj * 1) == result_cls
+    except TypeError:
+        raise TypeError('Mult of {.__name__} failed'.format(type(obj)))
+    except AssertionError:
+        raise TypeError('Mult of {.__name__} returned {.__name__}, not {.__name__}'.format(type(obj), type(obj * 1), result_cls))
+
+
+def bind(obj, result_cls):
+    try:
+        assert type(obj @ pos) == result_cls
+    except TypeError:
+        raise TypeError('Bind of {.__name__} failed'.format(type(obj)))
+    except AssertionError:
+        raise TypeError('Bind of {.__name__} returned {.__name__}, not {.__name__}'.format(type(obj), type(obj @ pos), result_cls))
+
+
+def sub(obj, result_cls):
+    try:
+        assert type(obj - 0) == result_cls
+    except TypeError:
+        raise TypeError('Sub of {.__name__} failed'.format(type(obj)))
+    except AssertionError:
+        raise TypeError('Sub of {.__name__} returned {.__name__}, not {.__name__}'.format(type(obj), type(obj - 0), result_cls))
+
+
 def test_algorithm():
     # Test for addition
     addable(algorithm, algorithm, classes.AlgorithmPoint)
@@ -91,6 +118,11 @@ def test_algorithm():
     not_addable(algorithm, bound_algorithms)
     not_addable(algorithm, unbound_cost_functions)
     not_addable(algorithm, cost_functions)
+
+    # Test of other morphing
+    mult(algorithm, classes.UnboundCostFunction)
+    bind(algorithm, classes.BoundAlgorithm)
+    sub(algorithm, classes.VectorAlgorithm)
 
 
 def test_bound_algorithm():
@@ -106,6 +138,11 @@ def test_bound_algorithm():
     not_addable(bound_algorithm, unbound_cost_functions)
     not_addable(bound_algorithm, cost_functions)
 
+    # Test of other morphing
+    mult(bound_algorithm, classes.CostFunction)
+    bind(bound_algorithm, classes.BoundAlgorithm)
+    sub(bound_algorithm, classes.VectorBoundAlgorithm)
+
 
 def test_unbound_cost_function():
     # Test for addition
@@ -115,6 +152,11 @@ def test_unbound_cost_function():
     not_addable(unbound_cost_function, algorithms)
     not_addable(unbound_cost_function, bound_algorithms)
     not_addable(unbound_cost_function, cost_functions)
+
+    # Test of other morphing
+    mult(unbound_cost_function, classes.UnboundCostFunction)
+    bind(unbound_cost_function, classes.CostFunction)
+    sub(unbound_cost_function, classes.VectorUnboundCostFunction)
 
 
 def test_cost_function():
@@ -130,6 +172,11 @@ def test_cost_function():
     not_addable(cost_function, unbound_cost_functions)
     not_addable(cost_function, bound_algorithms)
 
+    # Test of other morphing
+    mult(cost_function, classes.CostFunction)
+    bind(cost_function, classes.CostFunction)
+    sub(cost_function, classes.VectorCostFunction)
+
 
 def test_vector_algorithm():
     # Test for addition
@@ -139,6 +186,11 @@ def test_vector_algorithm():
     not_addable(vector_algorithm, bound_algorithms)
     not_addable(vector_algorithm, unbound_cost_functions)
     not_addable(vector_algorithm, cost_functions)
+
+    # Test of other morphing
+    mult(vector_algorithm, classes.VectorUnboundCostFunction)
+    bind(vector_algorithm, classes.VectorBoundAlgorithm)
+    sub(vector_algorithm, classes.VectorAlgorithm)
 
 
 def test_vector_bound_algorithm():
@@ -154,6 +206,11 @@ def test_vector_bound_algorithm():
     not_addable(vector_bound_algorithm, unbound_cost_functions)
     not_addable(vector_bound_algorithm, cost_functions)
 
+    # Test of other morphing
+    mult(vector_bound_algorithm, classes.VectorCostFunction)
+    bind(vector_bound_algorithm, classes.VectorBoundAlgorithm)
+    sub(vector_bound_algorithm, classes.VectorBoundAlgorithm)
+
 
 def test_vector_unbound_cost_function():
     # Test for addition
@@ -163,6 +220,11 @@ def test_vector_unbound_cost_function():
     not_addable(vector_unbound_cost_function, algorithms)
     not_addable(vector_unbound_cost_function, bound_algorithms)
     not_addable(vector_unbound_cost_function, cost_functions)
+
+    # Test of other morphing
+    mult(vector_unbound_cost_function, classes.VectorUnboundCostFunction)
+    bind(vector_unbound_cost_function, classes.VectorCostFunction)
+    sub(vector_unbound_cost_function, classes.VectorUnboundCostFunction)
 
 
 def test_vector_cost_function():
@@ -178,6 +240,11 @@ def test_vector_cost_function():
     not_addable(vector_cost_function, unbound_cost_functions)
     not_addable(vector_cost_function, bound_algorithms)
 
+    # Test of other morphing
+    mult(vector_cost_function, classes.VectorCostFunction)
+    bind(vector_cost_function, classes.VectorCostFunction)
+    sub(vector_cost_function, classes.VectorCostFunction)
+
 
 def test_algorithm_point():
     # Test for addition
@@ -187,6 +254,11 @@ def test_algorithm_point():
     not_addable(algorithm_point, bound_algorithms)
     not_addable(algorithm_point, unbound_cost_functions)
     not_addable(algorithm_point, cost_functions)
+
+    # Test of other morphing
+    mult(algorithm_point, classes.UnboundCostFunctionPoint)
+    bind(algorithm_point, classes.BoundAlgorithmPoint)
+    sub(algorithm_point, classes.AlgorithmPoint)
 
 
 def test_bound_algorithm_point():
@@ -202,6 +274,11 @@ def test_bound_algorithm_point():
     not_addable(bound_algorithm_point, unbound_cost_functions)
     not_addable(bound_algorithm_point, cost_functions)
 
+    # Test of other morphing
+    mult(bound_algorithm_point, classes.CostFunctionPoint)
+    bind(bound_algorithm_point, classes.BoundAlgorithmPoint)
+    sub(bound_algorithm_point, classes.BoundAlgorithmPoint)
+
 
 def test_unbound_cost_function_point():
     # Test for addition
@@ -211,6 +288,11 @@ def test_unbound_cost_function_point():
     not_addable(unbound_cost_function_point, algorithms)
     not_addable(unbound_cost_function_point, bound_algorithms)
     not_addable(unbound_cost_function_point, cost_functions)
+
+    # Test of other morphing
+    mult(unbound_cost_function_point, classes.UnboundCostFunctionPoint)
+    bind(unbound_cost_function_point, classes.CostFunctionPoint)
+    sub(unbound_cost_function_point, classes.UnboundCostFunctionPoint)
 
 
 def test_cost_function_point():
@@ -225,6 +307,11 @@ def test_cost_function_point():
     not_addable(cost_function_point, algorithms)
     not_addable(cost_function_point, unbound_cost_functions)
     not_addable(cost_function_point, bound_algorithms)
+
+    # Test of other morphing
+    mult(cost_function_point, classes.CostFunctionPoint)
+    bind(cost_function_point, classes.CostFunctionPoint)
+    sub(cost_function_point, classes.CostFunctionPoint)
 
 
 def test_algorithm_collection():
