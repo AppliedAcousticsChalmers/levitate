@@ -86,7 +86,7 @@ def test_simple_types():
     # BoundAlgorithm, should also diff if position is different
     assert levitate.algorithms.GorkovPotential(array) @ pos == levitate.algorithms.GorkovPotential(array) @ pos
     assert levitate.algorithms.GorkovPotential(array) @ pos == pickle.loads(pickle.dumps(levitate.algorithms.GorkovPotential(array) @ pos))
-    assert levitate.algorithms.GorkovPotential(array) @ pos != levitate.algorithms.GorkovPotential(array) @ pos_b
+    assert levitate.algorithms.GorkovPotential(array) @ pos != levitate.algorithms.GorkovPotential(array) * 4
     assert levitate.algorithms.GorkovPotential(array) @ pos != levitate.algorithms.GorkovPotential(array)
     assert levitate.algorithms.GorkovPotential(array) @ pos != levitate.algorithms.GorkovPotential(array) * 1
     assert levitate.algorithms.GorkovPotential(array) @ pos != levitate.algorithms.GorkovPotential(array) @ pos * 1
@@ -124,3 +124,37 @@ def test_vector_types():
     assert levitate.algorithms.GorkovPotential(array) * 1 @ pos - 0 == levitate.algorithms.GorkovPotential(array) * 1 @ pos - 0
     assert levitate.algorithms.GorkovPotential(array) * 1 @ pos - 0 == pickle.loads(pickle.dumps(levitate.algorithms.GorkovPotential(array) * 1 @ pos - 0))
     assert levitate.algorithms.GorkovPotential(array) * 1 @ pos - 0 != levitate.algorithms.GorkovPotential(array) * 1 @ pos - 1
+
+
+def test_points_collections():
+    # Should diff if any one algorithm is different, or if they have a different order, or if the type is different.
+    alg_a = levitate.algorithms.GorkovPotential(array)
+    alg_b = levitate.algorithms.GorkovGradient(array)
+
+    # AlgorithmPoint
+    assert alg_a + alg_a == alg_a + alg_a
+    assert alg_a + alg_a == pickle.loads(pickle.dumps(alg_a + alg_a))
+    assert alg_a + alg_b == alg_a + alg_b
+    assert alg_a + alg_a != alg_a + alg_b
+    assert alg_a + alg_b != alg_b + alg_a
+
+    # BoundAlgorithmPoint/Collection
+    assert alg_a @ pos + alg_a @ pos == (alg_a + alg_a) @ pos
+    assert alg_a @ pos + alg_a @ pos_b == alg_a @ pos + alg_a @ pos_b
+    assert alg_a @ pos + alg_a @ pos != alg_a @ pos_b + alg_a @ pos_b
+    assert alg_a @ pos + alg_a @ pos != alg_a @ pos_b + alg_a @ pos
+    assert alg_a @ pos + alg_a @ pos != alg_a @ pos + alg_b @ pos
+
+    # UnboundCostFunctionPoint
+    assert alg_a * 2 + alg_a * 2 == (alg_a + alg_a) * 2
+    assert alg_a * 2 + alg_a * 2 != alg_a * 4 + alg_a * 4
+    assert alg_a * 2 + alg_a * 2 != alg_a * 2 + alg_b * 2
+
+    # CostFunctionPoint
+    assert (alg_a * 2 + alg_a * 2) @ pos == alg_a * 2 @ pos + alg_a * 2 @ pos
+    assert (alg_a @ pos + alg_a @ pos_b) * 2 == alg_a * 2 @ pos + alg_a * 2 @ pos_b
+    assert (alg_a @ pos + alg_a @ pos_b) * 2 == pickle.loads(pickle.dumps(alg_a * 2 @ pos + alg_a * 2 @ pos_b))
+    assert (alg_a @ pos + alg_a @ pos_b) * 2 != alg_b * 2 @ pos + alg_a * 2 @ pos
+    assert (alg_a * 2 + alg_a * 2) @ pos != (alg_a * 2 + alg_a * 2) @ pos_b
+    assert (alg_a * 2 + alg_a * 2) @ pos != (alg_a * 2 + alg_b * 2) @ pos_b
+    assert (alg_a * 2 + alg_a * 2) @ pos != (alg_a * 2 + alg_a * 4) @ pos

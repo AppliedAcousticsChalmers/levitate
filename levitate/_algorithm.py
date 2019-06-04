@@ -482,6 +482,9 @@ class AlgorithmPoint(AlgorithmBase):
         for algorithm in algorithms:
             self += algorithm
 
+    def __eq__(self, other):
+        return super().__eq__(other) and self.algorithms == other.algorithms
+
     @property
     def array(self):
         return self.algorithms[0].array
@@ -667,6 +670,9 @@ class AlgorithmCollection(AlgorithmBase):
         self.algorithms = []
         for algorithm in algorithms:
             self += algorithm
+
+    def __eq__(self, other):
+        return super().__eq__(other) and self.algorithms == other.algorithms
 
     def __call__(self, complex_transducer_amplitudes):
         values = []
