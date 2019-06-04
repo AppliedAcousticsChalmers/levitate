@@ -95,6 +95,18 @@ class AlgorithmBase(metaclass=AlgorithmMeta):
     def __rmul__(self, weight):
         return self.__mul__(weight)
 
+    def __str__(self, not_api_call=True):
+        return self._str_format_spec.format(self)
+
+    def __format__(self, format_spec):
+        cls = self.__class__.__name__ + ': '
+        name = getattr(self, 'name', None) or 'Unknown'
+        weight = getattr(self, 'weight', None)
+        pos = getattr(self, 'position', None)
+        weight = ' * ' + str(weight) if weight is not None else ''
+        pos = ' @ ' + str(pos) if pos is not None else ''
+        return format_spec.replace('%cls', cls).replace('%weight', weight).replace('%position', pos)
+
 
 class Algorithm(AlgorithmBase):
     _str_format_spec = '{:%cls%name}'
@@ -163,17 +175,9 @@ class Algorithm(AlgorithmBase):
             return NotImplemented
         return BoundAlgorithm(position=position, algorithm=self.algorithm)
 
-    def __str__(self, not_api_call=True):
-        return self._str_format_spec.format(self)
-
     def __format__(self, format_spec):
-        cls = self.__class__.__name__ + ': '
         name = getattr(self, 'name', None) or 'Unknown'
-        weight = getattr(self, 'weight', None)
-        pos = getattr(self, 'position', None)
-        weight = ' * ' + str(weight) if weight is not None else ''
-        pos = ' @ ' + str(pos) if pos is not None else ''
-        return format_spec.replace('%cls', cls).replace('%name', name).replace('%weight', weight).replace('%position', pos).replace('%algorithms', '')
+        return super().__format__(format_spec.replace('%name', name))
 
 
 class BoundAlgorithm(Algorithm):
