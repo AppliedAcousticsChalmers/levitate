@@ -479,9 +479,6 @@ class AlgorithmPoint(AlgorithmBase):
         for algorithm in algorithms:
             self += algorithm
 
-    def __getnewargs__(self):
-        return tuple(self.algorithms)
-
     @property
     def array(self):
         return self.algorithms[0].array
