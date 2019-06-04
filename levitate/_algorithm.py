@@ -199,12 +199,12 @@ class BoundAlgorithm(Algorithm):
     def __add__(self, other):
         if other == 0:
             return self
-        try:
+        if type(self) == type(other):
             if np.allclose(self.position, other.position):
-                return super().__add__(other)
+                return BoundAlgorithmPoint(self, other)
             else:
                 return AlgorithmCollection(self, other)
-        except AttributeError:
+        else:
             return NotImplemented
 
     def __sub__(self, vector):
@@ -244,11 +244,19 @@ class UnboundCostFunction(Algorithm):
         jacobians = self.jacobians(**{key: requirements[key] for key in self.jacobians_require})
         return np.einsum(self._sum_str, self.weight, values), np.einsum(self._sum_str, self.weight, jacobians)
 
-    def __mul__(self, weight):
-        return super().__mul__(self.weight * weight)
+    def __add__(self, other):
+        if other == 0:
+            return self
+        if type(self) == type(other):
+            return UnboundCostFunctionPoint(self, other)
+        else:
+            return NotImplemented
 
     def __sub__(self, vector):
         return VectorUnboundCostFunction(algorithm=self, target_vector=vector, weight=self.weight)
+
+    def __mul__(self, weight):
+        return UnboundCostFunction(self.algorithm, self.weight * weight)
 
     def __matmul__(self, position):
         position = np.asarray(position)
@@ -276,8 +284,22 @@ class CostFunction(UnboundCostFunction, BoundAlgorithm):
         jacobians = self.jacobians(**{key: requirements[key] for key in self.jacobians_require})
         return np.einsum(self._sum_str, self.weight, values), np.einsum(self._sum_str, self.weight, jacobians)
 
+    def __add__(self, other):
+        if other == 0:
+            return self
+        if type(self) == type(other):
+            if np.allclose(self.position, other.position):
+                return CostFunctionPoint(self, other)
+            else:
+                return CostFunctionCollection(self, other)
+        else:
+            return NotImplemented
+
     def __sub__(self, vector):
         return VectorCostFunction(algorithm=self, target_vector=vector, weight=self.weight, position=self.position)
+
+    def __mul__(self, weight):
+        return CostFunction(self.algorithm, self.weight * weight, self.position)
 
 
 class VectorBase(Algorithm):
