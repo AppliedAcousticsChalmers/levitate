@@ -389,7 +389,7 @@ class VectorBoundAlgorithm(VectorBase, BoundAlgorithm):
         if VectorBase in other_type.__bases__:
             other_type = other_type.__bases__[1]
         if other_type == type(self).__bases__[1]:
-            if self.position == other.position:
+            if np.allclose(self.position, other.position):
                 return BoundAlgorithmPoint(self, other)
             else:
                 return AlgorithmCollection(self, other)
@@ -434,7 +434,7 @@ class VectorCostFunction(VectorBase, CostFunction):
         if VectorBase in other_type.__bases__:
             other_type = other_type.__bases__[1]
         if other_type == type(self).__bases__[1]:
-            if self.position == other.position:
+            if np.allclose(self.position, other.position):
                 return CostFunctionPoint(self, other)
             else:
                 return CostFunctionCollection(self, other)
