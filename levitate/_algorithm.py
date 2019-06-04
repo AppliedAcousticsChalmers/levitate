@@ -558,14 +558,14 @@ class BoundAlgorithmPoint(AlgorithmPoint):
     def __add__(self, other):
         if other == 0:
             return self
-        if type(self) == type(other):
-            return BoundAlgorithmPoint(*self.algorithms, *other.algorithms)
-        elif self._type == other._type and np.allclose(self.position, other.position):
-            return BoundAlgorithmPoint(*self.algorithms, other)
-        elif self._type == other._type:
-            return AlgorithmCollection(self, other)
-        else:
+        if self._type != other._type:
             return NotImplemented
+        if type(other) == BoundAlgorithmPoint and np.allclose(self.position, other.position):
+            return BoundAlgorithmPoint(*self.algorithms, *other.algorithms)
+        elif isinstance(other, BoundAlgorithm) and np.allclose(self.position, other.position):
+            return BoundAlgorithmPoint(*self.algorithms, other)
+        else:
+            return AlgorithmCollection(self, other)
 
     def __iadd__(self, other):
         try:
@@ -625,14 +625,14 @@ class CostFunctionPoint(UnboundCostFunctionPoint, BoundAlgorithmPoint):
     def __add__(self, other):
         if other == 0:
             return self
-        if type(self) == type(other):
-            return CostFunctionPoint(*self.algorithms, *other.algorithms)
-        elif self._type == other._type and np.allclose(self.position, other.position):
-            return CostFunctionPoint(*self.algorithms, other)
-        elif self._type == other._type:
-            return CostFunctionCollection(self, other)
-        else:
+        if self._type != other._type:
             return NotImplemented
+        if type(other) == CostFunctionPoint and np.allclose(self.position, other.position):
+            return CostFunctionPoint(*self.algorithms, *other.algorithms)
+        elif isinstance(other, CostFunction) and np.allclose(self.position, other.position):
+            return CostFunctionPoint(*self.algorithms, other)
+        else:
+            return CostFunctionCollection(self, other)
 
     def __iadd__(self, other):
         try:
