@@ -167,6 +167,9 @@ class Algorithm(AlgorithmBase):
         return VectorAlgorithm(algorithm=self, target_vector=vector)
 
     def __mul__(self, weight):
+        weight = np.asarray(weight)
+        if weight.dtype == object:
+            return NotImplemented
         return UnboundCostFunction(weight=weight, algorithm=self.algorithm)
 
     def __matmul__(self, position):
@@ -260,6 +263,9 @@ class UnboundCostFunction(Algorithm):
         return VectorUnboundCostFunction(algorithm=self, target_vector=vector, weight=self.weight)
 
     def __mul__(self, weight):
+        weight = np.asarray(weight)
+        if weight.dtype == object:
+            return NotImplemented
         return UnboundCostFunction(self.algorithm, self.weight * weight)
 
     def __matmul__(self, position):
@@ -303,6 +309,9 @@ class CostFunction(UnboundCostFunction, BoundAlgorithm):
         return VectorCostFunction(algorithm=self, target_vector=vector, weight=self.weight, position=self.position)
 
     def __mul__(self, weight):
+        weight = np.asarray(weight)
+        if weight.dtype == object:
+            return NotImplemented
         return CostFunction(self.algorithm, self.weight * weight, self.position)
 
 

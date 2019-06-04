@@ -90,10 +90,12 @@ def mult(obj, result_cls):
         raise TypeError('Mult of {.__name__} failed'.format(type(obj)))
     except AssertionError:
         raise TypeError('Mult of {.__name__} returned {.__name__}, not {.__name__}'.format(type(obj), type(obj * 1), result_cls))
+
     try:
         obj * obj
-    except TypeError:
-        pass
+    except TypeError as e:
+        if not str(e).startswith('unsupported operand type(s) for *:'):
+            raise e
     else:
         raise TypeError('{.__name__} can multiply with itself'.format(type(obj)))
 
