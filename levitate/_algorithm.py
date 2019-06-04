@@ -357,7 +357,12 @@ class VectorBase(Algorithm):
         self._jacobians_require = val
 
     def __sub__(self, vector):
-        return type(self)(self.algorithm, self.target_vector + vector)
+        kwargs = {}
+        if self._is_bound:
+            kwargs['position'] = self.position
+        if self._is_cost:
+            kwargs['weight'] = self.weight
+        return type(self)(self.algorithm, self.target_vector + vector, **kwargs)
 
     def __format__(self, format_spec):
         format_spec = format_spec.replace('%name', '||%name - %vector||^2').replace('%vector', str(self.target_vector))
