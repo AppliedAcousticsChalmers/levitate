@@ -53,6 +53,9 @@ class AlgorithmBase(metaclass=AlgorithmMeta):
         # Binds the _type instance property to the class property.
         return type(self)._type
 
+    def __eq__(self, other):
+        return type(self) == type(other)
+
     def _evaluate_requirements(self, complex_transducer_amplitudes, spatial_structures):
         requirements = {}
         if 'complex_transducer_amplitudes' in self.requires:
@@ -121,7 +124,7 @@ class Algorithm(AlgorithmBase):
 
     def __eq__(self, other):
         return (
-            type(self) == type(other)
+            super().__eq__(other)
             and self.algorithm == other.algorithm
             and self.array == other.array
         )
