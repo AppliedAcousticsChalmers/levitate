@@ -327,6 +327,8 @@ def test_algorithm_collection():
     not_addable(algorithm_collection, unbound_cost_functions)
     not_addable(algorithm_collection, cost_functions)
 
+    mult(algorithm_collection, classes.CostFunctionCollection)
+
 
 def test_cost_function_collection():
     # Test for addition
@@ -340,3 +342,5 @@ def test_cost_function_collection():
     not_addable(cost_function_collection, algorithms)
     not_addable(cost_function_collection, unbound_cost_functions)
     not_addable(cost_function_collection, bound_algorithms)
+
+    mult(cost_function_collection, classes.CostFunctionCollection)

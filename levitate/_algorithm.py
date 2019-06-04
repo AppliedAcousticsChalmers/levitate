@@ -690,6 +690,9 @@ class AlgorithmCollection(AlgorithmBase):
                 self.algorithms.append(other)
             return self
 
+    def __mul__(self, weight):
+        return CostFunctionCollection(*[algorithm * weight for algorithm in self.algorithms])
+
     def __format__(self, format_spec):
         if '%points' in format_spec:
             points_start = format_spec.find('%points')
