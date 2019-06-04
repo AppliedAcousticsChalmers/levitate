@@ -82,7 +82,7 @@ class AlgorithmBase(metaclass=AlgorithmMeta):
                 spatial_structures['spherical_harmonics'] = max(value, spatial_structures.get('spherical_harmonics', -1))
             elif key != 'complex_transducer_amplitudes':
                 raise ValueError("Unknown requirement '{}'".format(key))
-        # Replace the requets with values calculated by the array
+        # Replace the requests with values calculated by the array
         if 'pressure_derivs' in spatial_structures:
             spatial_structures['pressure_derivs'] = self.array.pressure_derivs(position, orders=spatial_structures['pressure_derivs'])
         if 'spherical_harmonics' in spatial_structures:
@@ -270,7 +270,7 @@ class CostFunction(UnboundCostFunction, BoundAlgorithm):
     _is_bound = True
     _is_cost = True
 
-    # Inharitance order is important here, we need to resolve to UnboundCostFunction.__mul__ and not BoundAlgorithm.__mul__
+    # Inheritance order is important here, we need to resolve to UnboundCostFunction.__mul__ and not BoundAlgorithm.__mul__
     def __init__(self, algorithm, weight, position, **kwargs):
         super().__init__(algorithm=algorithm, weight=weight, position=position, **kwargs)
 
@@ -450,34 +450,10 @@ class VectorCostFunction(VectorBase, CostFunction):
         return VectorCostFunction(algorithm=algorithm, target_vector=self.target_vector, weight=algorithm.weight, position=algorithm.position)
 
 
-class AlgorithmPoint(Algorithm):
+class AlgorithmPoint(AlgorithmBase):
     _str_format_spec = '{:%cls%algorithms%position}'
-
-    def __new__(cls, *algorithms):
-        is_bound = isinstance(algorithms[0], BoundAlgorithm)
-        is_cost = isinstance(algorithms[0], UnboundCostFunction)
-        is_collection = False
-        if is_bound:
-            pos_0 = algorithms[0].position
-            for algorithm in algorithms:
-                if not np.allclose(pos_0, algorithm.position):
-                    is_collection = True
-                    break
-
-        if is_collection and is_cost:
-            new_cls = CostFunctionCollection
-        elif is_collection:
-            new_cls = AlgorithmCollection
-        elif is_cost and is_bound:
-            new_cls = CostFunctionPoint
-        elif is_cost:
-            new_cls = UnboundCostFunctionPoint
-        elif is_bound:
-            new_cls = BoundAlgorithmPoint
-        elif not (is_collection and is_bound and is_cost):
-            new_cls = AlgorithmPoint
-        obj = object.__new__(new_cls)
-        return obj
+    _is_bound = False
+    _is_cost = False
 
     def __init__(self, *algorithms):
         self.algorithms = []
@@ -502,27 +478,21 @@ class AlgorithmPoint(Algorithm):
     def __add__(self, other):
         if other == 0:
             return self
-        other_type = type(other)
-        if VectorBase in other_type.__bases__:
-            other_type = other_type.__bases__[1]
-        if other_type in type(self).__bases__:
-            new = type(self)(*self.algorithms, other)
-        elif other_type == type(self):
-            new = type(self)(*self.algorithms, *other.algorithms)
+        if type(self) == type(other):
+            return AlgorithmPoint(*self.algorithms, *other.algorithms)
+        elif self._type == other._type:
+            return AlgorithmPoint(*self.algorithms, other)
         else:
             return NotImplemented
-        return new
 
     def __iadd__(self, other):
         add_element = False
         add_point = False
-        if type(other) in type(self).__bases__:
-            add_element = True
-        elif VectorBase in type(other).__bases__ and type(other).__bases__[1] in type(self).__bases__:
-            add_element = True
-        elif type(other) == type(self):
+        if type(self) == type(other):
             add_point = True
-
+        elif self._type == other._type:
+            add_element = True
+        old_requires = self.requires.copy()
         if add_element:
             for key, value in other.requires.items():
                 self.requires[key] = max(value, self.requires.get(key, -1))
@@ -532,7 +502,17 @@ class AlgorithmPoint(Algorithm):
                 self += algorithm
         else:
             return NotImplemented
+        if self.requires != old_requires:
+            # We have new requirements, if there are cached spatial structures they will
+            # need to be recalculated at next call.
+            try:
+                del self._cached_spatial_structures
+            except AttributeError:
+                pass
         return self
+
+    def __sub__(self, other):
+        return type(self)(*[algorithm - other for algorithm in self.algorithms])
 
     def __mul__(self, weight):
         return UnboundCostFunctionPoint(*[algorithm * weight for algorithm in self.algorithms])
@@ -557,11 +537,11 @@ class AlgorithmPoint(Algorithm):
             format_spec = format_spec.replace('%algorithms', alg_str.rstrip(' + ') + ')')
         return super().__format__(format_spec.replace('%name', ''))
 
-    def __sub__(self, other):
-        return type(self)(*[algorithm - other for algorithm in self.algorithms])
 
+class BoundAlgorithmPoint(AlgorithmPoint):
+    _is_bound = True
+    _is_cost = False
 
-class BoundAlgorithmPoint(AlgorithmPoint, BoundAlgorithm):
     def __init__(self, *algorithms):
         self.position = algorithms[0].position
         super().__init__(*algorithms)
@@ -570,6 +550,18 @@ class BoundAlgorithmPoint(AlgorithmPoint, BoundAlgorithm):
         spatial_structures = self._spatial_structures()
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
         return [algorithm.values(**{key: requirements[key] for key in algorithm.values_require}) for algorithm in self.algorithms]
+
+    def __add__(self, other):
+        if other == 0:
+            return self
+        if type(self) == type(other):
+            return BoundAlgorithmPoint(*self.algorithms, *other.algorithms)
+        elif self._type == other._type and np.allclose(self.position, other.position):
+            return BoundAlgorithmPoint(*self.algorithms, other)
+        elif self._type == other._type:
+            return AlgorithmCollection(self, other)
+        else:
+            return NotImplemented
 
     def __iadd__(self, other):
         try:
@@ -584,7 +576,10 @@ class BoundAlgorithmPoint(AlgorithmPoint, BoundAlgorithm):
         return CostFunctionPoint(*[algorithm * weight for algorithm in self.algorithms])
 
 
-class UnboundCostFunctionPoint(AlgorithmPoint, UnboundCostFunction):
+class UnboundCostFunctionPoint(AlgorithmPoint):
+    _is_bound = False
+    _is_cost = True
+
     def __call__(self, complex_transducer_amplitudes, position):
         spatial_structures = self._spatial_structures(position)
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
@@ -595,12 +590,25 @@ class UnboundCostFunctionPoint(AlgorithmPoint, UnboundCostFunction):
             jacobians += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.jacobians(**{key: requirements[key] for key in algorithm.jacobians_require}))
         return value, jacobians
 
+    def __add__(self, other):
+        if other == 0:
+            return self
+        if type(self) == type(other):
+            return UnboundCostFunctionPoint(*self.algorithms, *other.algorithms)
+        elif self._type == other._type:
+            return UnboundCostFunctionPoint(*self.algorithms, other)
+        else:
+            return NotImplemented
+
     def __matmul__(self, position):
         return CostFunctionPoint(*[algorithm @ position for algorithm in self.algorithms])
 
 
-class CostFunctionPoint(UnboundCostFunctionPoint, BoundAlgorithmPoint, CostFunction):
-    def __call__(self, complex_transducer_amplitudes,):
+class CostFunctionPoint(UnboundCostFunctionPoint, BoundAlgorithmPoint):
+    _is_bound = True
+    _is_cost = True
+
+    def __call__(self, complex_transducer_amplitudes):
         spatial_structures = self._spatial_structures()
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
         value = 0
@@ -609,6 +617,27 @@ class CostFunctionPoint(UnboundCostFunctionPoint, BoundAlgorithmPoint, CostFunct
             value += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.values(**{key: requirements[key] for key in algorithm.values_require}))
             jacobians += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.jacobians(**{key: requirements[key] for key in algorithm.jacobians_require}))
         return value, jacobians
+
+    def __add__(self, other):
+        if other == 0:
+            return self
+        if type(self) == type(other):
+            return CostFunctionPoint(*self.algorithms, *other.algorithms)
+        elif self._type == other._type and np.allclose(self.position, other.position):
+            return CostFunctionPoint(*self.algorithms, other)
+        elif self._type == other._type:
+            return CostFunctionCollection(self, other)
+        else:
+            return NotImplemented
+
+    def __iadd__(self, other):
+        try:
+            if np.allclose(other.position, self.position):
+                return super().__iadd__(other)
+            else:
+                return CostFunctionCollection(self, other)
+        except AttributeError:
+            return NotImplemented
 
 
 class AlgorithmCollection(BoundAlgorithmPoint):
