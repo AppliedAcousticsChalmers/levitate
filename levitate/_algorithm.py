@@ -39,8 +39,54 @@ def requirement(**requirements):
     return requirements
 
 
-class Algorithm:
+class AlgorithmMeta(type):
+    # This class makes sure that _type is available at the class level.
+    @property
+    def _type(cls):
+        return cls._is_bound, cls._is_cost
+
+
+class AlgorithmBase(metaclass=AlgorithmMeta):
+
+    @property
+    def _type(self):
+        # Binds the _type instance property to the class property.
+        return type(self)._type
+
+    def _evaluate_requirements(self, complex_transducer_amplitudes, spatial_structures):
+        requirements = {}
+        if 'complex_transducer_amplitudes' in self.requires:
+            requirements['complex_transducer_amplitudes'] = complex_transducer_amplitudes
+        if 'pressure_derivs' in spatial_structures:
+            requirements['pressure_derivs_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, spatial_structures['pressure_derivs'])
+            requirements['pressure_derivs_summed'] = np.sum(requirements['pressure_derivs_individual'], axis=1)
+        if 'spherical_harmonics' in spatial_structures:
+            requirements['spherical_harmonics_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, spatial_structures['spherical_harmonics'])
+            requirements['spherical_harmonics_summed'] = np.sum(requirements['spherical_harmonics_individual'], axis=1)
+        return requirements
+
+    def _spatial_structures(self, position):
+        # Check what spatial structures we need from the array to fulfill the requirements
+        spatial_structures = {}
+        for key, value in self.requires.items():
+            if key.find('pressure_derivs') > -1:
+                spatial_structures['pressure_derivs'] = max(value, spatial_structures.get('pressure_derivs', -1))
+            elif key.find('spherical_harmonics') > -1:
+                spatial_structures['spherical_harmonics'] = max(value, spatial_structures.get('spherical_harmonics', -1))
+            elif key != 'complex_transducer_amplitudes':
+                raise ValueError("Unknown requirement '{}'".format(key))
+        # Replace the requets with values calculated by the array
+        if 'pressure_derivs' in spatial_structures:
+            spatial_structures['pressure_derivs'] = self.array.pressure_derivs(position, orders=spatial_structures['pressure_derivs'])
+        if 'spherical_harmonics' in spatial_structures:
+            spatial_structures['spherical_harmonics'] = self.array.spherical_harmonics(position, orders=spatial_structures['spherical_harmonics'])
+        return spatial_structures
+
+
+class Algorithm(AlgorithmBase):
     _str_format_spec = '{:%cls%name}'
+    _is_bound = False
+    _is_cost = False
 
     def __init__(self, algorithm):
         self.algorithm = algorithm
@@ -84,35 +130,6 @@ class Algorithm:
         # Call the function with the correct arguments
         return self.values(**{key: requirements[key] for key in self.values_require})
 
-    def _evaluate_requirements(self, complex_transducer_amplitudes, spatial_structures):
-        requirements = {}
-        if 'complex_transducer_amplitudes' in self.requires:
-            requirements['complex_transducer_amplitudes'] = complex_transducer_amplitudes
-        if 'pressure_derivs' in spatial_structures:
-            requirements['pressure_derivs_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, spatial_structures['pressure_derivs'])
-            requirements['pressure_derivs_summed'] = np.sum(requirements['pressure_derivs_individual'], axis=1)
-        if 'spherical_harmonics' in spatial_structures:
-            requirements['spherical_harmonics_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, spatial_structures['spherical_harmonics'])
-            requirements['spherical_harmonics_summed'] = np.sum(requirements['spherical_harmonics_individual'], axis=1)
-        return requirements
-
-    def _spatial_structures(self, position):
-        # Check what spatial structures we need from the array to fulfill the requirements
-        spatial_structures = {}
-        for key, value in self.requires.items():
-            if key.find('pressure_derivs') > -1:
-                spatial_structures['pressure_derivs'] = max(value, spatial_structures.get('pressure_derivs', -1))
-            elif key.find('spherical_harmonics') > -1:
-                spatial_structures['spherical_harmonics'] = max(value, spatial_structures.get('spherical_harmonics', -1))
-            elif key != 'complex_transducer_amplitudes':
-                raise ValueError("Unknown requirement '{}'".format(key))
-        # Replace the requets with values calculated by the array
-        if 'pressure_derivs' in spatial_structures:
-            spatial_structures['pressure_derivs'] = self.array.pressure_derivs(position, orders=spatial_structures['pressure_derivs'])
-        if 'spherical_harmonics' in spatial_structures:
-            spatial_structures['spherical_harmonics'] = self.array.spherical_harmonics(position, orders=spatial_structures['spherical_harmonics'])
-        return spatial_structures
-
     def __mul__(self, weight):
         return UnboundCostFunction(weight=weight, algorithm=self.algorithm)
 
@@ -154,6 +171,8 @@ class Algorithm:
 
 class BoundAlgorithm(Algorithm):
     _str_format_spec = '{:%cls%name%position}'
+    _is_bound = True
+    _is_cost = False
 
     def __init__(self, algorithm, position, **kwargs):
         super().__init__(algorithm=algorithm, **kwargs)
@@ -200,6 +219,8 @@ class BoundAlgorithm(Algorithm):
 
 class UnboundCostFunction(Algorithm):
     _str_format_spec = '{:%cls%name%weight}'
+    _is_bound = False
+    _is_cost = True
 
     def __init__(self, algorithm, weight, **kwargs):
         super().__init__(algorithm=algorithm, **kwargs)
@@ -238,6 +259,8 @@ class UnboundCostFunction(Algorithm):
 
 class CostFunction(UnboundCostFunction, BoundAlgorithm):
     _str_format_spec = '{:%cls%name%weight%position}'
+    _is_bound = True
+    _is_cost = True
 
     # Inharitance order is important here, we need to resolve to UnboundCostFunction.__mul__ and not BoundAlgorithm.__mul__
     def __init__(self, algorithm, weight, position, **kwargs):
