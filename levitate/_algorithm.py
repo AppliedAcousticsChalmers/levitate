@@ -65,7 +65,14 @@ class AlgorithmBase(metaclass=AlgorithmMeta):
             requirements['spherical_harmonics_summed'] = np.sum(requirements['spherical_harmonics_individual'], axis=1)
         return requirements
 
-    def _spatial_structures(self, position):
+    def _spatial_structures(self, position=None):
+        # If called without a position we are using a bound algorithm, check the cache and calculate it if needed
+        if position is None:
+            try:
+                return self._cached_spatial_structures
+            except AttributeError:
+                self._cached_spatial_structures = self._spatial_structures(self.position)
+                return self._cached_spatial_structures
         # Check what spatial structures we need from the array to fulfill the requirements
         spatial_structures = {}
         for key, value in self.requires.items():
@@ -188,13 +195,6 @@ class BoundAlgorithm(Algorithm):
         spatial_structures = self._spatial_structures()
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
         return self.values(**{key: requirements[key] for key in self.values_require})
-
-    def _spatial_structures(self):
-        try:
-            return self._cashed_spatial_structures
-        except AttributeError:
-            self._cashed_spatial_structures = super()._spatial_structures(self.position)
-            return self._cashed_spatial_structures
 
     def __add__(self, other):
         if other == 0:
