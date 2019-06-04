@@ -21,7 +21,7 @@ class AlgorithmImplementation:
         self.array = array
 
     def __eq__(self, other):
-        return type(self) == type(other)
+        return type(self) == type(other) and self.array == other.array
 
     def __getnewargs_ex__(self):
         return (self.array,), {'_nowrap': True}

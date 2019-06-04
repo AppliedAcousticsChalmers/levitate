@@ -1,7 +1,5 @@
-import pytest
 import numpy as np
 import levitate
-# import levitate._algorithm
 
 classes = levitate._algorithm
 

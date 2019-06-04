@@ -306,6 +306,13 @@ class SecondOrderCurl(AlgorithmImplementation):
         self.pressure_coefficient = -2 / 9 * ka**6 * (f_1**2 + f_1 * f_2) * array.k**2 * overall_coef
         self.velocity_coefficient = -3 * ka**6 / 18 * f_2**2 * overall_coef
 
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and np.allclose(self.pressure_coefficient, other.pressure_coefficient, atol=0)
+            and np.allclose(self.velocity_coefficient, other.velocity_coefficient, atol=0)
+        )
+
     def values(self, pressure_derivs_summed):
         values = self.pressure_coefficient * np.imag(pressure_derivs_summed[[2, 3, 1]] * np.conj(pressure_derivs_summed[[3, 1, 2]]))
         values += self.velocity_coefficient * np.imag(pressure_derivs_summed[[7, 8, 4]] * np.conj(pressure_derivs_summed[[8, 4, 7]]))
