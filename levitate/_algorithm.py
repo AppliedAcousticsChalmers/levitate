@@ -644,16 +644,10 @@ class CostFunctionPoint(UnboundCostFunctionPoint, BoundAlgorithmPoint):
             return NotImplemented
 
 
-class AlgorithmCollection(BoundAlgorithmPoint):
+class AlgorithmCollection(AlgorithmBase):
     _str_format_spec = '{:%cls%points}'
-
-    def __new__(cls, *algorithms):
-        if isinstance(algorithms[0], CostFunction):
-            new_cls = CostFunctionCollection
-        elif isinstance(algorithms[0], BoundAlgorithm):
-            new_cls = AlgorithmCollection
-        obj = object.__new__(new_cls)
-        return obj
+    _is_bound = True
+    _is_cost = False
 
     def __init__(self, *algorithms):
         self.algorithms = []
@@ -669,37 +663,21 @@ class AlgorithmCollection(BoundAlgorithmPoint):
     def __add__(self, other):
         if other == 0:
             return self
-        elif isinstance(self, CostFunctionCollection) and not isinstance(other, CostFunction):
-            # Make sure that we are not adding bound algorithms to cost function collections
-            return NotImplemented
-        elif isinstance(other, CostFunction) and not isinstance(self, CostFunctionCollection):
-            # Make sure that we are not adding cost functions to algorithm collections
-            return NotImplemented
-        try:
-            other.position
-        except AttributeError:
+        elif self._type != other._type:
             return NotImplemented
         else:
-            return AlgorithmCollection(*self.algorithms, other)
+            return type(self)(*self.algorithms, other)
 
     def __iadd__(self, other):
         if type(other) == type(self):
             for algorithm in other.algorithms:
                 self += algorithm
             return self
-        elif isinstance(self, CostFunctionCollection) and not isinstance(other, CostFunction):
-            # Make sure that we are not adding bound algorithms to cost function collections
-            return NotImplemented
-        elif isinstance(other, CostFunction) and not isinstance(self, CostFunctionCollection):
-            # Make sure that we are not adding cost functions to algorithm collections
-            return NotImplemented
-        try:
-            other_pos = other.position
-        except AttributeError:
+        elif self._type != other._type:
             return NotImplemented
         else:
             for idx, point in enumerate(self.algorithms):
-                if np.allclose(point.position, other_pos):
+                if np.allclose(point.position, other.position):
                     # Mutating `point` will not update the contents in the list!
                     self.algorithms[idx] += other
                     break
@@ -720,12 +698,15 @@ class AlgorithmCollection(BoundAlgorithmPoint):
                 points_spec = '\t{:%cls%name%algorithms%weight%position}\n'
             points_str = '[\n'
             for algorithm in self.algorithms:
-                points_str += points_spec.format(algorithm)
+                points_str += points_spec.format(algorithm).replace('%algorithms', '')
             format_spec = format_spec.replace('%points', points_str + ']')
         return super().__format__(format_spec)
 
 
 class CostFunctionCollection(AlgorithmCollection, CostFunctionPoint):
+    _is_bound = True
+    _is_cost = True
+
     def __call__(self, complex_transducer_amplitudes):
         values = 0
         jacobians = 0
