@@ -90,6 +90,12 @@ def mult(obj, result_cls):
         raise TypeError('Mult of {.__name__} failed'.format(type(obj)))
     except AssertionError:
         raise TypeError('Mult of {.__name__} returned {.__name__}, not {.__name__}'.format(type(obj), type(obj * 1), result_cls))
+    try:
+        obj * obj
+    except TypeError:
+        pass
+    else:
+        raise TypeError('{.__name__} can multiply with itself'.format(type(obj)))
 
 
 def bind(obj, result_cls):
@@ -99,6 +105,36 @@ def bind(obj, result_cls):
         raise TypeError('Bind of {.__name__} failed'.format(type(obj)))
     except AssertionError:
         raise TypeError('Bind of {.__name__} returned {.__name__}, not {.__name__}'.format(type(obj), type(obj @ pos), result_cls))
+    try:
+        obj @ np.array(0)
+    except TypeError:
+        pass
+    else:
+        raise TypeError('{.__name__} can bind to scalars')
+    try:
+        obj @ np.array([0])
+    except TypeError:
+        pass
+    else:
+        raise TypeError('{.__name__} can bind to single elements array')
+    try:
+        obj @ np.array([0, 1])
+    except TypeError:
+        pass
+    else:
+        raise TypeError('{.__name__} can bind to 2D positions')
+    try:
+        obj @ np.array([1, 2, 3, 4])
+    except TypeError:
+        pass
+    else:
+        raise TypeError('{.__name__} can bind to 4D positions')
+    try:
+        obj @ np.array([[0, 0, 0]])
+    except TypeError:
+        pass
+    else:
+        raise TypeError('{.__name__} can bind to transposed arrays')
 
 
 def sub(obj, result_cls):
@@ -124,6 +160,9 @@ def test_algorithm():
     bind(algorithm, classes.BoundAlgorithm)
     sub(algorithm, classes.VectorAlgorithm)
 
+    # Test misc
+    str(algorithm)
+
 
 def test_bound_algorithm():
     # Test for addition
@@ -143,6 +182,9 @@ def test_bound_algorithm():
     bind(bound_algorithm, classes.BoundAlgorithm)
     sub(bound_algorithm, classes.VectorBoundAlgorithm)
 
+    # Test misc
+    str(bound_algorithm)
+
 
 def test_unbound_cost_function():
     # Test for addition
@@ -157,6 +199,9 @@ def test_unbound_cost_function():
     mult(unbound_cost_function, classes.UnboundCostFunction)
     bind(unbound_cost_function, classes.CostFunction)
     sub(unbound_cost_function, classes.VectorUnboundCostFunction)
+
+    # Test misc
+    str(unbound_cost_function)
 
 
 def test_cost_function():
@@ -177,6 +222,9 @@ def test_cost_function():
     bind(cost_function, classes.CostFunction)
     sub(cost_function, classes.VectorCostFunction)
 
+    # Test misc
+    str(cost_function)
+
 
 def test_vector_algorithm():
     # Test for addition
@@ -191,6 +239,9 @@ def test_vector_algorithm():
     mult(vector_algorithm, classes.VectorUnboundCostFunction)
     bind(vector_algorithm, classes.VectorBoundAlgorithm)
     sub(vector_algorithm, classes.VectorAlgorithm)
+
+    # Test misc
+    str(vector_algorithm)
 
 
 def test_vector_bound_algorithm():
@@ -211,6 +262,9 @@ def test_vector_bound_algorithm():
     bind(vector_bound_algorithm, classes.VectorBoundAlgorithm)
     sub(vector_bound_algorithm, classes.VectorBoundAlgorithm)
 
+    # Test misc
+    str(vector_bound_algorithm)
+
 
 def test_vector_unbound_cost_function():
     # Test for addition
@@ -225,6 +279,9 @@ def test_vector_unbound_cost_function():
     mult(vector_unbound_cost_function, classes.VectorUnboundCostFunction)
     bind(vector_unbound_cost_function, classes.VectorCostFunction)
     sub(vector_unbound_cost_function, classes.VectorUnboundCostFunction)
+
+    # Test misc
+    str(vector_unbound_cost_function)
 
 
 def test_vector_cost_function():
@@ -245,6 +302,9 @@ def test_vector_cost_function():
     bind(vector_cost_function, classes.VectorCostFunction)
     sub(vector_cost_function, classes.VectorCostFunction)
 
+    # Test misc
+    str(vector_cost_function)
+
 
 def test_algorithm_point():
     # Test for addition
@@ -259,6 +319,9 @@ def test_algorithm_point():
     mult(algorithm_point, classes.UnboundCostFunctionPoint)
     bind(algorithm_point, classes.BoundAlgorithmPoint)
     sub(algorithm_point, classes.AlgorithmPoint)
+
+    # Test misc
+    str(algorithm_point)
 
 
 def test_bound_algorithm_point():
@@ -279,6 +342,9 @@ def test_bound_algorithm_point():
     bind(bound_algorithm_point, classes.BoundAlgorithmPoint)
     sub(bound_algorithm_point, classes.BoundAlgorithmPoint)
 
+    # Test misc
+    str(bound_algorithm_point)
+
 
 def test_unbound_cost_function_point():
     # Test for addition
@@ -293,6 +359,9 @@ def test_unbound_cost_function_point():
     mult(unbound_cost_function_point, classes.UnboundCostFunctionPoint)
     bind(unbound_cost_function_point, classes.CostFunctionPoint)
     sub(unbound_cost_function_point, classes.UnboundCostFunctionPoint)
+
+    # Test misc
+    str(unbound_cost_function_point)
 
 
 def test_cost_function_point():
@@ -313,6 +382,9 @@ def test_cost_function_point():
     bind(cost_function_point, classes.CostFunctionPoint)
     sub(cost_function_point, classes.CostFunctionPoint)
 
+    # Test misc
+    str(cost_function_point)
+
 
 def test_algorithm_collection():
     # Test for addition
@@ -329,6 +401,9 @@ def test_algorithm_collection():
 
     mult(algorithm_collection, classes.CostFunctionCollection)
 
+    # Test misc
+    str(algorithm_collection)
+
 
 def test_cost_function_collection():
     # Test for addition
@@ -344,3 +419,6 @@ def test_cost_function_collection():
     not_addable(cost_function_collection, bound_algorithms)
 
     mult(cost_function_collection, classes.CostFunctionCollection)
+
+    # Test misc
+    str(cost_function_collection)
