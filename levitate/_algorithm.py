@@ -352,6 +352,15 @@ class VectorBase(Algorithm):
     def jacobians_require(self, val):
         self._jacobians_require = val
 
+    def __sub__(self, vector):
+        return type(self)(self.algorithm, self.target_vector + vector)
+
+    def __format__(self, format_spec):
+        format_spec = format_spec.replace('%name', '||%name - %vector||^2').replace('%vector', str(self.target_vector))
+        return super().__format__(format_spec)
+
+
+class VectorAlgorithm(VectorBase, Algorithm):
     def __add__(self, other):
         if other == 0:
             return self
@@ -363,12 +372,6 @@ class VectorBase(Algorithm):
         else:
             return NotImplemented
 
-    def __format__(self, format_spec):
-        format_spec = format_spec.replace('%name', '||%name - %vector||^2').replace('%vector', str(self.target_vector))
-        return super().__format__(format_spec)
-
-
-class VectorAlgorithm(VectorBase, Algorithm):
     def __matmul__(self, position):
         algorithm = self.algorithm @ position
         return VectorBoundAlgorithm(algorithm=algorithm, target_vector=self.target_vector, position=algorithm.position)
@@ -379,6 +382,20 @@ class VectorAlgorithm(VectorBase, Algorithm):
 
 
 class VectorBoundAlgorithm(VectorBase, BoundAlgorithm):
+    def __add__(self, other):
+        if other == 0:
+            return self
+        other_type = type(other)
+        if VectorBase in other_type.__bases__:
+            other_type = other_type.__bases__[1]
+        if other_type == type(self).__bases__[1]:
+            if self.position == other.position:
+                return BoundAlgorithmPoint(self, other)
+            else:
+                return AlgorithmCollection(self, other)
+        else:
+            return NotImplemented
+
     def __matmul__(self, position):
         algorithm = self.algorithm @ position
         return VectorBoundAlgorithm(algorithm=algorithm, target_vector=self.target_vector, position=algorithm.position)
@@ -389,6 +406,17 @@ class VectorBoundAlgorithm(VectorBase, BoundAlgorithm):
 
 
 class VectorUnboundCostFunction(VectorBase, UnboundCostFunction):
+    def __add__(self, other):
+        if other == 0:
+            return self
+        other_type = type(other)
+        if VectorBase in other_type.__bases__:
+            other_type = other_type.__bases__[1]
+        if other_type == type(self).__bases__[1]:
+            return UnboundCostFunctionPoint(self, other)
+        else:
+            return NotImplemented
+
     def __matmul__(self, position):
         algorithm = self.algorithm @ position
         return VectorCostFunction(algorithm=algorithm, target_vector=self.target_vector, position=algorithm.position, weight=algorithm.weight)
@@ -399,6 +427,20 @@ class VectorUnboundCostFunction(VectorBase, UnboundCostFunction):
 
 
 class VectorCostFunction(VectorBase, CostFunction):
+    def __add__(self, other):
+        if other == 0:
+            return self
+        other_type = type(other)
+        if VectorBase in other_type.__bases__:
+            other_type = other_type.__bases__[1]
+        if other_type == type(self).__bases__[1]:
+            if self.position == other.position:
+                return CostFunctionPoint(self, other)
+            else:
+                return CostFunctionCollection(self, other)
+        else:
+            return NotImplemented
+
     def __matmul__(self, position):
         algorithm = self.algorithm @ position
         return VectorCostFunction(algorithm=algorithm, target_vector=self.target_vector, position=algorithm.position, weight=algorithm.weight)
