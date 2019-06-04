@@ -130,18 +130,6 @@ class Algorithm(AlgorithmBase):
         # Call the function with the correct arguments
         return self.values(**{key: requirements[key] for key in self.values_require})
 
-    def __mul__(self, weight):
-        return UnboundCostFunction(weight=weight, algorithm=self.algorithm)
-
-    def __rmul__(self, weight):
-        return self.__mul__(weight)
-
-    def __matmul__(self, position):
-        position = np.asarray(position)
-        if position.ndim < 1 or position.shape[0] != 3:
-            return NotImplemented
-        return BoundAlgorithm(position=position, algorithm=self.algorithm)
-
     def __add__(self, other):
         if other == 0:
             return self
@@ -150,11 +138,23 @@ class Algorithm(AlgorithmBase):
         else:
             return NotImplemented
 
+    def __sub__(self, vector):
+        return VectorAlgorithm(algorithm=self, target_vector=vector)
+
+    def __mul__(self, weight):
+        return UnboundCostFunction(weight=weight, algorithm=self.algorithm)
+
+    def __matmul__(self, position):
+        position = np.asarray(position)
+        if position.ndim < 1 or position.shape[0] != 3:
+            return NotImplemented
+        return BoundAlgorithm(position=position, algorithm=self.algorithm)
+
     def __radd__(self, other):
         return self.__add__(other)
 
-    def __sub__(self, vector):
-        return VectorAlgorithm(algorithm=self, target_vector=vector)
+    def __rmul__(self, weight):
+        return self.__mul__(weight)
 
     def __str__(self, not_api_call=True):
         return self._str_format_spec.format(self)
