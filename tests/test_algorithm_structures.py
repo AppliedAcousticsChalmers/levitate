@@ -1,231 +1,424 @@
-import pytest
 import numpy as np
 import levitate
 
+classes = levitate._algorithm
+
+pos = np.array([0.1, 0.2, 0.3])
+pos_b = np.array([-0.15, 1.27, 0.001])
+
 array = levitate.arrays.RectangularArray(shape=(4, 5))
-pos_0 = np.array([0.1, 0.2, 0.3])
-pos_1 = np.array([-0.15, 1.27, 0.001])
-pos_both = np.stack((pos_0, pos_1), axis=1)
-array.phases = array.focus_phases((pos_0 + pos_1) / 2) + array.signature(stype='twin')
 
-spat_ders = array.pressure_derivs(pos_both, orders=3)
-ind_ders = np.einsum('i, ji...->ji...', array.amplitudes * np.exp(1j * array.phases), spat_ders)
-sum_ders = np.sum(ind_ders, axis=1)
+algorithm = levitate.algorithms.GorkovPotential(array)
+bound_algorithm = algorithm @ pos
+bound_algorithm_b = algorithm @ pos_b
+unbound_cost_function = algorithm * 1
+cost_function = algorithm @ pos * 1
+cost_function_b = algorithm @ pos_b * 1
 
+vector_algorithm = algorithm - 0
+vector_bound_algorithm = bound_algorithm - 0
+vector_bound_algorithm_b = bound_algorithm_b - 0
+vector_unbound_cost_function = unbound_cost_function - 0
+vector_cost_function = cost_function - 0
+vector_cost_function_b = cost_function_b - 0
 
-# Defines the algorithms to use for testing.
-# Note that the algorithm implementations themselves are tested elsewhere.
-pressure_derivs_algorithms = [
-    levitate.algorithms.GorkovGradient,
-    levitate.algorithms.GorkovLaplacian,
-    levitate.algorithms.VelocityMagnitudeSquared,
-]
+algorithm_point = algorithm + algorithm
+bound_algorithm_point = bound_algorithm + bound_algorithm
+bound_algorithm_point_b = bound_algorithm_b + bound_algorithm_b
+unbound_cost_function_point = unbound_cost_function + unbound_cost_function
+cost_function_point = cost_function + cost_function
+cost_function_point_b = cost_function_b + cost_function_b
 
+algorithm_collection = bound_algorithm + bound_algorithm_b
+cost_function_collection = cost_function + cost_function_b
 
-@pytest.mark.parametrize("func", pressure_derivs_algorithms)
-def test_Algorithm(func):
-    algorithm = func(array)
-    calc_values = algorithm.values
-
-    val_0 = algorithm(array.complex_amplitudes, pos_0)
-    val_1 = algorithm(array.complex_amplitudes, pos_1)
-    val_both = algorithm(array.complex_amplitudes, pos_both)
-
-    np.testing.assert_allclose(val_0, calc_values(sum_ders[..., 0]))
-    np.testing.assert_allclose(val_1, calc_values(sum_ders[..., 1]))
-    np.testing.assert_allclose(val_both, np.stack([val_0, val_1], axis=1))
+algorithms = [algorithm, vector_algorithm, algorithm_point]
+bound_algorithms = [bound_algorithm, bound_algorithm_b, vector_bound_algorithm, vector_bound_algorithm_b, bound_algorithm_point, bound_algorithm_point_b, algorithm_collection]
+unbound_cost_functions = [unbound_cost_function, vector_unbound_cost_function, unbound_cost_function_point]
+cost_functions = [cost_function, cost_function_b, vector_cost_function, vector_cost_function_b, cost_function_point, cost_function_point_b, cost_function_collection]
 
 
-@pytest.mark.parametrize("pos", [pos_0, pos_1, pos_both])
-@pytest.mark.parametrize("func", pressure_derivs_algorithms)
-def test_BoundAlgorithm(func, pos):
-    algorithm = func(array)
-    np.testing.assert_allclose((algorithm@pos)(array.complex_amplitudes), algorithm(array.complex_amplitudes, pos))
+def test_basics():
+    # Make sure that all the above actually are what they should
+    assert type(algorithm) == classes.Algorithm
+    assert type(bound_algorithm) == classes.BoundAlgorithm
+    assert type(unbound_cost_function) == classes.UnboundCostFunction
+    assert type(cost_function) == classes.CostFunction
+
+    assert type(vector_algorithm) == classes.VectorAlgorithm
+    assert type(vector_bound_algorithm) == classes.VectorBoundAlgorithm
+    assert type(vector_unbound_cost_function) == classes.VectorUnboundCostFunction
+    assert type(vector_cost_function) == classes.VectorCostFunction
+
+    assert type(algorithm_point) == classes.AlgorithmPoint
+    assert type(bound_algorithm_point) == classes.BoundAlgorithmPoint
+    assert type(unbound_cost_function_point) == classes.UnboundCostFunctionPoint
+    assert type(cost_function_point) == classes.CostFunctionPoint
+
+    assert type(algorithm_collection) == classes.AlgorithmCollection
+    assert type(cost_function_collection) == classes.CostFunctionCollection
 
 
-@pytest.mark.parametrize("weight", [np.random.uniform(-10, 10, 1), (1, 0, 0), (0, 1, 0), (0, 0, 1), np.random.uniform(-10, 10, 3)])
-@pytest.mark.parametrize("func", pressure_derivs_algorithms)
-def test_UnboundCostFunction(func, weight):
-    algorithm = func(array) * weight
-    calc_values, calc_jacobians = algorithm.values, algorithm.jacobians
-
-    val_0 = np.einsum('i..., i', calc_values(sum_ders[..., 0]), np.atleast_1d(weight))
-    val_1 = np.einsum('i..., i', calc_values(sum_ders[..., 1]), np.atleast_1d(weight))
-    val_both = np.einsum('i..., i', calc_values(sum_ders), np.atleast_1d(weight))
-
-    jac_0 = np.einsum('i..., i', calc_jacobians(sum_ders[..., 0], ind_ders[..., 0]), np.atleast_1d(weight))
-    jac_1 = np.einsum('i..., i', calc_jacobians(sum_ders[..., 1], ind_ders[..., 1]), np.atleast_1d(weight))
-    jac_both = np.einsum('i..., i', calc_jacobians(sum_ders, ind_ders), np.atleast_1d(weight))
-
-    alg_val_0, alg_jac_0 = algorithm(array.complex_amplitudes, pos_0)
-    alg_val_1, alg_jac_1 = algorithm(array.complex_amplitudes, pos_1)
-    alg_val_both, alg_jac_both = algorithm(array.complex_amplitudes, pos_both)
-
-    np.testing.assert_allclose(val_0, alg_val_0)
-    np.testing.assert_allclose(val_1, alg_val_1)
-    np.testing.assert_allclose(val_both, alg_val_both)
-
-    np.testing.assert_allclose(jac_0, alg_jac_0)
-    np.testing.assert_allclose(jac_1, alg_jac_1)
-    np.testing.assert_allclose(jac_both, alg_jac_both)
+def addable(a, b, result_cls):
+    try:
+        assert type(a + b) == result_cls
+    except TypeError:
+        raise TypeError('{.__name__} and {.__name__} addition failed'.format(type(a), type(b)))
+    except AssertionError:
+        raise TypeError('Addition of {.__name__} and {.__name__} returned {.__name__}, not {.__name__}'.format(type(a), type(b), type(a + b), result_cls))
 
 
-@pytest.mark.parametrize("weight", [np.random.uniform(-10, 10, 3)])
-@pytest.mark.parametrize("pos", [pos_0, pos_1])
-@pytest.mark.parametrize("func", pressure_derivs_algorithms)
-def test_CostFunction(func, weight, pos):
-    algorithm = func(array) * weight
-
-    val, jac = (algorithm@pos)(array.complex_amplitudes)
-    val_ub, jac_ub = algorithm(array.complex_amplitudes, pos)
-    np.testing.assert_allclose(val, val_ub)
-    np.testing.assert_allclose(jac, jac_ub)
-
-
-@pytest.mark.parametrize("pos", [pos_0, pos_both])
-@pytest.mark.parametrize("func", pressure_derivs_algorithms)
-@pytest.mark.parametrize("target", [(1, 0, 0), (0, 1, 0), (0, 0, 1), np.random.uniform(-10, 10, 3)])
-def test_VectorAlgorithm(func, target, pos):
-    algorithm = func(array)
-    np.testing.assert_allclose((algorithm - target)(array.complex_amplitudes, pos), np.abs(algorithm(array.complex_amplitudes, pos) - np.asarray(target).reshape([-1] + (pos.ndim - 1) * [1]))**2)
+def not_addable(a, b):
+    if hasattr(b, '__len__'):
+        for item in b:
+            not_addable(a, item)
+    else:
+        try:
+            a + b
+        except TypeError:
+            pass
+        else:
+            raise TypeError('Addition of {.__name__} and {.__name__} returned {.__name__}, should fail'.format(type(a), type(b), type(a + b)))
 
 
-@pytest.mark.parametrize("pos", [pos_0, pos_both])
-@pytest.mark.parametrize("func", pressure_derivs_algorithms)
-@pytest.mark.parametrize("target", [np.random.uniform(-10, 10, 3)])
-def test_VectorBoundAlgorithm(func, target, pos):
-    algorithm = func(array) - target
-    np.testing.assert_allclose((algorithm@pos)(array.complex_amplitudes), algorithm(array.complex_amplitudes, pos))
+def mult(obj, result_cls):
+    try:
+        assert type(obj * 1) == result_cls
+    except TypeError:
+        raise TypeError('Mult of {.__name__} failed'.format(type(obj)))
+    except AssertionError:
+        raise TypeError('Mult of {.__name__} returned {.__name__}, not {.__name__}'.format(type(obj), type(obj * 1), result_cls))
+
+    try:
+        obj * obj
+    except TypeError as e:
+        if not str(e).startswith('unsupported operand type(s) for *:'):
+            raise e
+    else:
+        raise TypeError('{.__name__} can multiply with itself'.format(type(obj)))
 
 
-@pytest.mark.parametrize("func", pressure_derivs_algorithms)
-@pytest.mark.parametrize("weight", [np.random.uniform(-10, 10, 3)])
-@pytest.mark.parametrize("target", [(1, 0, 0), (0, 1, 0), (0, 0, 1), np.random.uniform(-10, 10, 3)])
-def test_VectorUnboundCostFunction(func, target, weight):
-    algorithm = (func(array) - target) * weight
-    calc_values, calc_jacobians = algorithm.values, algorithm.jacobians
-
-    val_0 = np.einsum('i..., i', calc_values(pressure_derivs_summed=sum_ders[..., 0]), np.atleast_1d(weight))
-    val_1 = np.einsum('i..., i', calc_values(pressure_derivs_summed=sum_ders[..., 1]), np.atleast_1d(weight))
-    val_both = np.einsum('i..., i', calc_values(pressure_derivs_summed=sum_ders), np.atleast_1d(weight))
-
-    jac_0 = np.einsum('i..., i', calc_jacobians(pressure_derivs_summed=sum_ders[..., 0], pressure_derivs_individual=ind_ders[..., 0]), np.atleast_1d(weight))
-    jac_1 = np.einsum('i..., i', calc_jacobians(pressure_derivs_summed=sum_ders[..., 1], pressure_derivs_individual=ind_ders[..., 1]), np.atleast_1d(weight))
-    jac_both = np.einsum('i..., i', calc_jacobians(pressure_derivs_summed=sum_ders, pressure_derivs_individual=ind_ders), np.atleast_1d(weight))
-
-    alg_val_0, alg_jac_0 = algorithm(array.complex_amplitudes, pos_0)
-    alg_val_1, alg_jac_1 = algorithm(array.complex_amplitudes, pos_1)
-    alg_val_both, alg_jac_both = algorithm(array.complex_amplitudes, pos_both)
-
-    np.testing.assert_allclose(val_0, alg_val_0)
-    np.testing.assert_allclose(val_1, alg_val_1)
-    np.testing.assert_allclose(val_both, alg_val_both)
-
-    np.testing.assert_allclose(jac_0, alg_jac_0)
-    np.testing.assert_allclose(jac_1, alg_jac_1)
-    np.testing.assert_allclose(jac_both, alg_jac_both)
-
-
-@pytest.mark.parametrize("func", pressure_derivs_algorithms)
-@pytest.mark.parametrize("weight", [np.random.uniform(-10, 10, 1), np.random.uniform(-10, 10, 3)])
-@pytest.mark.parametrize("target", [np.random.uniform(-10, 10, 3)])
-@pytest.mark.parametrize("pos", [pos_0, pos_both])
-def test_VectorCostFunction(func, weight, target, pos):
-    algorithm = (func(array) - target) * weight
-    val, jac = (algorithm@pos)(array.complex_amplitudes)
-    val_ub, jac_ub = algorithm(array.complex_amplitudes, pos)
-    np.testing.assert_allclose(val, val_ub)
-    np.testing.assert_allclose(jac, jac_ub)
-
-
-@pytest.mark.parametrize("func0", pressure_derivs_algorithms)
-@pytest.mark.parametrize("func1", pressure_derivs_algorithms)
-def test_AlgorithmPoint(func0, func1):
-    alg0 = func0(array)
-    alg1 = func1(array)
-
-    val0 = alg0(array.complex_amplitudes, pos_both)
-    val1 = alg1(array.complex_amplitudes, pos_both)
-    val_both = (alg0 + alg1)(array.complex_amplitudes, pos_both)
-
-    np.testing.assert_allclose(val0, val_both[0])
-    np.testing.assert_allclose(val1, val_both[1])
+def bind(obj, result_cls):
+    try:
+        assert type(obj @ pos) == result_cls
+    except TypeError:
+        raise TypeError('Bind of {.__name__} failed'.format(type(obj)))
+    except AssertionError:
+        raise TypeError('Bind of {.__name__} returned {.__name__}, not {.__name__}'.format(type(obj), type(obj @ pos), result_cls))
+    try:
+        obj @ np.array(0)
+    except TypeError:
+        pass
+    else:
+        raise TypeError('{.__name__} can bind to scalars')
+    try:
+        obj @ np.array([0])
+    except TypeError:
+        pass
+    else:
+        raise TypeError('{.__name__} can bind to single elements array')
+    try:
+        obj @ np.array([0, 1])
+    except TypeError:
+        pass
+    else:
+        raise TypeError('{.__name__} can bind to 2D positions')
+    try:
+        obj @ np.array([1, 2, 3, 4])
+    except TypeError:
+        pass
+    else:
+        raise TypeError('{.__name__} can bind to 4D positions')
+    try:
+        obj @ np.array([[0, 0, 0]])
+    except TypeError:
+        pass
+    else:
+        raise TypeError('{.__name__} can bind to transposed arrays')
 
 
-@pytest.mark.parametrize("func0", pressure_derivs_algorithms)
-@pytest.mark.parametrize("func1", pressure_derivs_algorithms)
-def test_BoundAlgorithmPoint(func0, func1):
-    alg = func0(array) + func1(array)
-
-    val_alg = alg(array.complex_amplitudes, pos_both)
-    val_bound = (alg@pos_both)(array.complex_amplitudes)
-    np.testing.assert_allclose(val_alg[0], val_bound[0])
-    np.testing.assert_allclose(val_alg[1], val_bound[1])
+def sub(obj, result_cls):
+    try:
+        assert type(obj - 0) == result_cls
+    except TypeError:
+        raise TypeError('Sub of {.__name__} failed'.format(type(obj)))
+    except AssertionError:
+        raise TypeError('Sub of {.__name__} returned {.__name__}, not {.__name__}'.format(type(obj), type(obj - 0), result_cls))
 
 
-@pytest.mark.parametrize("func0", pressure_derivs_algorithms)
-@pytest.mark.parametrize("func1", pressure_derivs_algorithms)
-@pytest.mark.parametrize("pos", [pos_0])
-@pytest.mark.parametrize("weight0", [np.random.uniform(-10, 10, 3)])
-@pytest.mark.parametrize("weight1", [np.random.uniform(-10, 10, 3)])
-def test_UnboundCostFunctionPoint(func0, func1, pos, weight0, weight1):
-    alg0 = func0(array) * weight0
-    alg1 = func1(array) * weight1
+def test_algorithm():
+    # Test for addition
+    addable(algorithm, algorithm, classes.AlgorithmPoint)
+    addable(algorithm, vector_algorithm, classes.AlgorithmPoint)
+    addable(algorithm, algorithm_point, classes.AlgorithmPoint)
+    not_addable(algorithm, bound_algorithms)
+    not_addable(algorithm, unbound_cost_functions)
+    not_addable(algorithm, cost_functions)
 
-    val0, jac0 = alg0(array.complex_amplitudes, pos)
-    val1, jac1 = alg1(array.complex_amplitudes, pos)
-    val_both, jac_both = (alg0 + alg1)(array.complex_amplitudes, pos)
-    np.testing.assert_allclose(val0 + val1, val_both)
-    np.testing.assert_allclose(jac0 + jac1, jac_both)
+    # Test of other morphing
+    mult(algorithm, classes.UnboundCostFunction)
+    bind(algorithm, classes.BoundAlgorithm)
+    sub(algorithm, classes.VectorAlgorithm)
 
-
-@pytest.mark.parametrize("func0", pressure_derivs_algorithms)
-@pytest.mark.parametrize("func1", pressure_derivs_algorithms)
-@pytest.mark.parametrize("pos", [pos_0, pos_1])
-@pytest.mark.parametrize("weight0", [np.random.uniform(-10, 10, 3)])
-@pytest.mark.parametrize("weight1", [np.random.uniform(-10, 10, 3)])
-def test_CostFunctionPoint(func0, func1, pos, weight0, weight1):
-    alg0 = func0(array) * weight0 @ pos
-    alg1 = func1(array) * weight1 @ pos
-
-    val0, jac0 = alg0(array.complex_amplitudes)
-    val1, jac1 = alg1(array.complex_amplitudes)
-    val_both, jac_both = (alg0 + alg1)(array.complex_amplitudes)
-    np.testing.assert_allclose(val0 + val1, val_both)
-    np.testing.assert_allclose(jac0 + jac1, jac_both)
+    # Test misc
+    str(algorithm)
 
 
-@pytest.mark.parametrize("func0", pressure_derivs_algorithms)
-@pytest.mark.parametrize("func1", pressure_derivs_algorithms)
-@pytest.mark.parametrize("pos0", [pos_0, pos_1])
-@pytest.mark.parametrize("pos1", [pos_0, pos_1])
-def test_AlgorithmCollection(func0, func1, pos0, pos1):
-    alg0 = func0(array)@pos0
-    alg1 = func1(array)@pos1
-    alg_both = alg0 + alg1
+def test_bound_algorithm():
+    # Test for addition
+    addable(bound_algorithm, bound_algorithm, classes.BoundAlgorithmPoint)
+    addable(bound_algorithm, bound_algorithm_b, classes.AlgorithmCollection)
+    addable(bound_algorithm, vector_bound_algorithm, classes.BoundAlgorithmPoint)
+    addable(bound_algorithm, vector_bound_algorithm_b, classes.AlgorithmCollection)
+    addable(bound_algorithm, bound_algorithm_point, classes.BoundAlgorithmPoint)
+    addable(bound_algorithm, bound_algorithm_point_b, classes.AlgorithmCollection)
+    addable(bound_algorithm, algorithm_collection, classes.AlgorithmCollection)
+    not_addable(bound_algorithm, algorithms)
+    not_addable(bound_algorithm, unbound_cost_functions)
+    not_addable(bound_algorithm, cost_functions)
 
-    val0 = alg0(array.complex_amplitudes)
-    val1 = alg1(array.complex_amplitudes)
-    val_both = alg_both(array.complex_amplitudes)
+    # Test of other morphing
+    mult(bound_algorithm, classes.CostFunction)
+    bind(bound_algorithm, classes.BoundAlgorithm)
+    sub(bound_algorithm, classes.VectorBoundAlgorithm)
 
-    np.testing.assert_allclose(val0, val_both[0])
-    np.testing.assert_allclose(val1, val_both[1])
+    # Test misc
+    str(bound_algorithm)
 
 
-@pytest.mark.parametrize("func0", pressure_derivs_algorithms)
-@pytest.mark.parametrize("func1", pressure_derivs_algorithms)
-@pytest.mark.parametrize("pos0", [pos_0, pos_1])
-@pytest.mark.parametrize("pos1", [pos_0, pos_1])
-@pytest.mark.parametrize("weight0", [np.random.uniform(-10, 10, 3)])
-@pytest.mark.parametrize("weight1", [np.random.uniform(-10, 10, 3)])
-def test_CostFunctionCollection(func0, func1, pos0, pos1, weight0, weight1):
-    alg0 = func0(array)@pos0*weight0
-    alg1 = func1(array)@pos1*weight1
-    alg_both = alg0 + alg1
+def test_unbound_cost_function():
+    # Test for addition
+    addable(unbound_cost_function, unbound_cost_function, classes.UnboundCostFunctionPoint)
+    addable(unbound_cost_function, vector_unbound_cost_function, classes.UnboundCostFunctionPoint)
+    addable(unbound_cost_function, unbound_cost_function_point, classes.UnboundCostFunctionPoint)
+    not_addable(unbound_cost_function, algorithms)
+    not_addable(unbound_cost_function, bound_algorithms)
+    not_addable(unbound_cost_function, cost_functions)
 
-    val0, jac0 = alg0(array.complex_amplitudes)
-    val1, jac1 = alg1(array.complex_amplitudes)
-    val_both, jac_both = alg_both(array.complex_amplitudes)
+    # Test of other morphing
+    mult(unbound_cost_function, classes.UnboundCostFunction)
+    bind(unbound_cost_function, classes.CostFunction)
+    sub(unbound_cost_function, classes.VectorUnboundCostFunction)
 
-    np.testing.assert_allclose(val0 + val1, val_both)
-    np.testing.assert_allclose(jac0 + jac1, jac_both)
+    # Test misc
+    str(unbound_cost_function)
+
+
+def test_cost_function():
+    # Test for addition
+    addable(cost_function, cost_function, classes.CostFunctionPoint)
+    addable(cost_function, cost_function_b, classes.CostFunctionCollection)
+    addable(cost_function, vector_cost_function, classes.CostFunctionPoint)
+    addable(cost_function, vector_cost_function_b, classes.CostFunctionCollection)
+    addable(cost_function, cost_function_point, classes.CostFunctionPoint)
+    addable(cost_function, cost_function_point_b, classes.CostFunctionCollection)
+    addable(cost_function, cost_function_collection, classes.CostFunctionCollection)
+    not_addable(cost_function, algorithms)
+    not_addable(cost_function, unbound_cost_functions)
+    not_addable(cost_function, bound_algorithms)
+
+    # Test of other morphing
+    mult(cost_function, classes.CostFunction)
+    bind(cost_function, classes.CostFunction)
+    sub(cost_function, classes.VectorCostFunction)
+
+    # Test misc
+    str(cost_function)
+
+
+def test_vector_algorithm():
+    # Test for addition
+    addable(vector_algorithm, algorithm, classes.AlgorithmPoint)
+    addable(vector_algorithm, vector_algorithm, classes.AlgorithmPoint)
+    addable(vector_algorithm, algorithm_point, classes.AlgorithmPoint)
+    not_addable(vector_algorithm, bound_algorithms)
+    not_addable(vector_algorithm, unbound_cost_functions)
+    not_addable(vector_algorithm, cost_functions)
+
+    # Test of other morphing
+    mult(vector_algorithm, classes.VectorUnboundCostFunction)
+    bind(vector_algorithm, classes.VectorBoundAlgorithm)
+    sub(vector_algorithm, classes.VectorAlgorithm)
+
+    # Test misc
+    str(vector_algorithm)
+
+
+def test_vector_bound_algorithm():
+    # Test for addition
+    addable(vector_bound_algorithm, bound_algorithm, classes.BoundAlgorithmPoint)
+    addable(vector_bound_algorithm, bound_algorithm_b, classes.AlgorithmCollection)
+    addable(vector_bound_algorithm, vector_bound_algorithm, classes.BoundAlgorithmPoint)
+    addable(vector_bound_algorithm, vector_bound_algorithm_b, classes.AlgorithmCollection)
+    addable(vector_bound_algorithm, bound_algorithm_point, classes.BoundAlgorithmPoint)
+    addable(vector_bound_algorithm, bound_algorithm_point_b, classes.AlgorithmCollection)
+    addable(vector_bound_algorithm, algorithm_collection, classes.AlgorithmCollection)
+    not_addable(vector_bound_algorithm, algorithms)
+    not_addable(vector_bound_algorithm, unbound_cost_functions)
+    not_addable(vector_bound_algorithm, cost_functions)
+
+    # Test of other morphing
+    mult(vector_bound_algorithm, classes.VectorCostFunction)
+    bind(vector_bound_algorithm, classes.VectorBoundAlgorithm)
+    sub(vector_bound_algorithm, classes.VectorBoundAlgorithm)
+
+    # Test misc
+    str(vector_bound_algorithm)
+
+
+def test_vector_unbound_cost_function():
+    # Test for addition
+    addable(vector_unbound_cost_function, unbound_cost_function, classes.UnboundCostFunctionPoint)
+    addable(vector_unbound_cost_function, vector_unbound_cost_function, classes.UnboundCostFunctionPoint)
+    addable(vector_unbound_cost_function, unbound_cost_function_point, classes.UnboundCostFunctionPoint)
+    not_addable(vector_unbound_cost_function, algorithms)
+    not_addable(vector_unbound_cost_function, bound_algorithms)
+    not_addable(vector_unbound_cost_function, cost_functions)
+
+    # Test of other morphing
+    mult(vector_unbound_cost_function, classes.VectorUnboundCostFunction)
+    bind(vector_unbound_cost_function, classes.VectorCostFunction)
+    sub(vector_unbound_cost_function, classes.VectorUnboundCostFunction)
+
+    # Test misc
+    str(vector_unbound_cost_function)
+
+
+def test_vector_cost_function():
+    # Test for addition
+    addable(vector_cost_function, cost_function, classes.CostFunctionPoint)
+    addable(vector_cost_function, cost_function_b, classes.CostFunctionCollection)
+    addable(vector_cost_function, vector_cost_function, classes.CostFunctionPoint)
+    addable(vector_cost_function, vector_cost_function_b, classes.CostFunctionCollection)
+    addable(vector_cost_function, cost_function_point, classes.CostFunctionPoint)
+    addable(vector_cost_function, cost_function_point_b, classes.CostFunctionCollection)
+    addable(vector_cost_function, cost_function_collection, classes.CostFunctionCollection)
+    not_addable(vector_cost_function, algorithms)
+    not_addable(vector_cost_function, unbound_cost_functions)
+    not_addable(vector_cost_function, bound_algorithms)
+
+    # Test of other morphing
+    mult(vector_cost_function, classes.VectorCostFunction)
+    bind(vector_cost_function, classes.VectorCostFunction)
+    sub(vector_cost_function, classes.VectorCostFunction)
+
+    # Test misc
+    str(vector_cost_function)
+
+
+def test_algorithm_point():
+    # Test for addition
+    addable(algorithm_point, algorithm, classes.AlgorithmPoint)
+    addable(algorithm_point, vector_algorithm, classes.AlgorithmPoint)
+    addable(algorithm_point, algorithm_point, classes.AlgorithmPoint)
+    not_addable(algorithm_point, bound_algorithms)
+    not_addable(algorithm_point, unbound_cost_functions)
+    not_addable(algorithm_point, cost_functions)
+
+    # Test of other morphing
+    mult(algorithm_point, classes.UnboundCostFunctionPoint)
+    bind(algorithm_point, classes.BoundAlgorithmPoint)
+    sub(algorithm_point, classes.AlgorithmPoint)
+
+    # Test misc
+    str(algorithm_point)
+
+
+def test_bound_algorithm_point():
+    # Test for addition
+    addable(bound_algorithm_point, bound_algorithm, classes.BoundAlgorithmPoint)
+    addable(bound_algorithm_point, bound_algorithm_b, classes.AlgorithmCollection)
+    addable(bound_algorithm_point, vector_bound_algorithm, classes.BoundAlgorithmPoint)
+    addable(bound_algorithm_point, vector_bound_algorithm_b, classes.AlgorithmCollection)
+    addable(bound_algorithm_point, bound_algorithm_point, classes.BoundAlgorithmPoint)
+    addable(bound_algorithm_point, bound_algorithm_point_b, classes.AlgorithmCollection)
+    addable(bound_algorithm_point, algorithm_collection, classes.AlgorithmCollection)
+    not_addable(bound_algorithm_point, algorithms)
+    not_addable(bound_algorithm_point, unbound_cost_functions)
+    not_addable(bound_algorithm_point, cost_functions)
+
+    # Test of other morphing
+    mult(bound_algorithm_point, classes.CostFunctionPoint)
+    bind(bound_algorithm_point, classes.BoundAlgorithmPoint)
+    sub(bound_algorithm_point, classes.BoundAlgorithmPoint)
+
+    # Test misc
+    str(bound_algorithm_point)
+
+
+def test_unbound_cost_function_point():
+    # Test for addition
+    addable(unbound_cost_function_point, unbound_cost_function, classes.UnboundCostFunctionPoint)
+    addable(unbound_cost_function_point, vector_unbound_cost_function, classes.UnboundCostFunctionPoint)
+    addable(unbound_cost_function_point, unbound_cost_function_point, classes.UnboundCostFunctionPoint)
+    not_addable(unbound_cost_function_point, algorithms)
+    not_addable(unbound_cost_function_point, bound_algorithms)
+    not_addable(unbound_cost_function_point, cost_functions)
+
+    # Test of other morphing
+    mult(unbound_cost_function_point, classes.UnboundCostFunctionPoint)
+    bind(unbound_cost_function_point, classes.CostFunctionPoint)
+    sub(unbound_cost_function_point, classes.UnboundCostFunctionPoint)
+
+    # Test misc
+    str(unbound_cost_function_point)
+
+
+def test_cost_function_point():
+    # Test for addition
+    addable(cost_function_point, cost_function, classes.CostFunctionPoint)
+    addable(cost_function_point, cost_function_b, classes.CostFunctionCollection)
+    addable(cost_function_point, vector_cost_function, classes.CostFunctionPoint)
+    addable(cost_function_point, vector_cost_function_b, classes.CostFunctionCollection)
+    addable(cost_function_point, cost_function_point, classes.CostFunctionPoint)
+    addable(cost_function_point, cost_function_point_b, classes.CostFunctionCollection)
+    addable(cost_function_point, cost_function_collection, classes.CostFunctionCollection)
+    not_addable(cost_function_point, algorithms)
+    not_addable(cost_function_point, unbound_cost_functions)
+    not_addable(cost_function_point, bound_algorithms)
+
+    # Test of other morphing
+    mult(cost_function_point, classes.CostFunctionPoint)
+    bind(cost_function_point, classes.CostFunctionPoint)
+    sub(cost_function_point, classes.CostFunctionPoint)
+
+    # Test misc
+    str(cost_function_point)
+
+
+def test_algorithm_collection():
+    # Test for addition
+    addable(algorithm_collection, bound_algorithm, classes.AlgorithmCollection)
+    addable(algorithm_collection, bound_algorithm_b, classes.AlgorithmCollection)
+    addable(algorithm_collection, vector_bound_algorithm, classes.AlgorithmCollection)
+    addable(algorithm_collection, vector_bound_algorithm_b, classes.AlgorithmCollection)
+    addable(algorithm_collection, bound_algorithm_point, classes.AlgorithmCollection)
+    addable(algorithm_collection, bound_algorithm_point_b, classes.AlgorithmCollection)
+    addable(algorithm_collection, algorithm_collection, classes.AlgorithmCollection)
+    not_addable(algorithm_collection, algorithms)
+    not_addable(algorithm_collection, unbound_cost_functions)
+    not_addable(algorithm_collection, cost_functions)
+
+    mult(algorithm_collection, classes.CostFunctionCollection)
+
+    # Test misc
+    str(algorithm_collection)
+
+
+def test_cost_function_collection():
+    # Test for addition
+    addable(cost_function_collection, cost_function, classes.CostFunctionCollection)
+    addable(cost_function_collection, cost_function_b, classes.CostFunctionCollection)
+    addable(cost_function_collection, vector_cost_function, classes.CostFunctionCollection)
+    addable(cost_function_collection, vector_cost_function_b, classes.CostFunctionCollection)
+    addable(cost_function_collection, cost_function_point, classes.CostFunctionCollection)
+    addable(cost_function_collection, cost_function_point_b, classes.CostFunctionCollection)
+    addable(cost_function_collection, cost_function_collection, classes.CostFunctionCollection)
+    not_addable(cost_function_collection, algorithms)
+    not_addable(cost_function_collection, unbound_cost_functions)
+    not_addable(cost_function_collection, bound_algorithms)
+
+    mult(cost_function_collection, classes.CostFunctionCollection)
+
+    # Test misc
+    str(cost_function_collection)

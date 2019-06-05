@@ -62,12 +62,10 @@ class TransducerArray:
 
     def __init__(self, transducer_positions, transducer_normals,
                  transducer_model=None, transducer_size=10e-3, transducer_kwargs=None,
-                 medium=Air, **kwargs
+                 medium=None, **kwargs
                  ):
         self.transducer_size = transducer_size
         transducer_kwargs = transducer_kwargs or {}
-        self.medium = medium
-        transducer_kwargs['medium'] = self.medium
         self._extra_print_args = {}
 
         if transducer_model is None:
@@ -77,6 +75,8 @@ class TransducerArray:
             self.transducer_model = transducer_model(**transducer_kwargs)
         else:
             self.transducer_model = transducer_model
+        if medium is not None:
+            self.medium = medium
 
         self.calculate = self.PersistentFieldEvaluator(self)
 
@@ -100,6 +100,15 @@ class TransducerArray:
         for key, value in self._extra_print_args.items():
             s_out = s_out.replace('%' + key, str(value))
         return s_out
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, TransducerArray)
+            and self.num_transducers == other.num_transducers
+            and np.allclose(self.transducer_positions, other.transducer_positions)
+            and np.allclose(self.transducer_normals, other.transducer_normals)
+            and self.transducer_model == other.transducer_model
+        )
 
     def __repr__(self):
         return self._repr_fmt_spec.format(self)
@@ -141,6 +150,14 @@ class TransducerArray:
     @wavelength.setter
     def wavelength(self, value):
         self.transducer_model.wavelength = value
+
+    @property
+    def medium(self):
+        return self.transducer_model.medium
+
+    @medium.setter
+    def medium(self, val):
+        self.transducer_model.medium = val
 
     @property
     def complex_amplitudes(self):

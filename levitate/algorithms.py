@@ -27,6 +27,13 @@ class GorkovPotential(AlgorithmImplementation):
     values_require = requirement(pressure_derivs_summed=1)
     jacobians_require = requirement(pressure_derivs_summed=1, pressure_derivs_individual=1)
 
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and np.allclose(self.pressure_coefficient, other.pressure_coefficient, atol=0)
+            and np.allclose(self.gradient_coefficient, other.gradient_coefficient, atol=0)
+        )
+
     def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
         V = 4 / 3 * np.pi * radius_sphere**3
@@ -77,6 +84,13 @@ class GorkovGradient(AlgorithmImplementation):
         self.pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
         self.gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
 
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and np.allclose(self.pressure_coefficient, other.pressure_coefficient, atol=0)
+            and np.allclose(self.gradient_coefficient, other.gradient_coefficient, atol=0)
+        )
+
     def values(self, pressure_derivs_summed):
         values = np.real(self.pressure_coefficient * np.conj(pressure_derivs_summed[0]) * pressure_derivs_summed[1:4])  # Pressure parts
         values -= np.real(self.gradient_coefficient * np.conj(pressure_derivs_summed[1]) * pressure_derivs_summed[[4, 7, 8]])  # Vx parts
@@ -121,6 +135,13 @@ class GorkovLaplacian(AlgorithmImplementation):
         preToVel = 1 / (array.omega * array.medium.rho)  # Converting velocity to pressure gradient using equation of motion
         self.pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
         self.gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
+
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and np.allclose(self.pressure_coefficient, other.pressure_coefficient, atol=0)
+            and np.allclose(self.gradient_coefficient, other.gradient_coefficient, atol=0)
+        )
 
     def values(self, pressure_derivs_summed):
         values = np.real(self.pressure_coefficient * (np.conj(pressure_derivs_summed[0]) * pressure_derivs_summed[[4, 5, 6]] + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
@@ -176,6 +197,15 @@ class SecondOrderForce(AlgorithmImplementation):
         # Including the j factors from the paper directly in the coefficients.
         self.psi_0 *= 1j
         self.psi_1 *= 1j
+
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and np.allclose(self.k_square, other.k_square, atol=0)
+            and np.allclose(self.psi_0, other.psi_0, atol=0)
+            and np.allclose(self.psi_1, other.psi_1, atol=0)
+            and np.allclose(self.force_coeff, other.force_coeff, atol=0)
+        )
 
     def values(self, pressure_derivs_summed):
         values = np.real(self.k_square * self.psi_0 * pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[[1, 2, 3]]))
@@ -234,6 +264,15 @@ class SecondOrderStiffness(AlgorithmImplementation):
         self.psi_0 *= 1j
         self.psi_1 *= 1j
 
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and np.allclose(self.k_square, other.k_square, atol=0)
+            and np.allclose(self.psi_0, other.psi_0, atol=0)
+            and np.allclose(self.psi_1, other.psi_1, atol=0)
+            and np.allclose(self.force_coeff, other.force_coeff, atol=0)
+        )
+
     def values(self, pressure_derivs_summed):
         values = np.real(self.k_square * self.psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[[4, 5, 6]]) + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
         values += np.real(self.k_square * self.psi_1 * (pressure_derivs_summed[[4, 5, 6]] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
@@ -266,6 +305,13 @@ class SecondOrderCurl(AlgorithmImplementation):
         overall_coef = 2 * np.pi * array.medium.compressibility / array.k**5
         self.pressure_coefficient = -2 / 9 * ka**6 * (f_1**2 + f_1 * f_2) * array.k**2 * overall_coef
         self.velocity_coefficient = -3 * ka**6 / 18 * f_2**2 * overall_coef
+
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and np.allclose(self.pressure_coefficient, other.pressure_coefficient, atol=0)
+            and np.allclose(self.velocity_coefficient, other.velocity_coefficient, atol=0)
+        )
 
     def values(self, pressure_derivs_summed):
         values = self.pressure_coefficient * np.imag(pressure_derivs_summed[[2, 3, 1]] * np.conj(pressure_derivs_summed[[3, 1, 2]]))
@@ -317,6 +363,15 @@ class SecondOrderForceGradient(AlgorithmImplementation):
         # Including the j factors from the paper directly in the coefficients.
         self.psi_0 *= 1j
         self.psi_1 *= 1j
+
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and np.allclose(self.k_square, other.k_square, atol=0)
+            and np.allclose(self.psi_0, other.psi_0, atol=0)
+            and np.allclose(self.psi_1, other.psi_1, atol=0)
+            and np.allclose(self.force_coeff, other.force_coeff, atol=0)
+        )
 
     def values(self, pressure_derivs_summed):
         values = np.zeros((3, 3) + pressure_derivs_summed.shape[1:])
@@ -433,6 +488,12 @@ class VelocityMagnitudeSquared(AlgorithmImplementation):
         super().__init__(array, *args, **kwargs)
         self.pre_grad_2_vel_squared = 1 / (array.medium.rho * array.omega)**2
 
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and np.allclose(self.pre_grad_2_vel_squared, other.pre_grad_2_vel_squared, atol=0)
+        )
+
     def values(self, pressure_derivs_summed):
         return np.real(self.pre_grad_2_vel_squared * pressure_derivs_summed[1:4] * np.conj(pressure_derivs_summed[1:4]))
 
@@ -511,6 +572,14 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
                 self.xy_coefficients[idx] = psi[n] * ((n + m + 1) * (n + m + 2))**0.5 * denom * scaling
                 self.z_coefficients[idx] = -2 * psi[n] * ((n + m + 1) * (n - m + 1))**0.5 * denom * scaling
                 idx += 1
+
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and self.values_require['spherical_harmonics_summed'] == other.values_require['spherical_harmonics_summed']
+            and np.allclose(self.xy_coefficients, other.xy_coefficients, atol=0)
+            and np.allclose(self.z_coefficients, other.z_coefficients, atol=0)
+        )
 
     def values(self, spherical_harmonics_summed):
         Fx = np.sum(np.real(self.xy_coefficients[self.N_M] * (

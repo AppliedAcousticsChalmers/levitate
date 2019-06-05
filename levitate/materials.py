@@ -1,40 +1,42 @@
-class Material:
+class Material(type):
     _str_fmt_spec = '{:%name}'
     _repr_fmt_spec = '{:%cls(name=%name, c=%c, rho=%rho)}'
-    def __init__(self, c, rho, name):
-        self.c = c
-        self.rho = rho
-        self.name = name
 
     @property
-    def compressibility(self):
-        return 1 / (self.c**2 * self.rho)
+    def compressibility(cls):
+        return 1 / (cls.c**2 * cls.rho)
 
-    def __format__(self, fmt_spec):
-        return fmt_spec.replace('%cls', self.__class__.__name__).replace('%name', self.name).replace('%c', str(self.c)).replace('%rho', str(self.rho))
+    @property
+    def name(cls):
+        return cls.__name__
 
-    def __str__(self):
-        return self._str_fmt_spec.format(self)
+    def __format__(cls, fmt_spec):
+        return fmt_spec.replace('%cls', cls.__class__.__name__).replace('%name', cls.name).replace('%c', str(cls.c)).replace('%rho', str(cls.rho))
 
-    def __repr__(self):
-        return self._repr_fmt_spec.format(self)
+    def __str__(cls):
+        return cls._str_fmt_spec.format(cls)
 
-    def _repr_pretty_(self, p, cycle):
-        p.text(str(self))
+    def __repr__(cls):
+        return cls._repr_fmt_spec.format(cls)
 
-
-Air = Material(c=343.2367605312694, rho=1.2040847588826422, name='Air')
-
-
-def _update_properties(temperature=None, pressure=None):
-    R_spec = 287.058
-    gamma = 1.4
-    temperature = temperature or 20
-    pressure = pressure or 101325
-    Air.c = (gamma * R_spec * (temperature + 273.15))**0.5
-    Air.rho = pressure / R_spec / (temperature + 273.15)
+    def _repr_pretty_(cls, p, cycle):
+        p.text(str(cls))
 
 
-Air.update_properties = _update_properties
+class Air(metaclass=Material):
+    c = 343.2367605312694
+    rho = 1.2040847588826422
 
-Styrofoam = Material(c=2350, rho=25, name='Styrofoam')
+    @classmethod
+    def update_properties(cls, temperature=None, pressure=None):
+        R_spec = 287.058
+        gamma = 1.4
+        temperature = temperature or 20
+        pressure = pressure or 101325
+        cls.c = (gamma * R_spec * (temperature + 273.15))**0.5
+        cls.rho = pressure / R_spec / (temperature + 273.15)
+
+
+class Styrofoam(metaclass=Material):
+    c = 2350
+    rho = 25

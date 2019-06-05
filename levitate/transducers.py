@@ -60,6 +60,15 @@ class TransducerModel:
     def _repr_pretty_(self, p, cycle):
         p.text(str(self))
 
+    def __eq__(self, other):
+        return (
+            type(self) == type(other)
+            and np.allclose(self.p0, other.p0)
+            and np.allclose(self.omega, other.omega)
+            and np.allclose(self.k, other.k)
+            and self.medium == other.medium
+        )
+
     @property
     def k(self):
         return self._k
@@ -480,6 +489,15 @@ class TransducerReflector(TransducerModel):
         s_out = s_out.replace('%reflection_coefficient', str(self.reflection_coefficient))
         return super().__format__(s_out)
 
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and self._transducer == other._transducer
+            and np.allclose(self.plane_distance, other.plane_distance)
+            and np.allclose(self.plane_normal, other.plane_normal)
+            and np.allclose(self.reflection_coefficient, other.reflection_coefficient)
+        )
+
     @property
     def omega(self):
         return self._transducer.omega
@@ -676,6 +694,9 @@ class CircularPiston(PointSource):
     def __format__(self, fmt_spec):
         return super().__format__(fmt_spec).replace('%effective_radius', str(self.effective_radius))
 
+    def __eq__(self, other):
+        return super().__eq__(other) and np.allclose(self.effective_radius, other.effective_radius)
+
     def directivity(self, source_positions, source_normals, receiver_positions):
         r"""Evaluate transducer directivity.
 
@@ -738,6 +759,9 @@ class CircularRing(PointSource):
 
     def __format__(self, fmt_spec):
         return super().__format__(fmt_spec).replace('%effective_radius', str(self.effective_radius))
+
+    def __eq__(self, other):
+        return super().__eq__(other) and np.allclose(self.effective_radius, other.effective_radius)
 
     def directivity(self, source_positions, source_normals, receiver_positions):
         r"""Evaluate transducer directivity.
