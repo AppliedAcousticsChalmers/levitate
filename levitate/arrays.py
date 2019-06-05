@@ -5,9 +5,7 @@ frequently used methods.
 """
 
 import numpy as np
-from . import num_pressure_derivs
 from .visualize import Visualizer
-from .materials import Air
 
 
 class TransducerArray:
