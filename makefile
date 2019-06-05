@@ -87,8 +87,8 @@ $(BUILDDIR)/$(TESTSDIR)/testresult.txt : $(tests_files) $(package_files) $(LOGDI
 $(BUILDDIR)/$(TESTSDIR)/formatresult.txt : $(package_files) $(LOGDIR)/$(PACKAGE_NAME)
 	$(dir_guard)
 	$(info ============================= Formatting summary ==============================)
-	@flake8 $(PACKAGE_NAME) --ignore=E501 --exit-zero > $(BUILDDIR)/$(TESTSDIR)/formatresult.txt
-	@flake8 $(PACKAGE_NAME) --ignore=E501 -qq --statistics --exit-zero
+	@flake8 $(PACKAGE_NAME) --ignore=E501,W503 --exit-zero > $(BUILDDIR)/$(TESTSDIR)/formatresult.txt
+	@flake8 $(PACKAGE_NAME) --ignore=E501,W503 -qq --statistics --exit-zero
 
 
 # ====

@@ -3,7 +3,9 @@
 import numpy as np
 from . import materials
 from ._algorithm import AlgorithmImplementation, requirement
-from ._algorithms_legacy import *
+from ._algorithms_legacy import gorkov_potential, gorkov_gradient, gorkov_laplacian  # noqa: F401
+from ._algorithms_legacy import second_order_force, second_order_stiffness, second_order_curl, second_order_force_gradient  # noqa: F401
+from ._algorithms_legacy import pressure_squared_magnitude, velocity_squared_magnitude  # noqa: F401
 
 
 class GorkovPotential(AlgorithmImplementation):
@@ -537,12 +539,6 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
         bessel_derivative = spherical_jn(n, ka, derivative=True)
         hankel_derivative = bessel_derivative + 1j * spherical_yn(n, ka, derivative=True)
 
-        ka_interior = array.omega / sphere_material.c * radius_sphere
-        bessel_function_interior = spherical_jn(n, ka_interior)
-        hankel_function_interior = bessel_function_interior + 1j * spherical_yn(n, ka_interior)
-        bessel_derivative_interior = spherical_jn(n, ka_interior, derivative=True)
-        hankel_derivative_interior = bessel_derivative_interior + 1j * spherical_yn(n, ka_interior, derivative=True)
-
         if 'hard' in scattering_model.lower():
             # See e.g. Gumerov, Duraiswami (2004): Eq. 4.2.10, p. 146
             scattering_coefficient = - bessel_derivative / hankel_derivative
@@ -551,6 +547,12 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
             scattering_coefficient = - bessel_function / hankel_function
         elif 'compressible' in scattering_model.lower():
             # See Blackstock, Hamilton (2008): Eq. 6.88, p.193
+            ka_interior = array.omega / sphere_material.c * radius_sphere
+            bessel_function_interior = spherical_jn(n, ka_interior)
+            # hankel_function_interior = bessel_function_interior + 1j * spherical_yn(n, ka_interior)
+            bessel_derivative_interior = spherical_jn(n, ka_interior, derivative=True)
+            # hankel_derivative_interior = bessel_derivative_interior + 1j * spherical_yn(n, ka_interior, derivative=True)
+
             relative_impedance = sphere_material.rho / array.medium.rho * sphere_material.c / array.medium.c
             numerator = bessel_function * bessel_derivative_interior - relative_impedance * bessel_derivative * bessel_function_interior
             denominator = hankel_function * bessel_derivative_interior - relative_impedance * hankel_derivative * bessel_function_interior
