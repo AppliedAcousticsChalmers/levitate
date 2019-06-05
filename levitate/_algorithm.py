@@ -1,12 +1,10 @@
 import numpy as np
 
 
-class AlgorithmImplementation:
-    def __new__(cls, array, *cls_args, weight=None, position=None, _nowrap=False, **cls_kwargs):
-        obj = object.__new__(cls)  # Call __new__ from object to use a "normal" __new__ method. calling cls.__new__ would give infinite recursion
-        if _nowrap is True:
-            return obj
-        obj.__init__(array, *cls_args, **cls_kwargs)  # Manually instantiate the object since the automatic __init__ call is skipped
+class AlgorithmImplementationMeta(type):
+    def __call__(cls, *cls_args, weight=None, position=None, **cls_kwargs):
+        obj = cls.__new__(cls, *cls_args, **cls_kwargs)
+        obj.__init__(*cls_args, **cls_kwargs)
         if weight is None and position is None:
             alg = Algorithm(algorithm=obj)
         elif weight is None:
@@ -17,14 +15,13 @@ class AlgorithmImplementation:
             alg = CostFunction(algorithm=obj, weight=weight, position=position)
         return alg
 
+
+class AlgorithmImplementation(metaclass=AlgorithmImplementationMeta):
     def __init__(self, array, *args, **kwargs):
         self.array = array
 
     def __eq__(self, other):
         return type(self) == type(other) and self.array == other.array
-
-    def __getnewargs_ex__(self):
-        return (self.array,), {'_nowrap': True}
 
 
 def requirement(**requirements):
