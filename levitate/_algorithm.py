@@ -100,7 +100,6 @@ class AlgorithmBase(metaclass=AlgorithmMeta):
 
     def __format__(self, format_spec):
         cls = self.__class__.__name__ + ': '
-        name = getattr(self, 'name', None) or 'Unknown'
         weight = getattr(self, 'weight', None)
         pos = getattr(self, 'position', None)
         weight = ' * ' + str(weight) if weight is not None else ''
@@ -129,21 +128,27 @@ class Algorithm(AlgorithmBase):
     @property
     def name(self):
         return self.algorithm.__class__.__name__
+
     @property
     def values(self):
         return self.algorithm.values
+
     @property
     def jacobians(self):
         return self.algorithm.jacobians
+
     @property
     def values_require(self):
         return self.algorithm.values_require
+
     @property
     def jacobians_require(self):
         return self.algorithm.jacobians_require
+
     @property
     def ndim(self):
         return self.algorithm.ndim
+
     @property
     def array(self):
         return self.algorithm.array
