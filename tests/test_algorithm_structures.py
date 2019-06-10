@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 import levitate
 
@@ -105,36 +106,16 @@ def bind(obj, result_cls):
         raise TypeError('Bind of {.__name__} failed'.format(type(obj)))
     except AssertionError:
         raise TypeError('Bind of {.__name__} returned {.__name__}, not {.__name__}'.format(type(obj), type(obj @ pos), result_cls))
-    try:
+    with pytest.raises((TypeError, ValueError)):
         obj @ np.array(0)
-    except TypeError:
-        pass
-    else:
-        raise TypeError('{.__name__} can bind to scalars')
-    try:
+    with pytest.raises((TypeError, ValueError)):
         obj @ np.array([0])
-    except TypeError:
-        pass
-    else:
-        raise TypeError('{.__name__} can bind to single elements array')
-    try:
+    with pytest.raises((TypeError, ValueError)):
         obj @ np.array([0, 1])
-    except TypeError:
-        pass
-    else:
-        raise TypeError('{.__name__} can bind to 2D positions')
-    try:
+    with pytest.raises((TypeError, ValueError)):
         obj @ np.array([1, 2, 3, 4])
-    except TypeError:
-        pass
-    else:
-        raise TypeError('{.__name__} can bind to 4D positions')
-    try:
+    with pytest.raises((TypeError, ValueError)):
         obj @ np.array([[0, 0, 0]])
-    except TypeError:
-        pass
-    else:
-        raise TypeError('{.__name__} can bind to transposed arrays')
 
 
 def sub(obj, result_cls):
