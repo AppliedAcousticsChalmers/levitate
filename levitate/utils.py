@@ -1,9 +1,84 @@
 """Miscellaneous tools for small but common tasks."""
+import numpy as np
 
 pressure_derivs_order = ['', 'x', 'y', 'z', 'xx', 'yy', 'zz', 'xy', 'xz', 'yz', 'xxx', 'yyy', 'zzz', 'xxy', 'xxz', 'yyx', 'yyz', 'zzx', 'zzy', 'xyz']
 """Defines the order in which the pressure spatial derivatives are stored."""
 num_pressure_derivs = [1, 4, 10, 20]
 """Quick access to the number of spatial derivatives up to and including a certain order."""
+
+
+def dB(x, power=False):
+    r"""Convert ratio to decibels.
+
+    Converting a ratio to decibels depends on whether the ratio is a ratio
+    of amplitudes or a ratio of powers. For amplitudes the decibel value is
+    :math:`20\log(|x|)`, while for power ratios the value is :math:`10\log(|x|)`
+    where :math:`\log` is the base 10 logarithm.
+
+    Parameters
+    ----------
+    x : numeric
+        Linear amplitude or radio, can be complex.
+    power : bool, default False
+        Toggles if the ration is proportional to power.
+
+    Returns
+    -------
+    L : numeric
+        The decibel value.
+    """
+    if power:
+        return 10 * np.log10(np.abs(x))
+    else:
+        return 20 * np.log10(np.abs(x))
+
+
+def SPL(p):
+    """Convert sound pressure to sound pressure level.
+
+    Uses the standard reference value for airborne acoustics: 20 µPa.
+    Note that the input is the pressure amplitude, not the RMS value.
+
+    Parameters
+    ----------
+    p : numeric, complex
+        The complex sound pressure amplitude.
+
+    Returns
+    -------
+    SPL : numeric
+        The sound pressure level
+    """
+    return dB(p / (20e-6 * 2**0.5))
+
+
+def SVL(u):
+    """Convert sound particle velocity to sound velocity level.
+
+    Uses the standard reference value for airborne acoustics: 50 nm/s,
+    which is approximately 20 µPa / c_0 / rho_0
+    Note that the input the velocity amplitude(s), not the RMS values.
+
+    If the first axis of the velocity input has length 3, it will be assumed to
+    be the three Cartesian components of the velocity.
+
+    Parameters
+    ----------
+    u : numeric, complex
+        The complex sound velocity amplitude, or the vector velocity.
+
+    Returns
+    -------
+    SVL : numeric
+        The sound velocity level
+    """
+    u = np.asarray(u)
+    try:
+        if u.shape[0] == 3:
+            u = np.sum(np.abs(u)**2, 0)**0.5
+    except IndexError:
+        pass
+    return dB(u / (50e-9 * 2**0.5))
 
 
 class SphericalHarmonicsIndexer:
