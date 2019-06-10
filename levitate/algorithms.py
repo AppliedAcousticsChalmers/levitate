@@ -1,7 +1,7 @@
 """A collection of levitation related mathematical implementations."""
 
 import numpy as np
-from . import materials
+from . import materials, utils
 from ._algorithm import AlgorithmImplementation, requirement
 from ._algorithms_legacy import gorkov_potential, gorkov_gradient, gorkov_laplacian  # noqa: F401
 from ._algorithms_legacy import second_order_force, second_order_stiffness, second_order_curl, second_order_force_gradient  # noqa: F401
@@ -510,26 +510,20 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
         super().__init__(array, *args, **kwargs)
         self.values_require = requirement(spherical_harmonics_summed=orders + 1)
 
-        from . import spherical_harmonics_index as sph_idx
+        sph_idx = utils.SphericalHarmonicsIndexer(orders)
         from scipy.special import spherical_jn, spherical_yn
         # Create indexing arrays for sound field harmonics
-        # N_broadcast = []  # Indices to broadcast arrays only dependent on n
         self.N_M = []  # Indices for the S_n^m coefficients
         self.Nr_M = []  # Indices for the S_(n+1)^m coefficients
         self.Nr_Mr = []  # Indices for the S_(n+1)^(m+1) coefficients
         self.N_mM = []  # Indices for the S_n^-m coefficients
         self.Nr_mMr = []  # Indices for the S_(n+1)^-(m+1) coefficients
-        for n in range(0, orders + 1):  # Gives loop from 0 to orders, inclusive
-            for m in range(-n, n + 1):
-                # N_broadcast.append(n)
-                self.N_M.append(sph_idx(n, m))
-                self.Nr_M.append(sph_idx(n + 1, m))
-                self.Nr_Mr.append(sph_idx(n + 1, m + 1))
-                self.N_mM.append(sph_idx(n, -m))
-                self.Nr_mMr.append(sph_idx(n + 1, -1 - m))
-
-        # for n_m, nr_m, nr_mr, n_mm, nr_mmr in zip(N_M, Nr_M, Nr_Mr, N_mM, Nr_mMr):
-            # print('(n,m): {}\t(n+1,m): {}\t(n+1,m+1): {}\t(n,-m): {}\t(n+1,-m-1): {}'.format(sph_idx[n_m], sph_idx[nr_m], sph_idx[nr_mr], sph_idx[n_mm], sph_idx[nr_mmr]))
+        for n, m in sph_idx:
+            self.N_M.append(sph_idx(n, m))
+            self.Nr_M.append(sph_idx(n + 1, m))
+            self.Nr_Mr.append(sph_idx(n + 1, m + 1))
+            self.N_mM.append(sph_idx(n, -m))
+            self.Nr_mMr.append(sph_idx(n + 1, -1 - m))
 
         # Calculate bessel functions, hankel functions, and their derivatives
         ka = array.k * radius_sphere
@@ -561,16 +555,16 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
             raise ValueError("Unknown scattering model '{}'".format(scattering_model))
 
         psi = np.zeros(orders + 1, dtype=np.complex128)
-        for n in range(0, orders + 1):
+        for n in sph_idx.orders:
             psi[n] = 1j * (1 + 2 * scattering_coefficient[n]) * (1 + 2 * np.conj(scattering_coefficient[n + 1])) - 1j
 
         scaling = array.medium.compressibility / (8 * array.k**2)
         self.xy_coefficients = np.zeros((orders + 1)**2, dtype=np.complex128)
         self.z_coefficients = np.zeros((orders + 1)**2, dtype=np.complex128)
         idx = 0
-        for n in range(0, orders + 1):
+        for n in sph_idx.orders:
             denom = 1 / ((2 * n + 1) * (2 * n + 3))**0.5
-            for m in range(-n, n + 1):
+            for m in sph_idx.modes:
                 self.xy_coefficients[idx] = psi[n] * ((n + m + 1) * (n + m + 2))**0.5 * denom * scaling
                 self.z_coefficients[idx] = -2 * psi[n] * ((n + m + 1) * (n - m + 1))**0.5 * denom * scaling
                 idx += 1
