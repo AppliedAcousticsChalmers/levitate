@@ -1,3 +1,4 @@
+"""Implementation of algorithm wrapper protocol."""
 import numpy as np
 
 
