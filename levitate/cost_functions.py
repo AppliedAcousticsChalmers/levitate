@@ -7,7 +7,7 @@ import logging
 import itertools
 
 from .materials import Air
-from . import num_pressure_derivs
+from .utils import num_pressure_derivs
 
 logger = logging.getLogger(__name__)
 warnings.warn("""The cost_functions module is deprecated and will be removed in a further release. Use the algorithms module or the optimization module instead.""")

@@ -20,7 +20,7 @@ receiver_pos = np.stack(([0.1, 0.2, 0.3], [-0.15, 1.27, 0.001]), axis=1)
     (levitate.transducers.CircularRing, {'effective_radius': 3e-3}, 0, 1e-7),
 ])
 def test_pressure_derivs(t_model, args, atol, rtol):
-    idx = levitate.pressure_derivs_order.index
+    idx = levitate.utils.pressure_derivs_order.index
     T = t_model(**args)
     spos = np.array([0, 0, 0])
     n = np.array([0, 0, 1])

@@ -29,3 +29,8 @@ Visualization
 -------------
 .. automodule:: levitate.visualize
     :members:
+
+Utilities
+---------
+.. automodule:: levitate.utils
+    :members:
