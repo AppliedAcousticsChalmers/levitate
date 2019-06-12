@@ -102,25 +102,25 @@ def test_simple_types():
     assert levitate.algorithms.GorkovPotential(array) * 1 @ pos != levitate.algorithms.GorkovPotential(array) @ pos
 
 
-def test_vector_types():
+def test_magnitude_squared_types():
     # These should diff if the algorithm is different, or if the target "vector" is different.
-    # VectorAlgorithm
+    # MagnitudeSquaredAlgorithm
     assert levitate.algorithms.GorkovPotential(array) - 0 == levitate.algorithms.GorkovPotential(array) - 0
     assert levitate.algorithms.GorkovPotential(array) - 0 == pickle.loads(pickle.dumps(levitate.algorithms.GorkovPotential(array) - 0))
     assert levitate.algorithms.GorkovPotential(array) - 0 != levitate.algorithms.GorkovGradient(array) - 0
     assert levitate.algorithms.GorkovPotential(array) - 0 != levitate.algorithms.GorkovPotential(array) - 1
 
-    # VectorUnboundCostFunction
+    # MagnitudeSquaredUnboundCostFunction
     assert levitate.algorithms.GorkovPotential(array) * 1 - 0 == levitate.algorithms.GorkovPotential(array) * 1 - 0
     assert levitate.algorithms.GorkovPotential(array) * 1 - 0 == pickle.loads(pickle.dumps(levitate.algorithms.GorkovPotential(array) * 1 - 0))
     assert levitate.algorithms.GorkovPotential(array) * 1 - 0 != levitate.algorithms.GorkovPotential(array) * 1 - 1
 
-    # VectorBoundAlgorithm
+    # MagnitudeSquaredBoundAlgorithm
     assert levitate.algorithms.GorkovPotential(array) @ pos - 0 == levitate.algorithms.GorkovPotential(array) @ pos - 0
     assert levitate.algorithms.GorkovPotential(array) @ pos - 0 == pickle.loads(pickle.dumps(levitate.algorithms.GorkovPotential(array) @ pos - 0))
     assert levitate.algorithms.GorkovPotential(array) @ pos - 0 != levitate.algorithms.GorkovPotential(array) @ pos - 1
 
-    # VectorCostFunction
+    # MagnitudeSquaredCostFunction
     assert levitate.algorithms.GorkovPotential(array) * 1 @ pos - 0 == levitate.algorithms.GorkovPotential(array) * 1 @ pos - 0
     assert levitate.algorithms.GorkovPotential(array) * 1 @ pos - 0 == pickle.loads(pickle.dumps(levitate.algorithms.GorkovPotential(array) * 1 @ pos - 0))
     assert levitate.algorithms.GorkovPotential(array) * 1 @ pos - 0 != levitate.algorithms.GorkovPotential(array) * 1 @ pos - 1

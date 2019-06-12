@@ -85,7 +85,7 @@ def test_CostFunction(func, weight, pos):
 @pytest.mark.parametrize("pos", [pos_0, pos_both])
 @pytest.mark.parametrize("func", pressure_derivs_algorithms)
 @pytest.mark.parametrize("target", [(1, 0, 0), (0, 1, 0), (0, 0, 1), np.random.uniform(-10, 10, 3)])
-def test_VectorAlgorithm(func, target, pos):
+def test_MagnitudeSquaredAlgorithm(func, target, pos):
     algorithm = func(array)
     np.testing.assert_allclose((algorithm - target)(array.complex_amplitudes, pos), np.abs(algorithm(array.complex_amplitudes, pos) - np.asarray(target).reshape([-1] + (pos.ndim - 1) * [1]))**2)
 
@@ -93,7 +93,7 @@ def test_VectorAlgorithm(func, target, pos):
 @pytest.mark.parametrize("pos", [pos_0, pos_both])
 @pytest.mark.parametrize("func", pressure_derivs_algorithms)
 @pytest.mark.parametrize("target", [np.random.uniform(-10, 10, 3)])
-def test_VectorBoundAlgorithm(func, target, pos):
+def test_MagnitudeSquaredBoundAlgorithm(func, target, pos):
     algorithm = func(array) - target
     np.testing.assert_allclose((algorithm@pos)(array.complex_amplitudes), algorithm(array.complex_amplitudes, pos))
 
@@ -101,7 +101,7 @@ def test_VectorBoundAlgorithm(func, target, pos):
 @pytest.mark.parametrize("func", pressure_derivs_algorithms)
 @pytest.mark.parametrize("weight", [np.random.uniform(-10, 10, 3)])
 @pytest.mark.parametrize("target", [(1, 0, 0), (0, 1, 0), (0, 0, 1), np.random.uniform(-10, 10, 3)])
-def test_VectorUnboundCostFunction(func, target, weight):
+def test_MagnitudeSquaredUnboundCostFunction(func, target, weight):
     algorithm = (func(array) - target) * weight
     calc_values, calc_jacobians = algorithm.values, algorithm.jacobians
 
@@ -130,7 +130,7 @@ def test_VectorUnboundCostFunction(func, target, weight):
 @pytest.mark.parametrize("weight", [np.random.uniform(-10, 10, 1), np.random.uniform(-10, 10, 3)])
 @pytest.mark.parametrize("target", [np.random.uniform(-10, 10, 3)])
 @pytest.mark.parametrize("pos", [pos_0, pos_both])
-def test_VectorCostFunction(func, weight, target, pos):
+def test_MagnitudeSquaredCostFunction(func, weight, target, pos):
     algorithm = (func(array) - target) * weight
     val, jac = (algorithm@pos)(array.complex_amplitudes)
     val_ub, jac_ub = algorithm(array.complex_amplitudes, pos)

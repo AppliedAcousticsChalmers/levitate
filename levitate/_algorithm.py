@@ -316,7 +316,7 @@ class Algorithm(AlgorithmBase):
     -
         Converts to a magnitude target algorithm.
 
-        :return: `VectorAlgorithm`
+        :return: `MagnitudeSquaredAlgorithm`
 
     """
 
@@ -397,8 +397,8 @@ class Algorithm(AlgorithmBase):
         else:
             return NotImplemented
 
-    def __sub__(self, vector):
-        return VectorAlgorithm(algorithm=self, target_vector=vector)
+    def __sub__(self, target):
+        return MagnitudeSquaredAlgorithm(algorithm=self, target=target)
 
     def __mul__(self, weight):
         weight = np.asarray(weight)
@@ -450,7 +450,7 @@ class BoundAlgorithm(Algorithm):
     -
         Converts to a magnitude target algorithm.
 
-        :return: `VectorBoundAlgorithm`
+        :return: `MagnitudeSquaredBoundAlgorithm`
 
     """
 
@@ -498,8 +498,8 @@ class BoundAlgorithm(Algorithm):
         else:
             return NotImplemented
 
-    def __sub__(self, vector):
-        return VectorBoundAlgorithm(algorithm=self, target_vector=vector, position=self.position)
+    def __sub__(self, target):
+        return MagnitudeSquaredBoundAlgorithm(algorithm=self, target=target, position=self.position)
 
     def __mul__(self, weight):
         weight = np.asarray(weight)
@@ -541,7 +541,7 @@ class UnboundCostFunction(Algorithm):
     -
         Converts to a magnitude target algorithm.
 
-        :return: `VectorUnboundCostFunction`
+        :return: `MagnitudeSquaredUnboundCostFunction`
 
     """
 
@@ -598,8 +598,8 @@ class UnboundCostFunction(Algorithm):
         else:
             return NotImplemented
 
-    def __sub__(self, vector):
-        return VectorUnboundCostFunction(algorithm=self, target_vector=vector, weight=self.weight)
+    def __sub__(self, target):
+        return MagnitudeSquaredUnboundCostFunction(algorithm=self, target=target, weight=self.weight)
 
     def __mul__(self, weight):
         weight = np.asarray(weight)
@@ -650,7 +650,7 @@ class CostFunction(UnboundCostFunction, BoundAlgorithm):
     -
         Converts to a magnitude target algorithm.
 
-        :return: `VectorCostFunction`
+        :return: `MagnitudeSquaredCostFunction`
 
     """
 
@@ -699,8 +699,8 @@ class CostFunction(UnboundCostFunction, BoundAlgorithm):
         else:
             return NotImplemented
 
-    def __sub__(self, vector):
-        return VectorCostFunction(algorithm=self, target_vector=vector, weight=self.weight, position=self.position)
+    def __sub__(self, target):
+        return MagnitudeSquaredCostFunction(algorithm=self, target=target, weight=self.weight, position=self.position)
 
     def __mul__(self, weight):
         weight = np.asarray(weight)
@@ -709,7 +709,7 @@ class CostFunction(UnboundCostFunction, BoundAlgorithm):
         return CostFunction(self.algorithm, self.weight * weight, self.position)
 
 
-class VectorBase(Algorithm):
+class MagnitudeSquaredBase(Algorithm):
     """Base class for magnitude target algorithms.
 
     Uses an algorithm  :math:`A` to instead calculate :math:`V = |A - A_0|^2`,
@@ -721,7 +721,7 @@ class VectorBase(Algorithm):
     ----------
     algorithm: Algorithm-like
         A wrapper of an algorithm implementation, of the same type as the magnitude target.
-    target_vector: numpy.ndarray
+    target numpy.ndarray
         The static offset target value(s).
 
     Note
@@ -730,21 +730,21 @@ class VectorBase(Algorithm):
 
     """
 
-    def __init__(self, algorithm, target_vector, **kwargs):
-        if type(self) == VectorBase:
-            raise AssertionError('`VectorBase` should never be directly instantiated!')
+    def __init__(self, algorithm, target, **kwargs):
+        if type(self) == MagnitudeSquaredBase:
+            raise AssertionError('`MagnitudeSquaredBase` should never be directly instantiated!')
         self.values_require = algorithm.values_require.copy()
         self.jacobians_require = algorithm.jacobians_require.copy()
         for key, value in algorithm.values_require.items():
             self.jacobians_require[key] = max(value, self.jacobians_require.get(key, -1))
         super().__init__(algorithm=algorithm, **kwargs)
-        target_vector = np.asarray(target_vector)
-        self.target_vector = target_vector
+        target = np.asarray(target)
+        self.target = target
 
     def __eq__(self, other):
         return (
             super().__eq__(other)
-            and np.allclose(self.target_vector, other.target_vector)
+            and np.allclose(self.target, other.target)
         )
 
     @property
@@ -761,7 +761,7 @@ class VectorBase(Algorithm):
         of the underlying objects, accessed through the `algorithm` properties.
         """
         values = self.algorithm.values(**kwargs)
-        values -= self.target_vector.reshape([-1] + (values.ndim - 1) * [1])
+        values -= self.target.reshape([-1] + (values.ndim - 1) * [1])
         return np.real(values * np.conj(values))
 
     def jacobians(self, **kwargs):
@@ -775,7 +775,7 @@ class VectorBase(Algorithm):
         of the underlying objects, accessed through the `algorithm` properties.
         """
         values = self.algorithm.values(**{key: kwargs[key] for key in self.algorithm.values_require})
-        values -= self.target_vector.reshape([-1] + (values.ndim - 1) * [1])
+        values -= self.target.reshape([-1] + (values.ndim - 1) * [1])
         jacobians = self.algorithm.jacobians(**{key: kwargs[key] for key in self.algorithm.jacobians_require})
         return 2 * jacobians * values.reshape(values.shape[:self.ndim] + (1,) + values.shape[self.ndim:])
 
@@ -796,20 +796,21 @@ class VectorBase(Algorithm):
     def jacobians_require(self, val):
         self._jacobians_require = val
 
-    def __sub__(self, vector):
+    def __sub__(self, target):
         kwargs = {}
         if self._is_bound:
             kwargs['position'] = self.position
         if self._is_cost:
             kwargs['weight'] = self.weight
-        return type(self)(self.algorithm, self.target_vector + vector, **kwargs)
+        return type(self)(self.algorithm, self.target + target, **kwargs)
 
     def __format__(self, format_spec):
-        format_spec = format_spec.replace('%name', '||%name - %vector||^2').replace('%vector', str(self.target_vector))
+        target_str = ' - %target' if not np.allclose(self.target, 0) else ''
+        format_spec = format_spec.replace('%name', '|%name' + target_str + '|^2').replace('%target', str(self.target))
         return super().__format__(format_spec)
 
 
-class VectorAlgorithm(VectorBase, Algorithm):
+class MagnitudeSquaredAlgorithm(MagnitudeSquaredBase, Algorithm):
     """Magnitude target algorithm class.
 
     Calculates the squared magnitude difference between the algorithm value(s)
@@ -819,7 +820,7 @@ class VectorAlgorithm(VectorBase, Algorithm):
     ----------
     algorithm: Algorithm
         A wrapper of an algorithm implementation.
-    target_vector: numpy.ndarray
+    target: numpy.ndarray
         The static offset target value(s).
 
     Methods
@@ -833,16 +834,16 @@ class VectorAlgorithm(VectorBase, Algorithm):
         The weight needs to have the correct number of dimensions, but will
         otherwise broadcast properly.
 
-        :return: `VectorUnboundCostFunction`
+        :return: `MagnitudeSquaredUnboundCostFunction`
     @
         Bind the algorithm to a point in space. The point needs to have
         3 elements in the first dimension.
 
-        :return: `VectorBoundAlgorithm`
+        :return: `MagnitudeSquaredBoundAlgorithm`
     -
         Shifts the current target value(s) with the new values.
 
-        :return: `VectorAlgorithm`
+        :return: `MagnitudeSquaredAlgorithm`
 
     """
 
@@ -850,7 +851,7 @@ class VectorAlgorithm(VectorBase, Algorithm):
         if other == 0:
             return self
         other_type = type(other)
-        if VectorBase in other_type.__bases__:
+        if MagnitudeSquaredBase in other_type.__bases__:
             other_type = other_type.__bases__[1]
         if other_type == type(self).__bases__[1]:
             return AlgorithmPoint(self, other)
@@ -859,14 +860,14 @@ class VectorAlgorithm(VectorBase, Algorithm):
 
     def __matmul__(self, position):
         algorithm = self.algorithm @ position
-        return VectorBoundAlgorithm(algorithm=algorithm, target_vector=self.target_vector, position=algorithm.position)
+        return MagnitudeSquaredBoundAlgorithm(algorithm=algorithm, target=self.target, position=algorithm.position)
 
     def __mul__(self, weight):
         algorithm = self.algorithm * weight
-        return VectorUnboundCostFunction(algorithm=algorithm, target_vector=self.target_vector, weight=algorithm.weight)
+        return MagnitudeSquaredUnboundCostFunction(algorithm=algorithm, target=self.target, weight=algorithm.weight)
 
 
-class VectorBoundAlgorithm(VectorBase, BoundAlgorithm):
+class MagnitudeSquaredBoundAlgorithm(MagnitudeSquaredBase, BoundAlgorithm):
     """Magnitude target bound algorithm class.
 
     Calculates the squared magnitude difference between the algorithm value(s)
@@ -876,7 +877,7 @@ class VectorBoundAlgorithm(VectorBase, BoundAlgorithm):
     ----------
     algorithm: BoundAlgorithm
         A wrapper of an algorithm implementation.
-    target_vector: numpy.ndarray
+    target: numpy.ndarray
         The static offset target value(s).
 
     Methods
@@ -891,16 +892,16 @@ class VectorBoundAlgorithm(VectorBase, BoundAlgorithm):
         The weight needs to have the correct number of dimensions, but will
         otherwise broadcast properly.
 
-        :return: `VectorCostFunction`
+        :return: `MagnitudeSquaredCostFunction`
     @
         Re-bind the algorithm to a point in space. The point needs to have
         3 elements in the first dimension.
 
-        :return: `VectorBoundAlgorithm`
+        :return: `MagnitudeSquaredBoundAlgorithm`
     -
         Shifts the current target value(s) with the new values.
 
-        :return: `BoundVectorAlgorithm`
+        :return: `MagnitudeSquaredBoundAlgorithm`
 
     """
 
@@ -908,7 +909,7 @@ class VectorBoundAlgorithm(VectorBase, BoundAlgorithm):
         if other == 0:
             return self
         other_type = type(other)
-        if VectorBase in other_type.__bases__:
+        if MagnitudeSquaredBase in other_type.__bases__:
             other_type = other_type.__bases__[1]
         if other_type == type(self).__bases__[1]:
             if np.allclose(self.position, other.position):
@@ -920,14 +921,14 @@ class VectorBoundAlgorithm(VectorBase, BoundAlgorithm):
 
     def __matmul__(self, position):
         algorithm = self.algorithm @ position
-        return VectorBoundAlgorithm(algorithm=algorithm, target_vector=self.target_vector, position=algorithm.position)
+        return MagnitudeSquaredBoundAlgorithm(algorithm=algorithm, target=self.target, position=algorithm.position)
 
     def __mul__(self, weight):
         algorithm = self.algorithm * weight
-        return VectorCostFunction(algorithm=algorithm, target_vector=self.target_vector, weight=algorithm.weight, position=algorithm.position)
+        return MagnitudeSquaredCostFunction(algorithm=algorithm, target=self.target, weight=algorithm.weight, position=algorithm.position)
 
 
-class VectorUnboundCostFunction(VectorBase, UnboundCostFunction):
+class MagnitudeSquaredUnboundCostFunction(MagnitudeSquaredBase, UnboundCostFunction):
     """Magnitude target unbound cost function class.
 
     Calculates the squared magnitude difference between the algorithm value(s)
@@ -937,7 +938,7 @@ class VectorUnboundCostFunction(VectorBase, UnboundCostFunction):
     ----------
     algorithm: UnboundCostFunction
         A wrapper of an algorithm implementation.
-    target_vector: numpy.ndarray
+    target: numpy.ndarray
         The static offset target value(s).
 
     Methods
@@ -951,16 +952,16 @@ class VectorUnboundCostFunction(VectorBase, UnboundCostFunction):
         The weight needs to have the correct number of dimensions, but will
         otherwise broadcast properly.
 
-        :return: `VectorUnboundCostFunction`
+        :return: `MagnitudeSquaredUnboundCostFunction`
     @
         Bind the algorithm to a point in space. The point needs to have
         3 elements in the first dimension.
 
-        :return: `VectorCostFunction`
+        :return: `MagnitudeSquaredCostFunction`
     -
         Shifts the current target value(s) with the new values.
 
-        :return: `VectorUnboundCostFunction`
+        :return: `MagnitudeSquaredUnboundCostFunction`
 
     """
 
@@ -968,7 +969,7 @@ class VectorUnboundCostFunction(VectorBase, UnboundCostFunction):
         if other == 0:
             return self
         other_type = type(other)
-        if VectorBase in other_type.__bases__:
+        if MagnitudeSquaredBase in other_type.__bases__:
             other_type = other_type.__bases__[1]
         if other_type == type(self).__bases__[1]:
             return UnboundCostFunctionPoint(self, other)
@@ -977,14 +978,14 @@ class VectorUnboundCostFunction(VectorBase, UnboundCostFunction):
 
     def __matmul__(self, position):
         algorithm = self.algorithm @ position
-        return VectorCostFunction(algorithm=algorithm, target_vector=self.target_vector, position=algorithm.position, weight=algorithm.weight)
+        return MagnitudeSquaredCostFunction(algorithm=algorithm, target=self.target, position=algorithm.position, weight=algorithm.weight)
 
     def __mul__(self, weight):
         algorithm = self.algorithm * weight
-        return VectorUnboundCostFunction(algorithm=algorithm, target_vector=self.target_vector, weight=algorithm.weight)
+        return MagnitudeSquaredUnboundCostFunction(algorithm=algorithm, target=self.target, weight=algorithm.weight)
 
 
-class VectorCostFunction(VectorBase, CostFunction):
+class MagnitudeSquaredCostFunction(MagnitudeSquaredBase, CostFunction):
     """Magnitude target cost function class.
 
     Calculates the squared magnitude difference between the algorithm value(s)
@@ -994,7 +995,7 @@ class VectorCostFunction(VectorBase, CostFunction):
     ----------
     algorithm: CostFunction
         A wrapper of an algorithm implementation.
-    target_vector: numpy.ndarray
+    target: numpy.ndarray
         The static offset target value(s).
 
     Methods
@@ -1009,16 +1010,16 @@ class VectorCostFunction(VectorBase, CostFunction):
         The weight needs to have the correct number of dimensions, but will
         otherwise broadcast properly.
 
-        :return: `VectorCostFunction`
+        :return: `MagnitudeSquaredCostFunction`
     @
         Bind the algorithm to a point in space. The point needs to have
         3 elements in the first dimension.
 
-        :return: `VectorCostFunction`
+        :return: `MagnitudeSquaredCostFunction`
     -
         Shifts the current target value(s) with the new values.
 
-        :return: `VectorCostFunction`
+        :return: `MagnitudeSquaredCostFunction`
 
     """
 
@@ -1026,7 +1027,7 @@ class VectorCostFunction(VectorBase, CostFunction):
         if other == 0:
             return self
         other_type = type(other)
-        if VectorBase in other_type.__bases__:
+        if MagnitudeSquaredBase in other_type.__bases__:
             other_type = other_type.__bases__[1]
         if other_type == type(self).__bases__[1]:
             if np.allclose(self.position, other.position):
@@ -1038,11 +1039,11 @@ class VectorCostFunction(VectorBase, CostFunction):
 
     def __matmul__(self, position):
         algorithm = self.algorithm @ position
-        return VectorCostFunction(algorithm=algorithm, target_vector=self.target_vector, position=algorithm.position, weight=algorithm.weight)
+        return MagnitudeSquaredCostFunction(algorithm=algorithm, target=self.target, position=algorithm.position, weight=algorithm.weight)
 
     def __mul__(self, weight):
         algorithm = self.algorithm * weight
-        return VectorCostFunction(algorithm=algorithm, target_vector=self.target_vector, weight=algorithm.weight, position=algorithm.position)
+        return MagnitudeSquaredCostFunction(algorithm=algorithm, target=self.target, weight=algorithm.weight, position=algorithm.position)
 
 
 class AlgorithmPoint(AlgorithmBase):
