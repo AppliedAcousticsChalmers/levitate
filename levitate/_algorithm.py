@@ -761,7 +761,7 @@ class MagnitudeSquaredBase(Algorithm):
         of the underlying objects, accessed through the `algorithm` properties.
         """
         values = self.algorithm.values(**kwargs)
-        values -= self.target.reshape([-1] + (values.ndim - 1) * [1])
+        values -= self.target.reshape(self.target.shape + (values.ndim - self.ndim) * (1,))
         return np.real(values * np.conj(values))
 
     def jacobians(self, **kwargs):
@@ -775,9 +775,9 @@ class MagnitudeSquaredBase(Algorithm):
         of the underlying objects, accessed through the `algorithm` properties.
         """
         values = self.algorithm.values(**{key: kwargs[key] for key in self.algorithm.values_require})
-        values -= self.target.reshape([-1] + (values.ndim - 1) * [1])
+        values -= self.target.reshape(self.target.shape + (values.ndim - self.ndim) * (1,))
         jacobians = self.algorithm.jacobians(**{key: kwargs[key] for key in self.algorithm.jacobians_require})
-        return 2 * jacobians * values.reshape(values.shape[:self.ndim] + (1,) + values.shape[self.ndim:])
+        return 2 * jacobians * np.conj(values.reshape(values.shape[:self.ndim] + (1,) + values.shape[self.ndim:]))
 
     # These properties are needed to not overwrite the requirements defined in the algorithm implementations.
     @property
