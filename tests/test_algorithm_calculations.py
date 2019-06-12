@@ -18,7 +18,6 @@ sum_ders = np.sum(ind_ders, axis=1)
 pressure_derivs_algorithms = [
     levitate.algorithms.GorkovGradient,
     levitate.algorithms.GorkovLaplacian,
-    levitate.algorithms.VelocityMagnitudeSquared,
 ]
 
 
@@ -31,8 +30,8 @@ def test_Algorithm(func):
     val_1 = algorithm(array.complex_amplitudes, pos_1)
     val_both = algorithm(array.complex_amplitudes, pos_both)
 
-    np.testing.assert_allclose(val_0, calc_values(sum_ders[..., 0]))
-    np.testing.assert_allclose(val_1, calc_values(sum_ders[..., 1]))
+    np.testing.assert_allclose(val_0, calc_values(pressure_derivs_summed=sum_ders[..., 0]))
+    np.testing.assert_allclose(val_1, calc_values(pressure_derivs_summed=sum_ders[..., 1]))
     np.testing.assert_allclose(val_both, np.stack([val_0, val_1], axis=1))
 
 
@@ -49,13 +48,13 @@ def test_UnboundCostFunction(func, weight):
     algorithm = func(array) * weight
     calc_values, calc_jacobians = algorithm.values, algorithm.jacobians
 
-    val_0 = np.einsum('i..., i', calc_values(sum_ders[..., 0]), np.atleast_1d(weight))
-    val_1 = np.einsum('i..., i', calc_values(sum_ders[..., 1]), np.atleast_1d(weight))
-    val_both = np.einsum('i..., i', calc_values(sum_ders), np.atleast_1d(weight))
+    val_0 = np.einsum('i..., i', calc_values(pressure_derivs_summed=sum_ders[..., 0]), np.atleast_1d(weight))
+    val_1 = np.einsum('i..., i', calc_values(pressure_derivs_summed=sum_ders[..., 1]), np.atleast_1d(weight))
+    val_both = np.einsum('i..., i', calc_values(pressure_derivs_summed=sum_ders), np.atleast_1d(weight))
 
-    jac_0 = np.einsum('i..., i', calc_jacobians(sum_ders[..., 0], ind_ders[..., 0]), np.atleast_1d(weight))
-    jac_1 = np.einsum('i..., i', calc_jacobians(sum_ders[..., 1], ind_ders[..., 1]), np.atleast_1d(weight))
-    jac_both = np.einsum('i..., i', calc_jacobians(sum_ders, ind_ders), np.atleast_1d(weight))
+    jac_0 = np.einsum('i..., i', calc_jacobians(pressure_derivs_summed=sum_ders[..., 0], pressure_derivs_individual=ind_ders[..., 0]), np.atleast_1d(weight))
+    jac_1 = np.einsum('i..., i', calc_jacobians(pressure_derivs_summed=sum_ders[..., 1], pressure_derivs_individual=ind_ders[..., 1]), np.atleast_1d(weight))
+    jac_both = np.einsum('i..., i', calc_jacobians(pressure_derivs_summed=sum_ders, pressure_derivs_individual=ind_ders), np.atleast_1d(weight))
 
     alg_val_0, alg_jac_0 = algorithm(array.complex_amplitudes, pos_0)
     alg_val_1, alg_jac_1 = algorithm(array.complex_amplitudes, pos_1)

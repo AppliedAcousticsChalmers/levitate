@@ -13,7 +13,7 @@ array = levitate.arrays.RectangularArray(9)
 array.phases = array.focus_phases(pos) + array.signature(stype='twin') + 0.2 * np.random.uniform(-np.pi, np.pi, array.num_transducers)
 
 # Create the cost functions and minimize them.
-point = levitate.algorithms.GorkovLaplacian(array) * (-100, -100, -1) + levitate.algorithms.PressureMagnitudeSquared(array) * 1e-3
+point = levitate.algorithms.GorkovLaplacian(array) * (-100, -100, -1) + abs(levitate.algorithms.Pressure(array)) * 1e-3
 results = levitate.optimization.minimize(point@pos, array)
 
 # Visualize the field.

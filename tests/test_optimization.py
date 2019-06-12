@@ -8,16 +8,16 @@ array.phases = array.focus_phases(pos) + array.signature(stype='twin')
 
 
 def test_minimize_phases_amplitudes():
-    trap = levitate.algorithms.PressureMagnitudeSquared(array) * 1 @ pos + levitate.algorithms.SecondOrderStiffness(array) * (1, 1, 1) @ pos
+    trap = abs(levitate.algorithms.Pressure(array)) * 1 @ pos + levitate.algorithms.SecondOrderStiffness(array) * (1, 1, 1) @ pos
     result = levitate.optimization.minimize(trap, array)
     result = levitate.optimization.minimize(trap, array, variable_amplitudes=True, start_values=0.5 * array.complex_amplitudes, basinhopping=3)
     result = levitate.optimization.minimize(trap, array, constrain_transducers=[0, 3])
 
 
 def test_minimize_sequence():
-    trap = levitate.algorithms.PressureMagnitudeSquared(array) * 1 @ pos + levitate.algorithms.SecondOrderStiffness(array) * (1, 1, 1) @ pos
+    trap = abs(levitate.algorithms.Pressure(array)) * 1 @ pos + levitate.algorithms.SecondOrderStiffness(array) * (1, 1, 1) @ pos
     result = levitate.optimization.minimize(trap, array, variable_amplitudes='phases first', start_values=0.5 * array.complex_amplitudes)
-    quiet_zone = (levitate.algorithms.PressureMagnitudeSquared(array) * 1 + levitate.algorithms.VelocityMagnitudeSquared(array) * (1, 1, 1)) @ (np.array([-5, -2, 60]) * 1e-3)
+    quiet_zone = (abs(levitate.algorithms.Pressure(array)) * 1 + abs(levitate.algorithms.Velocity(array)) * (1, 1, 1)) @ (np.array([-5, -2, 60]) * 1e-3)
     result = levitate.optimization.minimize([trap, trap + quiet_zone], array)
     result, status = levitate.optimization.minimize([trap, trap + quiet_zone], array, basinhopping=True, minimize_kwargs={'tol': 1e-6}, callback=lambda **kwargs: False, return_optim_status=True)
 
@@ -47,12 +47,12 @@ operating_point = large_array.complex_amplitudes
     (levitate.algorithms.SecondOrderStiffness, (0, 1, 0)),
     (levitate.algorithms.SecondOrderStiffness, (0, 0, 1)),
     (levitate.algorithms.SecondOrderStiffness, np.random.uniform(-10, 10, 3)),
-    (levitate.algorithms.PressureMagnitudeSquared, 1),
-    (levitate.algorithms.PressureMagnitudeSquared, np.random.uniform(-10, 10)),
-    (levitate.algorithms.VelocityMagnitudeSquared, (1, 0, 0)),
-    (levitate.algorithms.VelocityMagnitudeSquared, (0, 1, 0)),
-    (levitate.algorithms.VelocityMagnitudeSquared, (0, 0, 1)),
-    (levitate.algorithms.VelocityMagnitudeSquared, np.random.uniform(-10, 10, 3)),
+    (lambda arr, weight, position: abs(levitate.algorithms.Pressure(arr, weight=weight, position=position)), 1),
+    (lambda arr, weight, position: abs(levitate.algorithms.Pressure(arr, weight=weight, position=position)), np.random.uniform(-10, 10)),
+    (lambda arr, weight, position: abs(levitate.algorithms.Velocity(arr, weight=weight, position=position)), (1, 0, 0)),
+    (lambda arr, weight, position: abs(levitate.algorithms.Velocity(arr, weight=weight, position=position)), (0, 1, 0)),
+    (lambda arr, weight, position: abs(levitate.algorithms.Velocity(arr, weight=weight, position=position)), (0, 0, 1)),
+    (lambda arr, weight, position: abs(levitate.algorithms.Velocity(arr, weight=weight, position=position)), np.random.uniform(-10, 10, 3)),
 ])
 def test_jacobian_accuracy(func, weight):
     point = func(large_array, weight=weight, position=pos)

@@ -44,15 +44,15 @@ def second_order_force_gradient(*args, **kwargs):
 
 
 def pressure_squared_magnitude(*args, **kwargs):
-    warnings.warn("""`pressure_squared_magnitude` is deprecated, use `PressureMagnitudeSquared` instead.""")
-    from .algorithms import PressureMagnitudeSquared
-    return PressureMagnitudeSquared(*args, **kwargs)
+    warnings.warn("""`pressure_squared_magnitude` is deprecated, use `abs(Pressure())` instead.""")
+    from .algorithms import Pressure
+    return abs(Pressure(*args, **kwargs))
 
 
 def velocity_squared_magnitude(*args, **kwargs):
-    warnings.warn("""`velocity_squared_magnitude` is deprecated, use `VelocityMagnitudeSquared` instead.""")
-    from .algorithms import VelocityMagnitudeSquared
-    return VelocityMagnitudeSquared(*args, **kwargs)
+    warnings.warn("""`velocity_squared_magnitude` is deprecated, use `abs(Velocity())` instead.""")
+    from .algorithms import Velocity
+    return abs(Velocity(*args, **kwargs))
 
 
 def spherical_harmonics_force(*args, **kwargs):
