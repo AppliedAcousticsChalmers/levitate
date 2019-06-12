@@ -264,6 +264,9 @@ class AlgorithmBase(metaclass=AlgorithmMeta):
             spatial_structures['spherical_harmonics'] = self.array.spherical_harmonics(position, orders=spatial_structures['spherical_harmonics'])
         return spatial_structures
 
+    def __abs__(self):
+        return self - 0
+
     def __radd__(self, other):
         return self.__add__(other)
 
