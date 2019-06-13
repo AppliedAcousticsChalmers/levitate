@@ -1,4 +1,19 @@
-"""Handling of individual transducers and their directivities."""
+"""Handling of individual transducers and their directivities.
+
+This module contains classes describing how individual transducer elements radiate sound,
+e.g. waveforms and directivities.
+This is also where the various spatial properties, e.g. derivatives, are implemented.
+
+.. autosummary::
+    :nosignatures:
+
+    TransducerModel
+    PlaneWaveTransducer
+    PointSource
+    CircularPiston
+    CircularRing
+    TransducerReflector
+"""
 
 import numpy as np
 import logging

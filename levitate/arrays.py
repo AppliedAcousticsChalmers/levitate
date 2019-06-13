@@ -1,7 +1,16 @@
-"""Handling of transducer arrays.
+"""Handling of transducer arrays, grouping multiple transducer elements.
 
-The primary base class is the `TransducerArray` class, which contains the most
-frequently used methods.
+The main class is the `TransducerArray` class, but other classes exist to
+simplify the creation of the transducer positions for common array geometries.
+
+.. autosummary::
+    :nosignatures:
+
+    TransducerArray
+    RectangularArray
+    DoublesidedArray
+    DragonflyArray
+
 """
 
 import numpy as np
@@ -41,7 +50,7 @@ class TransducerArray:
         As above.
     transducer_normals : numpy.ndarray
         As above.
-    transducer_model : `levitate.transducers.TransducerModel`
+    transducer_model : TransducerModel
         An instance of a specific transducer model implementation.
     calculate : PersistentFieldEvaluator
         Use to perform cashed field calculations.

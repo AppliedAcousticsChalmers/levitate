@@ -1301,12 +1301,12 @@ class UnboundCostFunctionPoint(AlgorithmPoint):
     Methods
     -------
     +
-        Adds an `UnboundCostFunction` or `UnboundCostFunctionPoint` to the 
+        Adds an `UnboundCostFunction` or `UnboundCostFunctionPoint` to the
         current set of algorithms.
 
         :return: `UnboundCostFunctionPoint`
     *
-        Rescale the weights of all algorithms, i.e. multiplies the current set of 
+        Rescale the weights of all algorithms, i.e. multiplies the current set of
         weight with the new value. The weight needs to have the correct number of
         dimensions, but will otherwise broadcast properly.
 
@@ -1389,13 +1389,13 @@ class CostFunctionPoint(UnboundCostFunctionPoint, BoundAlgorithmPoint):
     Methods
     -------
     +
-        Adds an `CostFunction` or `CostFunctionPoint` to the  current set of algorithms. 
+        Adds an `CostFunction` or `CostFunctionPoint` to the  current set of algorithms.
         If the newly added algorithm is not bound to the same position,
         a `CostFunctionCollection` will be created and returned.
 
         :return: `CostFunctionPoint` or `CostFunctionCollection`
     *
-        Rescale the weights of all algorithms, i.e. multiplies the current set of 
+        Rescale the weights of all algorithms, i.e. multiplies the current set of
         weight with the new value. The weight needs to have the correct number of
         dimensions, but will otherwise broadcast properly.
 
