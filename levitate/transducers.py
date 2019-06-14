@@ -267,6 +267,8 @@ class PointSource(TransducerModel):
         if receiver_positions.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
         wavefront_derivatives = self.wavefront_derivatives(source_positions, receiver_positions, orders)
+        if type(self) == PointSource:
+            return wavefront_derivatives * self.p0
         directivity_derivatives = self.directivity_derivatives(source_positions, source_normals, receiver_positions, orders)
 
         derivatives = np.empty(wavefront_derivatives.shape, dtype=np.complex128)

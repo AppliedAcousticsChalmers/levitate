@@ -408,6 +408,9 @@ class AlgorithmBase(metaclass=AlgorithmMeta):
         pos = ' @ ' + str(pos) if pos is not None else ''
         return format_spec.replace('%cls', cls).replace('%weight', weight).replace('%position', pos)
 
+    def _repr_pretty_(self, p, cycle):
+        p.text(str(self))
+
 
 class Algorithm(AlgorithmBase):
     """Primary class for single point, single algorithms.
