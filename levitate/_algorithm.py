@@ -88,55 +88,56 @@ class AlgorithmImplementation(metaclass=AlgorithmImplementationMeta):
     def __eq__(self, other):
         return type(self) == type(other) and self.array == other.array
 
-
-def requirement(**requirements):
-    """Parse a set of requirements.
-
-    `AlgorithmImplementation` objects should define requirements for values and jacobians.
-    This function parses the requirements and checks that the request can be met upon call.
-    Currently the inputs are converted to a dict and returned as is, but this might change
-    without warning in the future.
-
-    Keyword arguments
-    ---------------------
-    complex_transducer_amplitudes
-        The algorithm requires the actual complex transducer amplitudes directly.
-        This is a fallback requirement when it is not possible to implement and algorithm
-        with the other requirements, and no performance optimization is possible.
-    pressure_derivs_summed
-        The number of orders of Cartesian spatial derivatives of the total sound pressure field.
-        Currently implemented to third order derivatives.
-        See `levitate.utils.pressure_derivs_order` and `levitate.utils.num_pressure_derivs`
-        for a description of the structure.
-    pressure_derivs_summed
-        Like pressure_derivs_summed, but for individual transducers.
-    spherical_harmonics_summed
-        A spherical harmonics decomposition of the total sound pressure field, up to and
-        including the order specified.
-        where remaining dimensions are determined by the positions.
-    spherical_harmonics_individual
-        Like spherical_harmonics_summed, but for individual transducers.
-
-    Returns
-    -------
-    requirements : dict
-        The parsed requirements.
-
-    Raises
-    ------
-    NotImplementedError
-        If one or more of the requested keys is not implemented.
-
-    """
     possible_requirements = [
         'complex_transducer_amplitudes',
         'pressure_derivs_summed', 'pressure_derivs_individual',
         'spherical_harmonics_summed', 'spherical_harmonics_individual',
     ]
-    for requirement in requirements:
-        if requirement not in possible_requirements:
-            raise NotImplementedError("Requirement '{}' is not implemented for an algorithm. The possible requests are: {}".format(requirement, possible_requirements))
-    return requirements
+
+    @staticmethod
+    def requirement(**requirements):
+        """Parse a set of requirements.
+
+        `AlgorithmImplementation` objects should define requirements for values and jacobians.
+        This function parses the requirements and checks that the request can be met upon call.
+        Currently the inputs are converted to a dict and returned as is, but this might change
+        without warning in the future.
+
+        Keyword arguments
+        ---------------------
+        complex_transducer_amplitudes
+            The algorithm requires the actual complex transducer amplitudes directly.
+            This is a fallback requirement when it is not possible to implement and algorithm
+            with the other requirements, and no performance optimization is possible.
+        pressure_derivs_summed
+            The number of orders of Cartesian spatial derivatives of the total sound pressure field.
+            Currently implemented to third order derivatives.
+            See `levitate.utils.pressure_derivs_order` and `levitate.utils.num_pressure_derivs`
+            for a description of the structure.
+        pressure_derivs_summed
+            Like pressure_derivs_summed, but for individual transducers.
+        spherical_harmonics_summed
+            A spherical harmonics decomposition of the total sound pressure field, up to and
+            including the order specified.
+            where remaining dimensions are determined by the positions.
+        spherical_harmonics_individual
+            Like spherical_harmonics_summed, but for individual transducers.
+
+        Returns
+        -------
+        requirements : dict
+            The parsed requirements.
+
+        Raises
+        ------
+        NotImplementedError
+            If one or more of the requested keys is not implemented.
+
+        """
+        for requirement in requirements:
+            if requirement not in AlgorithmImplementation.possible_requirements:
+                raise NotImplementedError("Requirement '{}' is not implemented for an algorithm. The possible requests are: {}".format(requirement, AlgorithmImplementation.possible_requirements))
+        return requirements
 
 
 class AlgorithmMeta(type):
