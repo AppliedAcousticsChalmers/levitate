@@ -1,3 +1,10 @@
+"""Procedures and algorithms for numerical optimization.
+
+The main method currently in use for acoustic levitation (in this package)
+is nonlinear numerical minimization of a cost function. The cost funcion
+should be constructed using the `~levitate.algorithms` module.
+"""
+
 import numpy as np
 import scipy.optimize
 import itertools
@@ -160,15 +167,13 @@ def minimize(functions, array,
     """Minimizes a set of cost functions.
 
     The cost function should have the signature `f(complex_amplitudes)`
-    where `complex_amplitudes` is an ndarray with weight of each element in the array.
+    where `complex_amplitudes` is an ndarray with weight of each element in the transducer array.
     The function should return `value, jacobians` where the jacobians are the
     derivatives of the value w.r.t the transducers as defined in the full documentation.
     Also see the documentation of the algorithm wrappers for further details.
 
     This function supports minimization sequences. Pass an iterable of functions
     to start sequenced minimization, e.g. a list of cost functions.
-    When using multiple cost functions, either all functions return the
-    jacobians, or no functions return jacobians.
     The arguments: `use_real_imag`, `variable_amplitudes`, `constrain_transducers`,
     `callback`, `precall`, `basinhopping`, and  `minimize_kwargs` can be given as single
     values or as iterables of the same length as `functions`.
@@ -181,11 +186,11 @@ def minimize(functions, array,
     array : `TransducerArray`
         The array from which the cost functions are created.
     start_values : complex ndarray, optional
-        The start values for the optimizatioin. Will default to the current array
+        The start values for the optimization. Will default to the current array
         settings if not given. Note that the precall for minimization sequences can
         overrule this value.
     use_real_imag : bool, default False
-        Toggles if the optimization should run using the phase-amplitude forumation
+        Toggles if the optimization should run using the phase-amplitude formulation
         or the real-imag formulation.
     constrain_transducers : array_like
         Specifies a number of transducers which are constant elements in the
@@ -220,7 +225,7 @@ def minimize(functions, array,
     -------
     result : `ndarray`
         The array phases and amplitudes after minimization.
-        Stacks sequenced result in the first dimension.
+        Stacks sequenced results in the first dimension.
     optim_status : `OptimizeResult`
         Scipy optimization result structure. Optional output,
         toggle with the corresponding input argument.
