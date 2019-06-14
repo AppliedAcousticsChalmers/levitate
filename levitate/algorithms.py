@@ -3,11 +3,11 @@
 The algorithms is one of the most important parts of the package,
 containing implementations of various ways to calculate levitate-related physical properties.
 To simplify the management and manipulation of the implemented algorithms they are wrapped
-in an additional abstraction layer, described in the :ref:`algorithm_wrappers` section.
-The short description is that the classes implemented in the `~levitate.algorithms` module
+in an additional abstraction layer.
+The short version is that the classes implemented in the `~levitate.algorithms` module
 will not return objects of the called class, but typically objects of `~levitate._algorithm.Algorithm`.
 These objects support algebraic operations, like `+`, `*`, and `abs`. The full description of
-what the different operands do can be found at the top of :ref:`algorithm_wrappers`.
+what the different operands do can be found in the documentation of `~levitate._algorithm`.
 
 .. autosummary::
     :nosignatures:
