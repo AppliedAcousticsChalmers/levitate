@@ -32,6 +32,66 @@ from ._algorithms_legacy import second_order_force, second_order_stiffness, seco
 from ._algorithms_legacy import pressure_squared_magnitude, velocity_squared_magnitude  # noqa: F401
 
 
+class Pressure(AlgorithmImplementation):
+    """Create pressure calculation functions.
+
+    Creates functions which calculates the sound pressure,
+    and the corresponding jacobians.
+    The main use of this is to use as a cost function.
+
+    Parameters
+    ----------
+    array : TransducerArray
+        The object modeling the array, optional.
+
+    """
+
+    ndim = 0
+    values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=0)
+    jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_individual=0)
+
+    def values(self, pressure_derivs_summed):
+        return pressure_derivs_summed[0]
+
+    def jacobians(self, pressure_derivs_individual):
+        return pressure_derivs_individual[0]
+
+
+class Velocity(AlgorithmImplementation):
+    """Create particle velocity calculation functions.
+
+    Creates functions which calculates the squared velocity magnitude,
+    as a vector, and the corresponding jacobians.
+    The main use of this is to use as a cost function.
+
+    Parameters
+    ----------
+    array : TransducerArray
+        The object modeling the array.
+
+    """
+
+    ndim = 1
+    values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=1)
+    jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_individual=1)
+
+    def __init__(self, array, *args, **kwargs):
+        super().__init__(array, *args, **kwargs)
+        self.pre_grad_2_vel = 1 / (1j * array.medium.rho * array.omega)
+
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and np.allclose(self.pre_grad_2_vel, other.pre_grad_2_vel, atol=0)
+        )
+
+    def values(self, pressure_derivs_summed):
+        return self.pre_grad_2_vel * pressure_derivs_summed[1:4]
+
+    def jacobians(self, pressure_derivs_individual):
+        return self.pre_grad_2_vel * pressure_derivs_individual[1:4]
+
+
 class GorkovPotential(AlgorithmImplementation):
     """
     Create gorkov potential calculation algorithm.
@@ -465,66 +525,6 @@ class RadiationForceGradient(AlgorithmImplementation):
             + 3 * self.psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[12]) + pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[6]))
         )
         return values * self.force_coeff
-
-
-class Pressure(AlgorithmImplementation):
-    """Create pressure calculation functions.
-
-    Creates functions which calculates the sound pressure,
-    and the corresponding jacobians.
-    The main use of this is to use as a cost function.
-
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array, optional.
-
-    """
-
-    ndim = 0
-    values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=0)
-    jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_individual=0)
-
-    def values(self, pressure_derivs_summed):
-        return pressure_derivs_summed[0]
-
-    def jacobians(self, pressure_derivs_individual):
-        return pressure_derivs_individual[0]
-
-
-class Velocity(AlgorithmImplementation):
-    """Create particle velocity calculation functions.
-
-    Creates functions which calculates the squared velocity magnitude,
-    as a vector, and the corresponding jacobians.
-    The main use of this is to use as a cost function.
-
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
-
-    """
-
-    ndim = 1
-    values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=1)
-    jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_individual=1)
-
-    def __init__(self, array, *args, **kwargs):
-        super().__init__(array, *args, **kwargs)
-        self.pre_grad_2_vel = 1 / (1j * array.medium.rho * array.omega)
-
-    def __eq__(self, other):
-        return (
-            super().__eq__(other)
-            and np.allclose(self.pre_grad_2_vel, other.pre_grad_2_vel, atol=0)
-        )
-
-    def values(self, pressure_derivs_summed):
-        return self.pre_grad_2_vel * pressure_derivs_summed[1:4]
-
-    def jacobians(self, pressure_derivs_individual):
-        return self.pre_grad_2_vel * pressure_derivs_individual[1:4]
 
 
 class SphericalHarmonicsForce(AlgorithmImplementation):
