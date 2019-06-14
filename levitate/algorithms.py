@@ -14,14 +14,23 @@ what the different operands do can be found in the documentation of `~levitate._
 
     Pressure
     Velocity
+    GorkovPotential
     GorkovGradient
     GorkovLaplacian
-    GorkovPotential
     RadiationForce
     RadiationForceStiffness
     RadiationForceCurl
     RadiationForceGradient
     SphericalHarmonicsForce
+
+References
+----------
+.. [Gorkov] L. P. Gorkov, “On the Forces Acting on a Small Particle in an Acoustical Field in an Ideal Fluid”
+            Soviet Physics Doklady, vol. 6, p. 773, Mar. 1962.
+
+.. [Sapozhnikov] O. A. Sapozhnikov and M. R. Bailey, “Radiation force of an arbitrary acoustic beam on an elastic sphere in a fluid”
+                 J Acoust Soc Am, vol. 133, no. 2, pp. 661–676, Feb. 2013.
+
 """
 
 import numpy as np
@@ -33,11 +42,9 @@ from ._algorithms_legacy import pressure_squared_magnitude, velocity_squared_mag
 
 
 class Pressure(AlgorithmImplementation):
-    """Create pressure calculation functions.
+    """Complex sound pressure :math:`p`.
 
-    Creates functions which calculates the sound pressure,
-    and the corresponding jacobians.
-    The main use of this is to use as a cost function.
+    Calculates the complex-valued sound pressure.
 
     Parameters
     ----------
@@ -50,19 +57,23 @@ class Pressure(AlgorithmImplementation):
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=0)
     jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_individual=0)
 
-    def values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):  # noqa: D102
         return pressure_derivs_summed[0]
 
-    def jacobians(self, pressure_derivs_individual):
+    def jacobians(self, pressure_derivs_individual):  # noqa: D102
         return pressure_derivs_individual[0]
 
 
 class Velocity(AlgorithmImplementation):
-    """Create particle velocity calculation functions.
+    r"""Complex sound particle velocity :math:`v`.
 
-    Creates functions which calculates the squared velocity magnitude,
-    as a vector, and the corresponding jacobians.
-    The main use of this is to use as a cost function.
+    Calculates the sound particle velocity
+
+    .. math:: v = {1 \over j\omega\rho} \nabla p
+
+    from the relation :math:`\dot v = \rho \nabla p`
+    applied for monofrequent sound fields.
+    This is a vector value using a Cartesian coordinate system.
 
     Parameters
     ----------
@@ -85,19 +96,29 @@ class Velocity(AlgorithmImplementation):
             and np.allclose(self.pre_grad_2_vel, other.pre_grad_2_vel, atol=0)
         )
 
-    def values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):  # noqa: D102
         return self.pre_grad_2_vel * pressure_derivs_summed[1:4]
 
-    def jacobians(self, pressure_derivs_individual):
+    def jacobians(self, pressure_derivs_individual):  # noqa: D102
         return self.pre_grad_2_vel * pressure_derivs_individual[1:4]
 
 
 class GorkovPotential(AlgorithmImplementation):
-    """
-    Create gorkov potential calculation algorithm.
+    r"""Gor'kov's potential :math:`U`.
 
-    Creates functions which calculates the gorkov gradient and the jacobian of
-    the field specified using spaial derivatives of the pressure.
+    Calculates the Gor'kov potential [Gorkov]_
+
+    .. math:: U = {V \over 4}(f_1 \kappa_0 |p|^2 - {3 \over 2} f_2 \rho_0 |v|^2)
+
+    where
+
+    .. math::
+        f_1 = 1 - {\kappa_p \over \kappa_0}, \qquad
+        f_2 = 2 {\rho_p - \rho_0 \over 2 \rho_p + \rho_0}
+
+    and :math:`V` is the volume of the particle.
+    Note that this is only a suitable measure for small particles, i.e. :math:`ka<<1`,
+    where :math:`a` is the radius of the particle.
 
     Parameters
     ----------
@@ -107,6 +128,7 @@ class GorkovPotential(AlgorithmImplementation):
         Radius of the spherical beads.
     sphere_material : Material
         The material of the sphere, default Styrofoam.
+
     """
 
     ndim = 0
@@ -129,23 +151,29 @@ class GorkovPotential(AlgorithmImplementation):
         self.pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
         self.gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
 
-    def values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):  # noqa: D102
         values = self.pressure_coefficient * np.real(pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[0]))
         values -= self.gradient_coefficient * np.real(pressure_derivs_summed[1:4] * np.conj(pressure_derivs_summed[1:4])).sum(axis=0)
         return values
 
-    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):  # noqa: D102
         jacobians = self.pressure_coefficient * 2 * pressure_derivs_individual[0] * np.conj(pressure_derivs_summed[0])
         jacobians -= self.gradient_coefficient * 2 * (pressure_derivs_individual[1:4] * np.conj(pressure_derivs_summed[1:4, None])).sum(axis=0)
         return jacobians
 
 
 class GorkovGradient(AlgorithmImplementation):
-    """
-    Create gorkov gradient calculation functions.
+    r"""Gradient of Gor'kov's potential, :math:`\nabla U`.
 
-    Creates functions which calculates the gorkov gradient and the jacobian of
-    the field specified using spaial derivatives of the pressure.
+    Calculates the Cartesian spatial gradient of Gor'kov's potential,
+    see `GorkovPotential` and [Gorkov]_. This is a vector value used to calculate the
+    radiation force as
+
+    .. math:: F = -\nabla U.
+
+    Note that this value is not suitable for sound fields with strong
+    traveling wave components. If this is the case, use the
+    `RadiationForce` algorithm instead.
 
     Parameters
     ----------
@@ -155,6 +183,7 @@ class GorkovGradient(AlgorithmImplementation):
         Radius of the spherical beads.
     sphere_material : Material
         The material of the sphere, default Styrofoam.
+
     """
 
     ndim = 1
@@ -177,14 +206,14 @@ class GorkovGradient(AlgorithmImplementation):
             and np.allclose(self.gradient_coefficient, other.gradient_coefficient, atol=0)
         )
 
-    def values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):  # noqa: D102
         values = np.real(self.pressure_coefficient * np.conj(pressure_derivs_summed[0]) * pressure_derivs_summed[1:4])  # Pressure parts
         values -= np.real(self.gradient_coefficient * np.conj(pressure_derivs_summed[1]) * pressure_derivs_summed[[4, 7, 8]])  # Vx parts
         values -= np.real(self.gradient_coefficient * np.conj(pressure_derivs_summed[2]) * pressure_derivs_summed[[7, 5, 9]])  # Vy parts
         values -= np.real(self.gradient_coefficient * np.conj(pressure_derivs_summed[3]) * pressure_derivs_summed[[8, 9, 6]])  # Vz parts
         return values * 2
 
-    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):  # noqa: D102
         jacobians = self.pressure_coefficient * (np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[1:4] + np.conj(pressure_derivs_summed[1:4, None]) * pressure_derivs_individual[0])  # Pressure parts
         jacobians -= self.gradient_coefficient * (np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[4, 7, 8]] + np.conj(pressure_derivs_summed[[4, 7, 8], None]) * pressure_derivs_individual[1])  # Vx parts
         jacobians -= self.gradient_coefficient * (np.conj(pressure_derivs_summed[2]) * pressure_derivs_individual[[7, 5, 9]] + np.conj(pressure_derivs_summed[[7, 5, 9], None]) * pressure_derivs_individual[2])  # Vy parts
@@ -193,11 +222,17 @@ class GorkovGradient(AlgorithmImplementation):
 
 
 class GorkovLaplacian(AlgorithmImplementation):
-    """
-    Create gorkov laplacian calculation functions.
+    r"""Laplacian of Gor'kov's potential, :math:`\nabla^2 U`.
 
-    Creates functions which calculates the laplacian of the gorkov potential
-    and the jacobian of the field specified using spaial derivatives of the pressure.
+    This calculates the Cartesian parts of the Laplacian of
+    Gor'kov's potential, see `GorkovPotential` and [Gorkov]_. This is not
+    really the Laplacian, since the components are not summed.
+    The results can be seen as the local linear spring stiffness
+    of the radiation force.
+
+    Note that this value is not suitable for sound fields with strong
+    traveling wave components. If this is the case, use the
+    `RadiationForceStiffness` algorithm instead.
 
     Parameters
     ----------
@@ -207,6 +242,7 @@ class GorkovLaplacian(AlgorithmImplementation):
         Radius of the spherical beads.
     sphere_material : Material
         The material of the sphere, default Styrofoam.
+
     """
 
     ndim = 1
@@ -229,14 +265,14 @@ class GorkovLaplacian(AlgorithmImplementation):
             and np.allclose(self.gradient_coefficient, other.gradient_coefficient, atol=0)
         )
 
-    def values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):  # noqa: D102
         values = np.real(self.pressure_coefficient * (np.conj(pressure_derivs_summed[0]) * pressure_derivs_summed[[4, 5, 6]] + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
         values -= np.real(self.gradient_coefficient * (np.conj(pressure_derivs_summed[1]) * pressure_derivs_summed[[10, 15, 17]] + pressure_derivs_summed[[4, 7, 8]] * np.conj(pressure_derivs_summed[[4, 7, 8]])))
         values -= np.real(self.gradient_coefficient * (np.conj(pressure_derivs_summed[2]) * pressure_derivs_summed[[13, 11, 18]] + pressure_derivs_summed[[7, 5, 9]] * np.conj(pressure_derivs_summed[[7, 5, 9]])))
         values -= np.real(self.gradient_coefficient * (np.conj(pressure_derivs_summed[3]) * pressure_derivs_summed[[14, 16, 12]] + pressure_derivs_summed[[8, 9, 6]] * np.conj(pressure_derivs_summed[[8, 9, 6]])))
         return values * 2
 
-    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):  # noqa: D102
         jacobians = self.pressure_coefficient * (np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[[4, 5, 6]] + np.conj(pressure_derivs_summed[[4, 5, 6], None]) * pressure_derivs_individual[0] + 2 * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[[1, 2, 3]])
         jacobians -= self.gradient_coefficient * (np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[10, 15, 17]] + np.conj(pressure_derivs_summed[[10, 15, 17], None]) * pressure_derivs_individual[1] + 2 * np.conj(pressure_derivs_summed[[4, 7, 8], None]) * pressure_derivs_individual[[4, 7, 8]])
         jacobians -= self.gradient_coefficient * (np.conj(pressure_derivs_summed[2]) * pressure_derivs_individual[[13, 11, 18]] + np.conj(pressure_derivs_summed[[13, 11, 18], None]) * pressure_derivs_individual[2] + 2 * np.conj(pressure_derivs_summed[[7, 5, 9], None]) * pressure_derivs_individual[[7, 5, 9]])
@@ -245,15 +281,31 @@ class GorkovLaplacian(AlgorithmImplementation):
 
 
 class RadiationForce(AlgorithmImplementation):
-    """
-    Create second order radiation force calculation functions.
+    r"""Radiation force calculation for small beads in arbitrary sound fields.
 
-    Creates functions which calculates the radiation force on a sphere generated
-    by the field specified using spaial derivatives of the pressure, and the
-    corresponding jacobians.
+    Calculates the radiation force on a small particle in a sound field which
+    can have both strong standing wave components or strong traveling wave components.
+    The force components :math:`q=x,y,z` are calculated as
+
+    .. math::
+        F_q &= -{\pi \over k^5}\kappa_0 \Re\left\{
+        i k^2 \Psi_0 p {\partial p^* \over \partial q} + ik^2 \Psi_1 p^* {\partial p \over \partial q} \right.
+        \\ &\quad +\left.
+        3i \Psi_1 \left( {\partial p \over \partial x}{\partial^2 p^* \over \partial x\partial q}
+        + {\partial p \over \partial y}{\partial^2 p^* \over \partial y\partial q}
+        + {\partial p \over \partial z}{\partial^2 p^* \over \partial z\partial q}
+        \right)\right\}
+
+    where
+
+    .. math::
+        \Psi_0 &= -{2(ka)^6 \over 9} \left(f_1^2 + {f_2^2 \over 4} + f_1 f_2\right) -i{(ka)^3 \over 3} (2f_1+f_2) \\
+        \Psi_1 &= - {(ka)^6 \over 18}f_2^2 + i{(ka)^3 \over 3} f_2 \\
+        f_1 &= 1 - {\kappa_p \over \kappa_0}, \qquad
+        f_2 = 2 {\rho_p - \rho_0 \over 2 \rho_p + \rho_0}
 
     This is more suitable than the Gor'kov formulation for use with progressive
-    wave fiends, e.g. single sided arrays, see https://doi.org/10.1121/1.4773924.
+    wave fiends, e.g. single sided arrays, see [Sapozhnikov]_.
 
     Parameters
     ----------
@@ -263,6 +315,7 @@ class RadiationForce(AlgorithmImplementation):
         Radius of the spherical beads.
     sphere_material : Material
         The material of the sphere, default Styrofoam.
+
     """
 
     ndim = 1
@@ -293,7 +346,7 @@ class RadiationForce(AlgorithmImplementation):
             and np.allclose(self.force_coeff, other.force_coeff, atol=0)
         )
 
-    def values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):  # noqa: D102
         values = np.real(self.k_square * self.psi_0 * pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[[1, 2, 3]]))
         values += np.real(self.k_square * self.psi_1 * pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[0]))
         values += np.real(3 * self.psi_1 * pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[[4, 7, 8]]))
@@ -301,7 +354,7 @@ class RadiationForce(AlgorithmImplementation):
         values += np.real(3 * self.psi_1 * pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[[8, 9, 6]]))
         return values * self.force_coeff
 
-    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):  # noqa: D102
         jacobians = self.k_square * (self.psi_0 * pressure_derivs_individual[0] * np.conj(pressure_derivs_summed[[1, 2, 3], None]) + np.conj(self.psi_0) * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[[1, 2, 3]])
         jacobians += self.k_square * (self.psi_1 * pressure_derivs_individual[[1, 2, 3]] * np.conj(pressure_derivs_summed[0]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[0])
         jacobians += 3 * (self.psi_1 * pressure_derivs_individual[1] * np.conj(pressure_derivs_summed[[4, 7, 8], None]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[4, 7, 8]])
@@ -311,15 +364,14 @@ class RadiationForce(AlgorithmImplementation):
 
 
 class RadiationForceStiffness(AlgorithmImplementation):
-    """
-    Create second order radiation stiffness calculation functions.
+    r"""Radiation force gradient for small beads in arbitrary sound fields.
 
-    Creates functions which calculates the radiation stiffness on a sphere
-    generated by the field specified using spaial derivatives of
-    the pressure, and the corresponding jacobians.
+    Calculates the non-mixed spatial derivatives of the radiation force,
 
-    This is more suitable than the Gor'kov formulation for use with progressive
-    wave fiends, e.g. single sided arrays, see https://doi.org/10.1121/1.4773924.
+    .. math::
+        ({\partial F_x \over \partial x}, {\partial F_y \over \partial y}, {\partial F_z \over \partial z})
+
+    where :math:`F` is the radiation force by [Sapozhnikov]_, see `RadiationForce`.
 
     Parameters
     ----------
@@ -329,6 +381,7 @@ class RadiationForceStiffness(AlgorithmImplementation):
         Radius of the spherical beads.
     sphere_material : Material
         The material of the sphere, default Styrofoam.
+
     """
 
     ndim = 1
@@ -359,7 +412,7 @@ class RadiationForceStiffness(AlgorithmImplementation):
             and np.allclose(self.force_coeff, other.force_coeff, atol=0)
         )
 
-    def values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):  # noqa: D102
         values = np.real(self.k_square * self.psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[[4, 5, 6]]) + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
         values += np.real(self.k_square * self.psi_1 * (pressure_derivs_summed[[4, 5, 6]] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
         values += np.real(3 * self.psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[[10, 15, 17]]) + pressure_derivs_summed[[4, 7, 8]] * np.conj(pressure_derivs_summed[[4, 7, 8]])))
@@ -367,7 +420,7 @@ class RadiationForceStiffness(AlgorithmImplementation):
         values += np.real(3 * self.psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[[14, 16, 12]]) + pressure_derivs_summed[[8, 9, 6]] * np.conj(pressure_derivs_summed[[8, 9, 6]])))
         return values * self.force_coeff
 
-    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):  # noqa: D102
         jacobians = self.k_square * (self.psi_0 * pressure_derivs_individual[0] * np.conj(pressure_derivs_summed[[4, 5, 6], None]) + np.conj(self.psi_0) * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[[4, 5, 6]] + (self.psi_0 + np.conj(self.psi_0)) * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[[1, 2, 3]])
         jacobians += self.k_square * (self.psi_1 * pressure_derivs_individual[[4, 5, 6]] * np.conj(pressure_derivs_summed[0]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[[4, 5, 6], None]) * pressure_derivs_individual[0] + (self.psi_1 + np.conj(self.psi_1)) * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[[1, 2, 3]])
         jacobians += 3 * (self.psi_1 * pressure_derivs_individual[1] * np.conj(pressure_derivs_summed[[10, 15, 17], None]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[10, 15, 17]] + (self.psi_1 + np.conj(self.psi_1)) * np.conj(pressure_derivs_summed[[4, 7, 8], None]) * pressure_derivs_individual[[4, 7, 8]])
@@ -377,6 +430,27 @@ class RadiationForceStiffness(AlgorithmImplementation):
 
 
 class RadiationForceCurl(AlgorithmImplementation):
+    r"""Curl or rotation of the radiation force.
+
+    Calculates the curl of the radiation force field as
+
+    .. math::
+        ({\partial F_z \over \partial y} - {\partial F_y \over \partial z},
+         {\partial F_x \over \partial z} - {\partial F_z \over \partial x},
+         {\partial F_y \over \partial x} - {\partial F_x \over \partial y})
+
+    where :math:`F` is the radiation force by [Sapozhnikov]_, see `RadiationForce`.
+
+    Parameters
+    ----------
+    array : TransducerArray
+        The object modeling the array.
+    radius_sphere : float, default 1e-3
+        Radius of the spherical beads.
+    sphere_material : Material
+        The material of the sphere, default Styrofoam.
+
+    """
 
     ndim = 1
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2)
@@ -399,14 +473,14 @@ class RadiationForceCurl(AlgorithmImplementation):
             and np.allclose(self.velocity_coefficient, other.velocity_coefficient, atol=0)
         )
 
-    def values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):  # noqa: D102
         values = self.pressure_coefficient * np.imag(pressure_derivs_summed[[2, 3, 1]] * np.conj(pressure_derivs_summed[[3, 1, 2]]))
         values += self.velocity_coefficient * np.imag(pressure_derivs_summed[[7, 8, 4]] * np.conj(pressure_derivs_summed[[8, 4, 7]]))
         values += self.velocity_coefficient * np.imag(pressure_derivs_summed[[5, 9, 7]] * np.conj(pressure_derivs_summed[[9, 7, 5]]))
         values += self.velocity_coefficient * np.imag(pressure_derivs_summed[[9, 6, 8]] * np.conj(pressure_derivs_summed[[6, 8, 9]]))
         return values
 
-    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):
+    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):  # noqa: D102
         jacobians = 1j * self.pressure_coefficient * (np.conj(pressure_derivs_summed[[2, 3, 1], None]) * pressure_derivs_individual[[3, 1, 2]] - np.conj(pressure_derivs_summed[[3, 1, 2], None]) * pressure_derivs_individual[[2, 3, 1]])
         jacobians += 1j * self.velocity_coefficient * (np.conj(pressure_derivs_summed[[7, 8, 4], None]) * pressure_derivs_individual[[8, 4, 7]] - np.conj(pressure_derivs_summed[[8, 4, 7], None]) * pressure_derivs_individual[[7, 8, 4]])
         jacobians += 1j * self.velocity_coefficient * (np.conj(pressure_derivs_summed[[5, 9, 7], None]) * pressure_derivs_individual[[9, 7, 5]] - np.conj(pressure_derivs_summed[[9, 7, 5], None]) * pressure_derivs_individual[[5, 9, 7]])
@@ -415,11 +489,13 @@ class RadiationForceCurl(AlgorithmImplementation):
 
 
 class RadiationForceGradient(AlgorithmImplementation):
-    """
-    Create second order radiation force gradient calculation function.
+    r"""Full matrix gradient of the radiation force.
 
-    Creates the algorithm object needed to calculated the gradient matrix of the
-    radiation force on a small spherical bead.
+    Calculates the full gradient matrix of the radiation force on a small spherical bead.
+    Component :math:`(i,j)` in the matrix is :math:`{\partial F_i \over \partial q_j}`
+    i.e. the first index is force the force components and the second index is for derivatives.
+    This is based on analytical differentiation of the radiation force on small beads from
+    [Sapozhnikov]_, see `RadiationForce`.
 
     Parameters
     ----------
@@ -429,6 +505,11 @@ class RadiationForceGradient(AlgorithmImplementation):
         Radius of the spherical beads.
     sphere_material : Material
         The material of the sphere, default Styrofoam.
+
+    Todo
+    ----
+    This function does not yet support jacobians, and cannot be used as a cost function.
+
     """
 
     ndim = 2
@@ -459,7 +540,7 @@ class RadiationForceGradient(AlgorithmImplementation):
             and np.allclose(self.force_coeff, other.force_coeff, atol=0)
         )
 
-    def values(self, pressure_derivs_summed):
+    def values(self, pressure_derivs_summed):  # noqa: D102
         values = np.zeros((3, 3) + pressure_derivs_summed.shape[1:])
         values[0, 0] = np.real(  # F_{x,x}
             self.k_square * self.psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[4]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[1]))
@@ -528,6 +609,36 @@ class RadiationForceGradient(AlgorithmImplementation):
 
 
 class SphericalHarmonicsForce(AlgorithmImplementation):
+    r"""Spherical harmonics based radiation force.
+
+    Expands the local sound field in spherical harmonics and calculates
+    the radiation force in the spherical harmonics domain.
+    The expansion coefficients are calculated using superposition
+    of the translated expansions of the transducer radiation patterns.
+    The radiation force is calculated using a similar derivation as [Sapozhnikov]_,
+    but without any plane wave decomposition.
+
+    Parameters
+    ----------
+    array : TransducerArray
+        The object modeling the array.
+    orders : int
+        The number of force orders to include. Note that the sound field will
+        be expanded at one order higher that the force order.
+    radius_sphere : float, default 1e-3
+        Radius of the spherical beads.
+    sphere_material : Material
+        The material of the sphere, default Styrofoam.
+    scattering_model:
+        Chooses which scattering model to use. Currently `Hard sphere`, `Soft sphere`, and `Compressible sphere`
+        are implemented.
+
+    Todo
+    ----
+    This function does not yet support jacobians, and cannot be used as a cost function.
+
+    """
+
     ndim = 1
 
     def __init__(self, array, orders, radius_sphere=1e-3, sphere_material=materials.Styrofoam, scattering_model='Hard sphere', *args, **kwargs):
@@ -601,7 +712,7 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
             and np.allclose(self.z_coefficients, other.z_coefficients, atol=0)
         )
 
-    def values(self, spherical_harmonics_summed):
+    def values(self, spherical_harmonics_summed):  # noqa: D102
         Fx = np.sum(np.real(self.xy_coefficients[self.N_M] * (
             spherical_harmonics_summed[self.N_M] * np.conj(spherical_harmonics_summed[self.Nr_Mr])
             - spherical_harmonics_summed[self.N_mM] * np.conj(spherical_harmonics_summed[self.Nr_mMr])

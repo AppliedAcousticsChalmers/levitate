@@ -271,7 +271,7 @@ class AlgorithmMeta(type):
     """
 
     @property
-    def _type(cls):
+    def _type(cls):  # noqa: D401
         """The type of the algorithm.
 
         In this context `type` refers for the combination of `bound` and `cost`.
@@ -298,7 +298,7 @@ class AlgorithmBase(metaclass=AlgorithmMeta):
     """
 
     @property
-    def _type(self):
+    def _type(self):  # noqa: D401
         """The type of the algorithm.
 
         In this context `type` refers for the combination of `bound` and `cost`.
