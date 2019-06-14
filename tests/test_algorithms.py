@@ -44,12 +44,12 @@ def test_gorkov_differentiations():
     np.testing.assert_allclose(implemented_laplacian[2], d2Udz2)
 
 
-def test_SecondOrder_implementations():
+def test_RadiationForce_implementations():
     amps = large_array.complex_amplitudes
-    force = levitate.algorithms.SecondOrderForce(large_array)
-    stiffness = levitate.algorithms.SecondOrderStiffness(large_array)
-    gradient = levitate.algorithms.SecondOrderForceGradient(large_array)
-    curl = levitate.algorithms.SecondOrderCurl(large_array)
+    force = levitate.algorithms.RadiationForce(large_array)
+    stiffness = levitate.algorithms.RadiationForceStiffness(large_array)
+    gradient = levitate.algorithms.RadiationForceGradient(large_array)
+    curl = levitate.algorithms.RadiationForceCurl(large_array)
 
     delta = 1e-9
     x_plus = pos + np.array([delta, 0, 0])
@@ -100,7 +100,7 @@ sum_ders = np.sum(ind_ders, axis=1)
         [[-3.98912624e-10, -3.97329763e-10], [8.96724049e-12, 8.52751518e-12], [3.07462056e-11, 2.89871868e-11]],
         [[3.33886801e-10, -3.33886801e-10], [1.94724287e-11, -1.94724287e-11], [3.76591861e-11, -3.76591861e-11]]
      ),
-    (levitate.algorithms.SecondOrderForce,
+    (levitate.algorithms.RadiationForce,
         [1.83399145e-10, 4.15099186e-10, 6.22648779e-10],
         [[2.03139282e-10, 1.63659008e-10], [4.04354167e-10, 4.25844205e-10], [6.06531251e-10, 6.38766308e-10]],
         [[3.89064704e-10, -3.89064704e-10], [8.13263002e-10, -8.13263002e-10], [1.21989450e-09, -1.21989450e-09]]

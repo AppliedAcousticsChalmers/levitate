@@ -266,7 +266,7 @@ class TransducerArray:
 
         """
 
-        from .algorithms import SecondOrderForce as _force, SecondOrderStiffness as _stiffness
+        from .algorithms import RadiationForce as _force, RadiationForceStiffness as _stiffness
 
         def __init__(self, array):
             self.array = array

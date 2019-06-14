@@ -20,27 +20,27 @@ def gorkov_laplacian(*args, **kwargs):
 
 
 def second_order_force(*args, **kwargs):
-    warnings.warn("""`second_order_force` is deprecated, use `SecondOrderForce` instead.""")
-    from .algorithms import SecondOrderForce
-    return SecondOrderForce(*args, **kwargs)
+    warnings.warn("""`second_order_force` is deprecated, use `RadiationForce` instead.""")
+    from .algorithms import RadiationForce
+    return RadiationForce(*args, **kwargs)
 
 
 def second_order_stiffness(*args, **kwargs):
-    warnings.warn("""`second_order_stiffness` is deprecated, use `SecondOrderStiffness` instead.""")
-    from .algorithms import SecondOrderStiffness
-    return SecondOrderStiffness(*args, **kwargs)
+    warnings.warn("""`second_order_stiffness` is deprecated, use `RadiationForceStiffness` instead.""")
+    from .algorithms import RadiationForceStiffness
+    return RadiationForceStiffness(*args, **kwargs)
 
 
 def second_order_curl(*args, **kwargs):
-    warnings.warn("""`second_order_curl` is deprecated, use `SecondOrderCurl` instead.""")
-    from .algorithms import SecondOrderCurl
-    return SecondOrderCurl(*args, **kwargs)
+    warnings.warn("""`second_order_curl` is deprecated, use `RadiationForceCurl` instead.""")
+    from .algorithms import RadiationForceCurl
+    return RadiationForceCurl(*args, **kwargs)
 
 
 def second_order_force_gradient(*args, **kwargs):
-    warnings.warn("""`second_order_force_gradient` is deprecated, use `SecondOrderForceGradient` instead.""")
-    from .algorithms import SecondOrderForceGradient
-    return SecondOrderForceGradient(*args, **kwargs)
+    warnings.warn("""`second_order_force_gradient` is deprecated, use `RadiationForceGradient` instead.""")
+    from .algorithms import RadiationForceGradient
+    return RadiationForceGradient(*args, **kwargs)
 
 
 def pressure_squared_magnitude(*args, **kwargs):

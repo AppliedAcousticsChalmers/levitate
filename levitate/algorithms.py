@@ -17,10 +17,10 @@ what the different operands do can be found at the top of :ref:`algorithm_wrappe
     GorkovGradient
     GorkovLaplacian
     GorkovPotential
-    SecondOrderForce
-    SecondOrderStiffness
-    SecondOrderCurl
-    SecondOrderForceGradient
+    RadiationForce
+    RadiationForceStiffness
+    RadiationForceCurl
+    RadiationForceGradient
     SphericalHarmonicsForce
 """
 
@@ -184,7 +184,7 @@ class GorkovLaplacian(AlgorithmImplementation):
         return jacobians * 2
 
 
-class SecondOrderForce(AlgorithmImplementation):
+class RadiationForce(AlgorithmImplementation):
     """
     Create second order radiation force calculation functions.
 
@@ -250,7 +250,7 @@ class SecondOrderForce(AlgorithmImplementation):
         return jacobians * self.force_coeff
 
 
-class SecondOrderStiffness(AlgorithmImplementation):
+class RadiationForceStiffness(AlgorithmImplementation):
     """
     Create second order radiation stiffness calculation functions.
 
@@ -316,7 +316,7 @@ class SecondOrderStiffness(AlgorithmImplementation):
         return jacobians * self.force_coeff
 
 
-class SecondOrderCurl(AlgorithmImplementation):
+class RadiationForceCurl(AlgorithmImplementation):
 
     ndim = 1
     values_require = requirement(pressure_derivs_summed=2)
@@ -354,7 +354,7 @@ class SecondOrderCurl(AlgorithmImplementation):
         return jacobians
 
 
-class SecondOrderForceGradient(AlgorithmImplementation):
+class RadiationForceGradient(AlgorithmImplementation):
     """
     Create second order radiation force gradient calculation function.
 

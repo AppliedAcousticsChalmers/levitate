@@ -19,7 +19,7 @@ array.phases = array.focus_phases(trap_pos) + array.signature(trap_pos, stype='t
 # the velocity magnitude, and the stiffenss of the trap.
 p = abs(levitate.algorithms.Pressure(array))
 v = abs(levitate.algorithms.Velocity(array))
-s = levitate.algorithms.SecondOrderStiffness(array)
+s = levitate.algorithms.RadiationForceStiffness(array)
 
 # The levitation trap is found using a minimization sequence.
 # First the phases are optimized for just a trap,
