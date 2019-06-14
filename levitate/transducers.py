@@ -493,14 +493,12 @@ class PointSource(TransducerModel):
         # See Ahrens 2.37a with Errata for the 4pi
         # exp(-jk|r-r'|) / (4pi |r-r'|) = -jk sum_n j_n(k r_min) h^(2)_n(k r_max) sum_m Y_n^-m (theta', phi') Y_n^m (theta, phi)
 
-        num_coefs = (orders + 1)**2
-        coefficients = np.empty((num_coefs,) + source_positions.shape[1:2] + receiver_positions.shape[1:], dtype=np.complex128)
-        idx = 0
-        for n in range(0, orders + 1):
+        sph_idx = utils.SphericalHarmonicsIndexer(orders)
+        coefficients = np.empty((len(sph_idx),) + source_positions.shape[1:2] + receiver_positions.shape[1:], dtype=np.complex128)
+        for n in sph_idx.orders:
             hankel_func = spherical_jn(n, kr) + 1j * spherical_yn(n, kr)
-            for m in range(-n, n + 1):
-                coefficients[idx] = hankel_func * np.conj(sph_harm(m, n, azimuth, colatitude))
-                idx += 1
+            for m in sph_idx.modes:
+                coefficients[sph_idx(n, m)] = hankel_func * np.conj(sph_harm(m, n, azimuth, colatitude))
         directivity = self.directivity(source_positions, source_normals, receiver_positions)
         return self.p0 * 4 * np.pi * 1j * self.k * directivity * coefficients
 
