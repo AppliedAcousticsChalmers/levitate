@@ -3,13 +3,15 @@
 This module contains classes describing how individual transducer elements radiate sound,
 e.g. waveforms and directivities.
 This is also where the various spatial properties, e.g. derivatives, are implemented.
+Most calculations in this module are fully vectorized, so the models can calculate
+sound fields for any number of source positions and receiver positions at once.
 
 .. autosummary::
     :nosignatures:
 
     TransducerModel
-    PlaneWaveTransducer
     PointSource
+    PlaneWaveTransducer
     CircularPiston
     CircularRing
     TransducerReflector
@@ -33,17 +35,17 @@ class TransducerModel:
     freq : float, default 40 kHz
         The resonant frequency of the transducer.
     p0 : float, default 6 Pa
-        The sound pressure crated at maximum amplitude at 1m distance, in Pa.
+        The sound pressure created at maximum amplitude at 1m distance, in Pa.
         Note: This is not an rms value!
-    **kwargs
-        All remaining arguments will be used as additional properties for the object.
+    medium : Material
+        The medium in which the array is operating.
 
     Attributes
     ----------
     k : float
-        Wavenumber in air.
+        Wavenumber in the medium.
     wavelength : float
-        Wavelength in air.
+        Wavelength in the medium.
     omega : float
         Angular frequency.
     freq : float
@@ -54,14 +56,12 @@ class TransducerModel:
     _repr_fmt_spec = '{:%cls(freq=%freq, p0=%p0, medium=%mediumfull)}'
     _str_fmt_spec = '{:%cls(freq=%freq, p0=%p0, medium=%medium)}'
 
-    def __init__(self, freq=40e3, p0=6, medium=Air, **kwargs):
+    def __init__(self, freq=40e3, p0=6, medium=Air):
         self.medium = medium
         self.freq = freq
         self.p0 = p0
         # The murata transducers are measured to 85 dB SPL at 1 V at 1 m, which corresponds to ~6 Pa at 20 V
         # The datasheet specifies 120 dB SPL @ 0.3 m, which corresponds to ~6 Pa @ 1 m
-        for key, value in kwargs.items():
-            setattr(self, key, value)
 
     def __format__(self, fmt_spec):
         return fmt_spec.replace('%cls', self.__class__.__name__).replace('%freq', str(self.freq)).replace('%p0', str(self.p0)).replace('%mediumfull', repr(self.medium)).replace('%medium', str(self.medium))
@@ -125,10 +125,10 @@ class TransducerModel:
 
         Parameters
         ----------
-        source_position : numpy.ndarray
-            The location of the transducer, as a 3 element array.
-        source_normal : numpy.ndarray
-            The look direction of the transducer, as a 3 element array.
+        source_positions : numpy.ndarray
+            The location of the transducer, as a (3, ...) shape array.
+        source_normals : numpy.ndarray
+            The look direction of the transducer, as a (3, ...) shape array.
         receiver_positions : numpy.ndarray
             The location(s) at which to evaluate the radiation, shape (3, ...).
             The first dimension must have length 3 and represent the coordinates of the points.
@@ -136,21 +136,22 @@ class TransducerModel:
         Returns
         -------
         out : numpy.ndarray
-            The pressure at the locations, shape (...) as `receiver_positions`.
+            The pressure at the locations, shape `source_positions.shape[1:] + receiver_positions.shape[1:]`.
+
         """
         raise NotImplementedError('Transducer model of type `{}` has not implemented a greens function'.format(self.__class__.__name__))
 
     def pressure_derivs(self, source_position, source_normal, receiver_positions, orders=3, **kwargs):
         """Calculate the spatial derivatives of the greens function.
 
-        Calculates cartesian spatial derivatives of the pressure Green's function. Should be implemented by concrete subclasses.
+        Calculates Cartesian spatial derivatives of the pressure Green's function. Should be implemented by concrete subclasses.
 
         Parameters
         ----------
-        source_position : numpy.ndarray
-            The location of the transducer, as a 3 element array.
-        source_normal : numpy.ndarray
-            The look direction of the transducer, as a 3 element array.
+        source_positions : numpy.ndarray
+            The location of the transducer, as a (3, ...) shape array.
+        source_normals : numpy.ndarray
+            The look direction of the transducer, as a (3, ...) shape array.
         receiver_positions : numpy.ndarray
             The location(s) at which to evaluate the radiation, shape (3, ...).
             The first dimension must have length 3 and represent the coordinates of the points.
@@ -160,14 +161,27 @@ class TransducerModel:
         Returns
         -------
         derivatives : numpy.ndarray
-            Array with the calculated derivatives. Has the shape (M, ...) where M is the number of spatial
-            derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`, and the remaining
-            dimensions are as `receiver_positions`.
+            Array with the calculated derivatives. Has the shape `(M,) + source_positions.shape[1:] + receiver_positions.shape[1:]`.
+            where `M` is the number of spatial derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`.
+
         """
         raise NotImplementedError('Transducer model of type `{}` has not implemented cartesian pressure derivatives'.format(self.__class__.__name__))
 
 
 class PointSource(TransducerModel):
+    r"""Point source transducers.
+
+    A point source is in this context defines as a spherically spreading wave,
+    optionally with a directivity. On its own this class defines a monopole,
+    but subclasses are free to change the directivity to other shapes.
+
+    The spherical spreading is defined as
+
+    .. math:: G(r) = {e^{ikr} \over r}
+
+    where :math:`r` is the distance from the source, and :math:`k` is the wavenumber of the wave.
+    """
+
     def greens_function(self, source_positions, source_normals, receiver_positions):
         """Evaluate the transducer radiation.
 
@@ -176,10 +190,10 @@ class PointSource(TransducerModel):
 
         Parameters
         ----------
-        source_position : numpy.ndarray
-            The location of the transducer, as a 3 element array.
-        source_normal : numpy.ndarray
-            The look direction of the transducer, as a 3 element array.
+        source_positions : numpy.ndarray
+            The location of the transducer, as a (3, ...) shape array.
+        source_normals : numpy.ndarray
+            The look direction of the transducer, as a (3, ...) shape array.
         receiver_positions : numpy.ndarray
             The location(s) at which to evaluate the radiation, shape (3, ...).
             The first dimension must have length 3 and represent the coordinates of the points.
@@ -187,7 +201,8 @@ class PointSource(TransducerModel):
         Returns
         -------
         out : numpy.ndarray
-            The pressure at the locations, shape (...) as `receiver_positions`.
+            The pressure at the locations, shape `source_positions.shape[1:] + receiver_positions.shape[1:]`.
+
         """
         if receiver_positions.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
@@ -198,8 +213,8 @@ class PointSource(TransducerModel):
 
         Parameters
         ----------
-        source_position : numpy.ndarray
-            The location of the transducer, as a 3 element array.
+        source_positions : numpy.ndarray
+            The location of the transducer, as a (3, ...) shape array.
         receiver_positions : numpy.ndarray
             The location(s) at which to evaluate the radiation, shape (3, ...).
             The first dimension must have length 3 and represent the coordinates of the points.
@@ -207,8 +222,9 @@ class PointSource(TransducerModel):
         Returns
         -------
         out : numpy.ndarray
-            The amplitude and phase of the wavefront, shape (...) as `receiver_positions`.
+            The amplitude and phase of the wavefront, shape `source_positions.shape[1:] + receiver_positions.shape[1:]`.
             Assuming 1Pa at 1m distance, phase referenced to the transducer center.
+
         """
         if receiver_positions.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
@@ -224,10 +240,10 @@ class PointSource(TransducerModel):
 
         Parameters
         ----------
-        source_position : numpy.ndarray
-            The location of the transducer, as a 3 element array.
-        source_normal : numpy.ndarray
-            The look direction of the transducer, as a 3 element array.
+        source_positions : numpy.ndarray
+            The location of the transducer, as a (3, ...) shape array.
+        source_normals : numpy.ndarray
+            The look direction of the transducer, as a (3, ...) shape array.
         receiver_positions : numpy.ndarray
             The location(s) at which to evaluate the radiation, shape (3, ...).
             The first dimension must have length 3 and represent the coordinates of the points.
@@ -235,7 +251,8 @@ class PointSource(TransducerModel):
         Returns
         -------
         out : numpy.ndarray
-            The amplitude (and phase) of the directivity, shape (...) as `receiver_positions`.
+            The amplitude (and phase) of the directivity, shape `source_positions.shape[1:] + receiver_positions.shape[1:]`.
+
         """
         return np.ones(source_positions.shape[1:2] + receiver_positions.shape[1:])
 
@@ -247,10 +264,10 @@ class PointSource(TransducerModel):
 
         Parameters
         ----------
-        source_position : numpy.ndarray
-            The location of the transducer, as a 3 element array.
-        source_normal : numpy.ndarray
-            The look direction of the transducer, as a 3 element array.
+        source_positions : numpy.ndarray
+            The location of the transducer, as a (3, ...) shape array.
+        source_normals : numpy.ndarray
+            The look direction of the transducer, as a (3, ...) shape array.
         receiver_positions : numpy.ndarray
             The location(s) at which to evaluate the radiation, shape (3, ...).
             The first dimension must have length 3 and represent the coordinates of the points.
@@ -260,9 +277,9 @@ class PointSource(TransducerModel):
         Returns
         -------
         derivatives : numpy.ndarray
-            Array with the calculated derivatives. Has the shape (M, ...) where M is the number of spatial
-            derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`, and the remaining
-            dimensions are as `receiver_positions`.
+            Array with the calculated derivatives. Has the `(M,) + source_positions.shape[1:] + receiver_positions.shape[1:]`.
+            where `M` is the number of spatial derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`.
+
         """
         if receiver_positions.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
@@ -307,8 +324,8 @@ class PointSource(TransducerModel):
 
         Parameters
         ----------
-        source_position : numpy.ndarray
-            The location of the transducer, as a 3 element array.
+        source_positions : numpy.ndarray
+            The location of the transducer, as a (3, ...) shape array.
         receiver_positions : numpy.ndarray
             The location(s) at which to evaluate the radiation, shape (3, ...).
             The first dimension must have length 3 and represent the coordinates of the points.
@@ -318,9 +335,9 @@ class PointSource(TransducerModel):
         Returns
         -------
         derivatives : ndarray
-            Array with the calculated derivatives. Has the shape (M,...) where M is the number of spatial
-            derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`, and the remaining
-            dimensions are as `receiver_positions`.
+            Array with the calculated derivatives. Has the shape `(M,) + source_positions.shape[1:] + receiver_positions.shape[1:]`.
+            where `M` is the number of spatial derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`.
+
         """
         if receiver_positions.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
@@ -375,10 +392,10 @@ class PointSource(TransducerModel):
 
         Parameters
         ----------
-        source_position : numpy.ndarray
-            The location of the transducer, as a 3 element array.
-        source_normal : numpy.ndarray
-            The look direction of the transducer, as a 3 element array.
+        source_positions : numpy.ndarray
+            The location of the transducer, as a (3, ...) shape array.
+        source_normals : numpy.ndarray
+            The look direction of the transducer, as a (3, ...) shape array.
         receiver_positions : numpy.ndarray
             The location(s) at which to evaluate the radiation, shape (3, ...).
             The first dimension must have length 3 and represent the coordinates of the points.
@@ -388,9 +405,8 @@ class PointSource(TransducerModel):
         Returns
         -------
         derivatives : numpy.ndarray
-            Array with the calculated derivatives. Has the shape (M,...) where M is the number of spatial
-            derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`, and the remaining
-            dimensions are as `receiver_positions`.
+            Array with the calculated derivatives. Has the shape `(M,) + source_positions.shape[1:] + receiver_positions.shape[1:]`.
+            where `M` is the number of spatial derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`.
 
         """
         if receiver_positions.shape[0] != 3:
@@ -434,6 +450,33 @@ class PointSource(TransducerModel):
         return derivatives
 
     def spherical_harmonics(self, source_positions, source_normals, receiver_positions, orders=0, **kwargs):
+        """Expand sound field in spherical harmonics.
+
+        Performs a spherical harmonics expansion of the sound field created from the transducer model.
+        The expansion is centered at the receiver position(s), and calculated by translating spherical
+        wavefronts from the source position(s).
+
+        Parameters
+        ----------
+        source_positions : numpy.ndarray
+            The location of the transducer, as a (3, ...) shape array.
+        source_normals : numpy.ndarray
+            The look direction of the transducer, as a (3, ...) shape array.
+        receiver_positions : numpy.ndarray
+            The location(s) at which to evaluate the radiation, shape (3, ...).
+            The first dimension must have length 3 and represent the coordinates of the points.
+        orders : int
+            How many orders of spherical harmonics coefficients to calculate.
+
+        Returns
+        -------
+        coefficients : numpy.ndarray
+            Array with the calculated expansion coefficients. Has the shape
+            `(M,) + source_positions.shape[1:] + receiver_positions.shape[1:]`,
+            where `M=len(SphericalHarmonicsIndexer(orders))`, see `~levitate.utils.SphericalHarmonicsIndexer`
+            for details on the structure of the coefficients.
+
+        """
         if receiver_positions.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
 
@@ -550,14 +593,12 @@ class TransducerReflector(TransducerModel):
     def greens_function(self, source_positions, source_normals, receiver_positions):
         r"""Evaluate the pressure at a point.
 
-        The equation is that of a plane wave, :math:`G(\vec x) = p_0 \exp(j\vec k \cdot \vec x)`.
-
         Parameters
         ----------
-        source_position : numpy.ndarray
-            The location of the transducer, as a 3 element array.
-        source_normal : numpy.ndarray
-            The look direction of the transducer, as a 3 element array.
+        source_positions : numpy.ndarray
+            The location of the transducer, as a (3, ...) shape array.
+        source_normals : numpy.ndarray
+            The look direction of the transducer, as a (3, ...) shape array.
         receiver_positions : numpy.ndarray
             The location(s) at which to evaluate the radiation, shape (3, ...).
             The first dimension must have length 3 and represent the coordinates of the points.
@@ -565,7 +606,8 @@ class TransducerReflector(TransducerModel):
         Returns
         -------
         out : numpy.ndarray
-            The pressure at the locations, shape (...) as `receiver_positions`.
+            The pressure at the locations, shape `source_positions.shape[1:] + receiver_positions.shape[1:]`.
+
         """
         plane_normal = self.plane_normal.reshape((3,) + (1,) * (source_positions.ndim - 1))
         direct = self._transducer.greens_function(source_positions, source_normals, receiver_positions)
@@ -579,10 +621,10 @@ class TransducerReflector(TransducerModel):
 
         Parameters
         ----------
-        source_position : numpy.ndarray
-            The location of the transducer, as a 3 element array.
-        source_normal : numpy.ndarray
-            The look direction of the transducer, as a 3 element array.
+        source_positions : numpy.ndarray
+            The location of the transducer, as a (3, ...) shape array.
+        source_normals : numpy.ndarray
+            The look direction of the transducer, as a (3, ...) shape array.
         receiver_positions : numpy.ndarray
             The location(s) at which to evaluate the radiation, shape (3, ...).
             The first dimension must have length 3 and represent the coordinates of the points.
@@ -592,9 +634,9 @@ class TransducerReflector(TransducerModel):
         Returns
         -------
         derivatives : numpy.ndarray
-            Array with the calculated derivatives. Has the shape (M, ...) where M is the number of spatial
-            derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`, and the remaining
-            dimensions are as `receiver_positions`.
+            Array with the calculated derivatives. Has the shape `(M,) + source_positions.shape[1:] + receiver_positions.shape[1:]`.
+            where `M` is the number of spatial derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`.
+
         """
         plane_normal = self.plane_normal.reshape((3,) + (1,) * (source_positions.ndim - 1))
         direct = self._transducer.pressure_derivs(source_positions, source_normals, receiver_positions, orders, **kwargs)
@@ -614,14 +656,14 @@ class PlaneWaveTransducer(TransducerModel):
     def greens_function(self, source_positions, source_normals, receiver_positions):
         r"""Evaluate the pressure at a point.
 
-        The equation is that of a plane wave, :math:`G(\vec x) = p_0 \exp(j\vec k \cdot \vec x)`.
+        The equation is that of a plane wave, :math:`G(\vec x) = p_0 \exp(i\vec k \cdot \vec x)`.
 
         Parameters
         ----------
-        source_position : numpy.ndarray
-            The location of the transducer, as a 3 element array.
-        source_normal : numpy.ndarray
-            The look direction of the transducer, as a 3 element array.
+        source_positions : numpy.ndarray
+            The location of the transducer, as a (3, ...) shape array.
+        source_normals : numpy.ndarray
+            The look direction of the transducer, as a (3, ...) shape array.
         receiver_positions : numpy.ndarray
             The location(s) at which to evaluate the radiation, shape (3, ...).
             The first dimension must have length 3 and represent the coordinates of the points.
@@ -629,7 +671,8 @@ class PlaneWaveTransducer(TransducerModel):
         Returns
         -------
         out : numpy.ndarray
-            The pressure at the locations, shape (...) as `receiver_positions`.
+            The pressure at the locations, shape `source_positions.shape[1:] + receiver_positions.shape[1:]`.
+
         """
         source_normals = np.asarray(source_normals, dtype=np.float64)
         source_normals /= (source_normals**2).sum(axis=0)**0.5
@@ -642,10 +685,10 @@ class PlaneWaveTransducer(TransducerModel):
 
         Parameters
         ----------
-        source_position : numpy.ndarray
-            The location of the transducer, as a 3 element array.
-        source_normal : numpy.ndarray
-            The look direction of the transducer, as a 3 element array.
+        source_positions : numpy.ndarray
+            The location of the transducer, as a (3, ...) shape array.
+        source_normals : numpy.ndarray
+            The look direction of the transducer, as a (3, ...) shape array.
         receiver_positions : numpy.ndarray
             The location(s) at which to evaluate the radiation, shape (3, ...).
             The first dimension must have length 3 and represent the coordinates of the points.
@@ -655,9 +698,9 @@ class PlaneWaveTransducer(TransducerModel):
         Returns
         -------
         derivatives : numpy.ndarray
-            Array with the calculated derivatives. Has the shape (M, ...) where M is the number of spatial
-            derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`, and the remaining
-            dimensions are as `receiver_positions`.
+            Array with the calculated derivatives. Has the shape (`(M,) + source_positions.shape[1:] + receiver_positions.shape[1:]`.
+            where `M` is the number of spatial derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`.
+
         """
         source_normals = np.asarray(source_normals, dtype=np.float64)
         source_normals /= (source_normals**2).sum(axis=0)**0.5
@@ -691,7 +734,7 @@ class PlaneWaveTransducer(TransducerModel):
 class CircularPiston(PointSource):
     r"""Circular piston transducer model.
 
-    Implementation of the circular piston directivity :math:`D(\theta) = 2 J_1(ka\sin\theta) / (ka\sin\theta)`.
+    Implementation of the circular piston directivity :math:`D(\theta) = 2 {J_1(ka\sin\theta) \over ka\sin\theta}`.
 
     Parameters
     ----------
@@ -699,6 +742,11 @@ class CircularPiston(PointSource):
         The radius :math:`a` in the above.
     **kwargs
         See `TransducerModel`
+
+    Note
+    ----
+    This class has no implementation of analytic jacobians yet, and is much slower to use than other models.
+
     """
 
     _repr_fmt_spec = '{:%cls(freq=%freq, p0=%p0, effective_radius=%effective_radius, medium=%mediumfull)}'
@@ -726,10 +774,10 @@ class CircularPiston(PointSource):
 
         Parameters
         ----------
-        source_position : numpy.ndarray
-            The location of the transducer, as a 3 element array.
-        source_normal : numpy.ndarray
-            The look direction of the transducer, as a 3 element array.
+        source_positions : numpy.ndarray
+            The location of the transducer, as a (3, ...) shape array.
+        source_normals : numpy.ndarray
+            The look direction of the transducer, as a (3, ...) shape array.
         receiver_positions : numpy.ndarray
             The location(s) at which to evaluate the radiation, shape (3, ...).
             The first dimension must have length 3 and represent the coordinates of the points.
@@ -737,7 +785,8 @@ class CircularPiston(PointSource):
         Returns
         -------
         out : numpy.ndarray
-            The amplitude (and phase) of the directivity, shape (...) as `receiver_positions`.
+            The amplitude (and phase) of the directivity, shape `source_positions.shape[1:] + receiver_positions.shape[1:]`.
+
         """
         source_normals = source_normals.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
         diff = receiver_positions.reshape((3,) + (1,) * (source_positions.ndim - 1) + receiver_positions.shape[1:]) - source_positions.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
@@ -765,6 +814,7 @@ class CircularRing(PointSource):
         The radius :math:`a` in the above.
     **kwargs
         See `TransducerModel`
+
     """
 
     _repr_fmt_spec = '{:%cls(freq=%freq, p0=%p0, effective_radius=%effective_radius, medium=%mediumfull)}'
@@ -792,10 +842,10 @@ class CircularRing(PointSource):
 
         Parameters
         ----------
-        source_position : numpy.ndarray
-            The location of the transducer, as a 3 element array.
-        source_normal : numpy.ndarray
-            The look direction of the transducer, as a 3 element array.
+        source_positions : numpy.ndarray
+            The location of the transducer, as a (3, ...) shape array.
+        source_normals : numpy.ndarray
+            The look direction of the transducer, as a (3, ...) shape array.
         receiver_positions : numpy.ndarray
             The location(s) at which to evaluate the radiation, shape (3, ...).
             The first dimension must have length 3 and represent the coordinates of the points.
@@ -803,7 +853,8 @@ class CircularRing(PointSource):
         Returns
         -------
         out : numpy.ndarray
-            The amplitude (and phase) of the directivity, shape (...) as `receiver_positions`.
+            The amplitude (and phase) of the directivity, shape `source_positions.shape[1:] + receiver_positions.shape[1:]`.
+
         """
         source_normals = source_normals.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
         diff = receiver_positions.reshape((3,) + (1,) * (source_positions.ndim - 1) + receiver_positions.shape[1:]) - source_positions.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
@@ -823,10 +874,10 @@ class CircularRing(PointSource):
 
         Parameters
         ----------
-        source_position : numpy.ndarray
-            The location of the transducer, as a 3 element array.
-        source_normal : numpy.ndarray
-            The look direction of the transducer, as a 3 element array.
+        source_positions : numpy.ndarray
+            The location of the transducer, as a (3, ...) shape array.
+        source_normals : numpy.ndarray
+            The look direction of the transducer, as a (3, ...) shape array.
         receiver_positions : numpy.ndarray
             The location(s) at which to evaluate the radiation, shape (3, ...).
             The first dimension must have length 3 and represent the coordinates of the points.
@@ -836,9 +887,8 @@ class CircularRing(PointSource):
         Returns
         -------
         derivatives : numpy.ndarray
-            Array with the calculated derivatives. Has the shape (M,...) where M is the number of spatial
-            derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`, and the remaining
-            dimensions are as `receiver_positions`.
+            Array with the calculated derivatives. Has the shape `(M,) + source_positions.shape[1:] + receiver_positions.shape[1:]`.
+            where `M` is the number of spatial derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`.
 
         """
         source_normals = source_normals.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
