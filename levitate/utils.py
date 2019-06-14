@@ -26,6 +26,7 @@ def dB(x, power=False):
     -------
     L : numeric
         The decibel value.
+
     """
     if power:
         return 10 * np.log10(np.abs(x))
@@ -48,6 +49,7 @@ def SPL(p):
     -------
     SPL : numeric
         The sound pressure level
+
     """
     return dB(p / (20e-6 * 2**0.5))
 
@@ -71,6 +73,7 @@ def SVL(u):
     -------
     SVL : numeric
         The sound velocity level
+
     """
     u = np.asarray(u)
     try:
@@ -143,6 +146,7 @@ class SphericalHarmonicsIndexer:
         (2, -2)
         >>> print(sph_idx(0, 0))
         -4
+
     """
 
     def __init__(self, max_order, min_order=0):

@@ -5,6 +5,38 @@ import os.path
 
 
 class TCPArray:
+    """Communicate with a Ultrahaptics array via TCP.
+
+    Starts a c++ process in the background which connects to a Ultrahaptics array.
+    Communicates with the c++ program using TCP messages.
+    The only mode implemented for the array is a cyclical transition of stored states.
+    A number of states is loaded, either from file or sent via TCP. The states are
+    cycled through in a configurable rate or manually. At the end of the list of states
+    the cycle starts over from the start.
+    This makes it relatively easy to create closed paths by ensuring that the last state
+    and the first state is designed to levitate at (almost) the same position.
+
+    The required binary file `array_control` is compiled from the included c++ source files if not present.
+    Inspect the makefile in unix systems, or make.bat on windows to see how the files are compiled.
+    If the compilation fails a `RuntimeError` is raised. If the binary already exists it will be used.
+
+    Parameters
+    ----------
+    ip : string, default '127.0.0.1'
+        The IP address to use for the local TCP-connection.
+    port : int, default 0
+        The port to use for the TCP connection.
+    use_array : bool, default True
+        Set to false to not try to connect to an array, just run the c++
+        executable in the background. Mostly for debugging.
+    verbose : int, default 0
+        Control the verbosity level of the c++ program.
+        0 will not print anything, higher values will give more information.
+    normalize : bool, default True
+        Toggles normalization of the state amplitudes.
+
+    """
+
     _executable = 'array_control'
 
     def __init__(self, ip='127.0.0.1', port=0, use_array=True, verbose=0, normalize=True):
@@ -69,18 +101,19 @@ class TCPArray:
             return [self._recv() for _ in range(count)]
 
     def close(self):
+        """Close the collection to the array and terminate the c++ process."""
         if self._cpp_process.poll() is None:
             self._send('quit')
             self._cpp_process.wait()
         self.conn.close()
         self.sock.close()
-            
 
     def __del__(self):
         self.close()
 
     @property
-    def executable(self):
+    def executable(self):  # noqa : D401
+        """The name of the binary to use."""
         if os.name == 'nt':
             return self._executable + '.exe'
         else:
@@ -89,10 +122,10 @@ class TCPArray:
     @executable.setter
     def executable(self, val):
         self._executable = val.rstrip('.exe')
-    
 
     @property
     def emit(self):
+        """Control if the array is emitting or not."""
         self._send('emit')
         return self._recv().decode()
 
@@ -107,6 +140,7 @@ class TCPArray:
 
     @property
     def amplitude(self):
+        """Control the overall amplitude scaling of the array."""
         self._send('ampl')
         return np.array(self._recv()).astype(float)
 
@@ -118,6 +152,7 @@ class TCPArray:
 
     @property
     def rate(self):
+        """Control the state transition rate of the array, in Hz."""
         self._send('rate')
         return np.array(self._recv()).astype(float)
 
@@ -126,18 +161,36 @@ class TCPArray:
         self._send('rate ' + str(val))
 
     def next(self, count=1):
+        """Go to the next state.
+
+        Parameters
+        ----------
+        count : int
+            How many states to move, default 1.
+
+        """
         self._send('next ' + str(count))
 
     def prev(self, count=1):
+        """Go to the previous state.
+
+        Parameters
+        ----------
+        count : int
+            How many states to move, default 1.
+
+        """
         self._send('prev ' + str(count))
 
     @property
     def num_transducers(self):
+        """Number of transducers in the array."""
         self._send('transducer count')
         return np.array(self._recv()).astype(int)
 
     @property
     def transducer_positions(self):
+        """Positions of the transducer elements."""
         num_transducers = self.num_transducers
         self._send('transducer positions')
         raw = self._recv(num_transducers)
@@ -145,6 +198,7 @@ class TCPArray:
 
     @property
     def transducer_normals(self):
+        """Normals of the transducer elements."""
         num_transducers = self.num_transducers
         self._send('transducer normals')
         raw = self._recv(num_transducers)
@@ -152,6 +206,7 @@ class TCPArray:
 
     @property
     def index(self):
+        """Current state index."""
         self._send('index')
         return np.array(self._recv()).astype(int)
 
@@ -161,6 +216,13 @@ class TCPArray:
 
     @property
     def states(self):
+        """Control the stored states.
+
+        Set this property to send new states to the array.
+        Get this property to check what states are stored for the array.
+        The states have the shape `(M, N)`, where `M` is the number of states,
+        and `N` is the number of transducers in the array.
+        """
         num_transducers = self.num_transducers
         self._send('printstates')
         num_states_raw = self._recv()
@@ -188,4 +250,16 @@ class TCPArray:
             self._send(msg)
 
     def read_file(self, filename):
+        """Read a file with states.
+
+        Specify a file with states to read in the c++ process.
+        This is not to be confused with `~levitate.hardware.data_from_c++`, which
+        reads a file to a numpy.array.
+
+        Parameters
+        ----------
+        filename : str
+            The file to read.
+
+        """
         self._send('file ' + filename)

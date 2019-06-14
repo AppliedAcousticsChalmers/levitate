@@ -22,3 +22,6 @@ Hardware
 ========
 .. automodule:: levitate.hardware
     :members:
+
+.. autoclass:: levitate.hardware.TCPArray
+    :members:

@@ -29,6 +29,7 @@ class Visualizer:
         `(axis, value)` or `axis` where `axis` is in `['x', 'y', 'z']` and indicates
         which axis to keep constant in the plots. The value indicates at which value
         the slice is taken. Default to `('y', 0)`.
+
     """
 
     def __init__(self, array, xlimits=None, ylimits=None, zlimits=None, resolution=10, constant_axis=('y', 0)):
@@ -133,6 +134,7 @@ class Visualizer:
         -------
         trace : dict
             A plotly style dictionary with the trace for the field.
+
         """
         data = self._mesh
         try:
@@ -176,6 +178,7 @@ class Visualizer:
         -------
         trace : dict
             A plotly style dictionary with the trace for the transducers.
+
         """
         if phases is not None or (type(data) is str and 'phase' in data):
             if phases is None:
@@ -257,6 +260,7 @@ class Visualizer:
         -------
         trap_pos : numpy.ndarray
             The found trap position, or the path from the starting position to the trap position, see `return_path`.
+
         """
         from scipy.integrate import solve_ivp
         mg = rho * 4 * np.pi / 3 * radius**3 * 9.82
