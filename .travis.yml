@@ -46,7 +46,7 @@ jobs:
           on:
             branch: master
         - provider: pypi
-          user: CarAndersson
+          user: CarlAndersson
           password: $PYPI_PASSWORD
           on:
             tags: true
