@@ -38,10 +38,15 @@ jobs:
         - echo '<html>\n<head>\n<meta http-equiv="refresh" content="0; url=html/index.html" />\n</head>\n<body></body>\n</html>' > index.html
         - touch .nojekyll
       deploy: 
-        provider: pages
-        skip-cleanup: true
-        keep-history: true
-        target-branch: gh-pages
-        github-token: $GITHUB_TOKEN
-        on:
-          branch: master
+        - provider: pages
+          skip-cleanup: true
+          keep-history: true
+          target-branch: gh-pages
+          github-token: $GITHUB_TOKEN
+          on:
+            branch: master
+        - provider: pypi
+          user: CarAndersson
+          password: $PYPI_PASSWORD
+          on:
+            tags: true
