@@ -4,37 +4,22 @@ import levitate
 
 pos = np.array([5, -2, 80]) * 1e-3
 array = levitate.arrays.RectangularArray(shape=2)
-array.phases = array.focus_phases(pos) + array.twin_signature()
-
-
-def test_cost_function_point():
-    point = levitate.optimization.CostFunctionPoint(pos, array, levitate.algorithms.pressure_squared_magnitude(weights=3))
-    values, jacobians = point(array.complex_amplitudes)
-    np.testing.assert_allclose(values, np.abs(array.calculate.pressure(pos))**2 * 3)
-    point.append(levitate.algorithms.second_order_stiffness(array, weights=(-1.2, 4, -1.6)))
-    values, jacobians = point(array.complex_amplitudes)
-    np.testing.assert_allclose(values, np.abs(array.calculate.pressure(pos))**2 * 3 + np.sum(array.calculate.stiffness(pos) * np.array([-1.2, 4, -1.6])))
+array.phases = array.focus_phases(pos) + array.signature(stype='twin')
 
 
 def test_minimize_phases_amplitudes():
-    trap = levitate.optimization.CostFunctionPoint(pos, array,
-        levitate.algorithms.pressure_squared_magnitude(weights=1),
-        levitate.algorithms.second_order_stiffness(array, weights=(1, 1, 1)))
+    trap = abs(levitate.algorithms.Pressure(array)) * 1 @ pos + levitate.algorithms.RadiationForceStiffness(array) * (1, 1, 1) @ pos
     result = levitate.optimization.minimize(trap, array)
     result = levitate.optimization.minimize(trap, array, variable_amplitudes=True, start_values=0.5 * array.complex_amplitudes, basinhopping=3)
     result = levitate.optimization.minimize(trap, array, constrain_transducers=[0, 3])
 
 
 def test_minimize_sequence():
-    trap = levitate.optimization.CostFunctionPoint(pos, array,
-        levitate.algorithms.pressure_squared_magnitude(weights=1),
-        levitate.algorithms.second_order_stiffness(array, weights=(1, 1, 1)))
+    trap = abs(levitate.algorithms.Pressure(array)) * 1 @ pos + levitate.algorithms.RadiationForceStiffness(array) * (1, 1, 1) @ pos
     result = levitate.optimization.minimize(trap, array, variable_amplitudes='phases first', start_values=0.5 * array.complex_amplitudes)
-    quiet_zone = levitate.optimization.CostFunctionPoint(np.array([-5, -2, 60]) * 1e-3, array,
-        levitate.algorithms.pressure_squared_magnitude(weights=1),
-        levitate.algorithms.velocity_squared_magnitude(array, weights=(1, 1, 1)))
-    result = levitate.optimization.minimize([[trap], [trap, quiet_zone]], array)
-    result, status = levitate.optimization.minimize([[trap], [trap, quiet_zone]], array, basinhopping=True, minimize_kwargs={'tol': 1e-6}, callback=lambda **kwargs: False, return_optim_status=True)
+    quiet_zone = (abs(levitate.algorithms.Pressure(array)) * 1 + abs(levitate.algorithms.Velocity(array)) * (1, 1, 1)) @ (np.array([-5, -2, 60]) * 1e-3)
+    result = levitate.optimization.minimize([trap, trap + quiet_zone], array)
+    result, status = levitate.optimization.minimize([trap, trap + quiet_zone], array, basinhopping=True, minimize_kwargs={'tol': 1e-6}, callback=lambda **kwargs: False, return_optim_status=True)
 
 
 large_array = levitate.arrays.RectangularArray(shape=9)
@@ -43,32 +28,34 @@ large_array.amplitudes = np.random.uniform(1e-3, 1, large_array.num_transducers)
 operating_point = large_array.complex_amplitudes
 
 
-@pytest.mark.parametrize("func, weights", [
-    (levitate.algorithms.gorkov_divergence, (1, 0, 0)),
-    (levitate.algorithms.gorkov_divergence, (0, 1, 0)),
-    (levitate.algorithms.gorkov_divergence, (0, 0, 1)),
-    (levitate.algorithms.gorkov_divergence, np.random.uniform(-10, 10, 3)),
-    (levitate.algorithms.gorkov_laplacian, (1, 0, 0)),
-    (levitate.algorithms.gorkov_laplacian, (0, 1, 0)),
-    (levitate.algorithms.gorkov_laplacian, (0, 0, 1)),
-    (levitate.algorithms.gorkov_laplacian, np.random.uniform(-10, 10, 3)),
-    (levitate.algorithms.second_order_force, (1, 0, 0)),
-    (levitate.algorithms.second_order_force, (0, 1, 0)),
-    (levitate.algorithms.second_order_force, (0, 0, 1)),
-    (levitate.algorithms.second_order_force, np.random.uniform(-10, 10, 3)),
-    (levitate.algorithms.second_order_stiffness, (1, 0, 0)),
-    (levitate.algorithms.second_order_stiffness, (0, 1, 0)),
-    (levitate.algorithms.second_order_stiffness, (0, 0, 1)),
-    (levitate.algorithms.second_order_stiffness, np.random.uniform(-10, 10, 3)),
-    (levitate.algorithms.pressure_squared_magnitude, 1),
-    (levitate.algorithms.pressure_squared_magnitude, np.random.uniform(-10, 10, 1)),
-    (levitate.algorithms.velocity_squared_magnitude, (1, 0, 0)),
-    (levitate.algorithms.velocity_squared_magnitude, (0, 1, 0)),
-    (levitate.algorithms.velocity_squared_magnitude, (0, 0, 1)),
-    (levitate.algorithms.velocity_squared_magnitude, np.random.uniform(-10, 10, 3)),
+@pytest.mark.parametrize("func, weight", [
+    (levitate.algorithms.GorkovPotential, 1),
+    (levitate.algorithms.GorkovPotential, np.random.uniform(-10, 10)),
+    (levitate.algorithms.GorkovGradient, (1, 0, 0)),
+    (levitate.algorithms.GorkovGradient, (0, 1, 0)),
+    (levitate.algorithms.GorkovGradient, (0, 0, 1)),
+    (levitate.algorithms.GorkovGradient, np.random.uniform(-10, 10, 3)),
+    (levitate.algorithms.GorkovLaplacian, (1, 0, 0)),
+    (levitate.algorithms.GorkovLaplacian, (0, 1, 0)),
+    (levitate.algorithms.GorkovLaplacian, (0, 0, 1)),
+    (levitate.algorithms.GorkovLaplacian, np.random.uniform(-10, 10, 3)),
+    (levitate.algorithms.RadiationForce, (1, 0, 0)),
+    (levitate.algorithms.RadiationForce, (0, 1, 0)),
+    (levitate.algorithms.RadiationForce, (0, 0, 1)),
+    (levitate.algorithms.RadiationForce, np.random.uniform(-10, 10, 3)),
+    (levitate.algorithms.RadiationForceStiffness, (1, 0, 0)),
+    (levitate.algorithms.RadiationForceStiffness, (0, 1, 0)),
+    (levitate.algorithms.RadiationForceStiffness, (0, 0, 1)),
+    (levitate.algorithms.RadiationForceStiffness, np.random.uniform(-10, 10, 3)),
+    (lambda arr, weight, position: abs(levitate.algorithms.Pressure(arr, weight=weight, position=position)), 1),
+    (lambda arr, weight, position: abs(levitate.algorithms.Pressure(arr, weight=weight, position=position)), np.random.uniform(-10, 10)),
+    (lambda arr, weight, position: abs(levitate.algorithms.Velocity(arr, weight=weight, position=position)), (1, 0, 0)),
+    (lambda arr, weight, position: abs(levitate.algorithms.Velocity(arr, weight=weight, position=position)), (0, 1, 0)),
+    (lambda arr, weight, position: abs(levitate.algorithms.Velocity(arr, weight=weight, position=position)), (0, 0, 1)),
+    (lambda arr, weight, position: abs(levitate.algorithms.Velocity(arr, weight=weight, position=position)), np.random.uniform(-10, 10, 3)),
 ])
-def test_jacobian_accuracy(func, weights):
-    point = levitate.optimization.CostFunctionPoint(pos, large_array, func(large_array, weights=weights))
+def test_jacobian_accuracy(func, weight):
+    point = func(large_array, weight=weight, position=pos)
     values_at_operating_point = point(operating_point)
 
     phase_jacobians = np.zeros(large_array.num_transducers)

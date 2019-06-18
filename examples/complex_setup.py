@@ -14,7 +14,7 @@ import levitate
 from plotly.offline import plot
 import numpy as np
 
-transducer = levitate.transducers.ReflectingTransducer(
+transducer = levitate.transducers.TransducerReflector(
     levitate.transducers.CircularPiston, effective_radius=3e-3,
     plane_distance=0, plane_normal=(0, 0, 1))
 

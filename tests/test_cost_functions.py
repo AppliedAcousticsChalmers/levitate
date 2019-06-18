@@ -267,7 +267,7 @@ def test_minimize():
     zero_pressure = levitate.cost_functions.pressure(array, pos, weight=1e-3)
     quiet_zone_p = levitate.cost_functions.pressure(array, np.array([-5, -2, 60]) * 1e-3, weight=1)
     quiet_zone_v = levitate.cost_functions.velocity(array, np.array([-5, -2, 60]) * 1e-3, weights=(1, 1, 1))
-    array.phases = array.focus_phases(pos) + array.twin_signature()
+    array.phases = array.focus_phases(pos) + array.signature(stype='twin')
     result = levitate.cost_functions.minimize(zero_pressure, array)
     result = levitate.cost_functions.minimize([zero_pressure, stiffness], array, variable_amplitudes=True)
     result = levitate.cost_functions.minimize([[stiffness, zero_pressure], [stiffness, zero_pressure, quiet_zone_p, quiet_zone_v]], array)

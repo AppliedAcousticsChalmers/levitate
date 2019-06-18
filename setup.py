@@ -22,5 +22,7 @@ setup(
     install_requires=[
         'numpy',
         'scipy'],
+    tests_require=['pytest', 'pytest-cov'],
+    setup_requires=['pytest-runner'],
     include_package_data=True,
 )

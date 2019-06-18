@@ -1,5 +1,6 @@
 import levitate.transducers
 import numpy as np
+import pytest
 
 # Tests created with these air properties
 from levitate.materials import Air
@@ -12,8 +13,97 @@ source_normal /= np.sum(source_normal**2)**0.5
 receiver_pos = np.stack(([0.1, 0.2, 0.3], [-0.15, 1.27, 0.001]), axis=1)
 
 
-def test_TransducerModel():
-    transducer = levitate.transducers.TransducerModel()
+@pytest.mark.parametrize("t_model, args, atol, rtol", [
+    (levitate.transducers.PointSource, {}, 0, 1e-7),
+    (levitate.transducers.PlaneWaveTransducer, {}, 0, 1e-7),
+    (levitate.transducers.CircularPiston, {'effective_radius': 3e-3}, 0, 1e-4),
+    (levitate.transducers.CircularRing, {'effective_radius': 3e-3}, 0, 1e-7),
+])
+def test_pressure_derivs(t_model, args, atol, rtol):
+    idx = levitate.utils.pressure_derivs_order.index
+    T = t_model(**args)
+    spos = np.array([0, 0, 0])
+    n = np.array([0, 0, 1])
+    rpos = np.array([10, -20, 60]) * 1e-3
+    delta = 1e-6
+    x_plus = rpos + np.array([delta, 0, 0])
+    x_minus = rpos - np.array([delta, 0, 0])
+    y_plus = rpos + np.array([0, delta, 0])
+    y_minus = rpos - np.array([0, delta, 0])
+    z_plus = rpos + np.array([0, 0, delta])
+    z_minus = rpos - np.array([0, 0, delta])
+
+    implemented_results = T.pressure_derivs(spos, n, rpos)
+    np.testing.assert_allclose(implemented_results[idx('')], T.greens_function(spos, n, rpos), rtol=rtol, atol=atol)
+
+    dx = (T.greens_function(spos, n, x_plus) - T.greens_function(spos, n, x_minus)) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('x')], dx, rtol=rtol, atol=atol)
+    dy = (T.greens_function(spos, n, y_plus) - T.greens_function(spos, n, y_minus)) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('y')], dy, rtol=rtol, atol=atol)
+    dz = (T.greens_function(spos, n, z_plus) - T.greens_function(spos, n, z_minus)) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('z')], dz, rtol=rtol, atol=atol)
+
+    dx2 = (T.pressure_derivs(spos, n, x_plus, orders=1)[idx('x')] - T.pressure_derivs(spos, n, x_minus, orders=1)[idx('x')]) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('xx')], dx2, rtol=rtol, atol=atol)
+    dy2 = (T.pressure_derivs(spos, n, y_plus, orders=1)[idx('y')] - T.pressure_derivs(spos, n, y_minus, orders=1)[idx('y')]) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('yy')], dy2, rtol=rtol, atol=atol)
+    dz2 = (T.pressure_derivs(spos, n, z_plus, orders=1)[idx('z')] - T.pressure_derivs(spos, n, z_minus, orders=1)[idx('z')]) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('zz')], dz2, rtol=rtol, atol=atol)
+
+    dxdy = (T.pressure_derivs(spos, n, y_plus, orders=1)[idx('x')] - T.pressure_derivs(spos, n, y_minus, orders=1)[idx('x')]) / (2 * delta)
+    dydx = (T.pressure_derivs(spos, n, x_plus, orders=1)[idx('y')] - T.pressure_derivs(spos, n, x_minus, orders=1)[idx('y')]) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('xy')], dxdy, rtol=rtol, atol=atol)
+    np.testing.assert_allclose(implemented_results[idx('xy')], dydx, rtol=rtol, atol=atol)
+    dxdz = (T.pressure_derivs(spos, n, z_plus, orders=1)[idx('x')] - T.pressure_derivs(spos, n, z_minus, orders=1)[idx('x')]) / (2 * delta)
+    dzdx = (T.pressure_derivs(spos, n, x_plus, orders=1)[idx('z')] - T.pressure_derivs(spos, n, x_minus, orders=1)[idx('z')]) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('xz')], dxdz, rtol=rtol, atol=atol)
+    np.testing.assert_allclose(implemented_results[idx('xz')], dzdx, rtol=rtol, atol=atol)
+    dydz = (T.pressure_derivs(spos, n, z_plus, orders=1)[idx('y')] - T.pressure_derivs(spos, n, z_minus, orders=1)[idx('y')]) / (2 * delta)
+    dzdy = (T.pressure_derivs(spos, n, y_plus, orders=1)[idx('z')] - T.pressure_derivs(spos, n, y_minus, orders=1)[idx('z')]) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('yz')], dydz, rtol=rtol, atol=atol)
+    np.testing.assert_allclose(implemented_results[idx('yz')], dzdy, rtol=rtol, atol=atol)
+
+    dx3 = (T.pressure_derivs(spos, n, x_plus, orders=2)[idx('xx')] - T.pressure_derivs(spos, n, x_minus, orders=2)[idx('xx')]) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('xxx')], dx3, rtol=rtol, atol=atol)
+    dy3 = (T.pressure_derivs(spos, n, y_plus, orders=2)[idx('yy')] - T.pressure_derivs(spos, n, y_minus, orders=2)[idx('yy')]) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('yyy')], dy3, rtol=rtol, atol=atol)
+    dz3 = (T.pressure_derivs(spos, n, z_plus, orders=2)[idx('zz')] - T.pressure_derivs(spos, n, z_minus, orders=2)[idx('zz')]) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('zzz')], dz3, rtol=rtol, atol=atol)
+
+    dx2dy = (T.pressure_derivs(spos, n, y_plus, orders=2)[idx('xx')] - T.pressure_derivs(spos, n, y_minus, orders=2)[idx('xx')]) / (2 * delta)
+    dxdydx = (T.pressure_derivs(spos, n, x_plus, orders=2)[idx('xy')] - T.pressure_derivs(spos, n, x_minus, orders=2)[idx('xy')]) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('xxy')], dx2dy, rtol=rtol, atol=atol)
+    np.testing.assert_allclose(implemented_results[idx('xxy')], dxdydx, rtol=rtol, atol=atol)
+    dx2dz = (T.pressure_derivs(spos, n, z_plus, orders=2)[idx('xx')] - T.pressure_derivs(spos, n, z_minus, orders=2)[idx('xx')]) / (2 * delta)
+    dxdzdx = (T.pressure_derivs(spos, n, x_plus, orders=2)[idx('xz')] - T.pressure_derivs(spos, n, x_minus, orders=2)[idx('xz')]) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('xxz')], dx2dz, rtol=rtol, atol=atol)
+    np.testing.assert_allclose(implemented_results[idx('xxz')], dxdzdx, rtol=rtol, atol=atol)
+    dy2dx = (T.pressure_derivs(spos, n, x_plus, orders=2)[idx('yy')] - T.pressure_derivs(spos, n, x_minus, orders=2)[idx('yy')]) / (2 * delta)
+    dxdydy = (T.pressure_derivs(spos, n, y_plus, orders=2)[idx('xy')] - T.pressure_derivs(spos, n, y_minus, orders=2)[idx('xy')]) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('yyx')], dy2dx, rtol=rtol, atol=atol)
+    np.testing.assert_allclose(implemented_results[idx('yyx')], dxdydy, rtol=rtol, atol=atol)
+    dy2dz = (T.pressure_derivs(spos, n, z_plus, orders=2)[idx('yy')] - T.pressure_derivs(spos, n, z_minus, orders=2)[idx('yy')]) / (2 * delta)
+    dydzdy = (T.pressure_derivs(spos, n, y_plus, orders=2)[idx('yz')] - T.pressure_derivs(spos, n, y_minus, orders=2)[idx('yz')]) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('yyz')], dy2dz, rtol=rtol, atol=atol)
+    np.testing.assert_allclose(implemented_results[idx('yyz')], dydzdy, rtol=rtol, atol=atol)
+    dz2dx = (T.pressure_derivs(spos, n, x_plus, orders=2)[idx('zz')] - T.pressure_derivs(spos, n, x_minus, orders=2)[idx('zz')]) / (2 * delta)
+    dxdzdz = (T.pressure_derivs(spos, n, z_plus, orders=2)[idx('xz')] - T.pressure_derivs(spos, n, z_minus, orders=2)[idx('xz')]) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('zzx')], dz2dx, rtol=rtol, atol=atol)
+    np.testing.assert_allclose(implemented_results[idx('zzx')], dxdzdz, rtol=rtol, atol=atol)
+    dz2dy = (T.pressure_derivs(spos, n, y_plus, orders=2)[idx('zz')] - T.pressure_derivs(spos, n, y_minus, orders=2)[idx('zz')]) / (2 * delta)
+    dydzdz = (T.pressure_derivs(spos, n, z_plus, orders=2)[idx('yz')] - T.pressure_derivs(spos, n, z_minus, orders=2)[idx('yz')]) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('zzy')], dz2dy, rtol=rtol, atol=atol)
+    np.testing.assert_allclose(implemented_results[idx('zzy')], dydzdz, rtol=rtol, atol=atol)
+    dxdydz = (T.pressure_derivs(spos, n, z_plus, orders=2)[idx('xy')] - T.pressure_derivs(spos, n, z_minus, orders=2)[idx('xy')]) / (2 * delta)
+    dxdzdy = (T.pressure_derivs(spos, n, y_plus, orders=2)[idx('xz')] - T.pressure_derivs(spos, n, y_minus, orders=2)[idx('xz')]) / (2 * delta)
+    dydzdx = (T.pressure_derivs(spos, n, x_plus, orders=2)[idx('yz')] - T.pressure_derivs(spos, n, x_minus, orders=2)[idx('yz')]) / (2 * delta)
+    np.testing.assert_allclose(implemented_results[idx('xyz')], dxdydz, rtol=rtol, atol=atol)
+    np.testing.assert_allclose(implemented_results[idx('xyz')], dxdzdy, rtol=rtol, atol=atol)
+    np.testing.assert_allclose(implemented_results[idx('xyz')], dydzdx, rtol=rtol, atol=atol)
+
+
+def test_PointSource():
+    transducer = levitate.transducers.PointSource()
     expected_result = np.array([-15.10269228 + 8.46147216j, -4.76079297 + 2.00641887j])
     np.testing.assert_allclose(transducer.greens_function(source_pos, source_normal, receiver_pos), expected_result)
     expected_result = np.array([
@@ -35,12 +125,13 @@ def test_TransducerModel():
         [ 5.02151407e+07+7.99356555e+07j, -1.05144012e+08-2.53620948e+08j],
         [ 1.81332453e+08+2.88656534e+08j,  1.70859019e+07+4.12134041e+07j],
         [ 7.33938873e+08+1.37090554e+09j, -3.57253891e+05-2.98445839e+03j],
-        [ 6.52390109e+08+1.21858270e+09j,  2.56776234e+06+2.14507947e+04j]])
-    np.testing.assert_allclose(transducer.spatial_derivatives(source_pos, source_normal, receiver_pos), expected_result)
+        [ 6.52390109e+08+1.21858270e+09j,  2.56776234e+06+2.14507947e+04j],
+        [ 1.79156634e+08+3.38273791e+08j, -2.37030351e+06-5.73690379e+06j]])
+    np.testing.assert_allclose(transducer.pressure_derivs(source_pos, source_normal, receiver_pos), expected_result)
 
 
 def test_ReflectingTransducer():
-    transducer = levitate.transducers.ReflectingTransducer(levitate.transducers.TransducerModel, plane_distance=0.5, plane_normal=(3, -1, 9), reflection_coefficient=np.exp(1j))
+    transducer = levitate.transducers.TransducerReflector(levitate.transducers.PointSource, plane_distance=0.5, plane_normal=(3, -1, 9), reflection_coefficient=np.exp(1j))
     expected_result = np.array([-22.81413464 + 10.64739914j, -3.69589556 + 5.43218304j])
     np.testing.assert_allclose(transducer.greens_function(source_pos, source_normal, receiver_pos), expected_result)
     expected_result = np.array([
@@ -62,8 +153,9 @@ def test_ReflectingTransducer():
         [ 3.06274689e+07+1.50221459e+07j, -3.32518971e+08-1.83803909e+08j],
         [ 1.26962103e+08+1.08473293e+08j, -4.32730764e+08+1.79332694e+08j],
         [ 5.08112071e+08+5.46876866e+08j, -1.37417530e+08+4.22239466e+07j],
-        [ 8.28952046e+08+1.86284679e+09j,  3.51753794e+08-1.07559352e+08j]])
-    np.testing.assert_allclose(transducer.spatial_derivatives(source_pos, source_normal, receiver_pos), expected_result)
+        [ 8.28952046e+08+1.86284679e+09j,  3.51753794e+08-1.07559352e+08j],
+        [2.42254321e+08+5.70520748e+08j, 1.74266853e+08-5.96975457e+07j]])
+    np.testing.assert_allclose(transducer.pressure_derivs(source_pos, source_normal, receiver_pos), expected_result)
 
 def test_PlaneWaveTransducer():
     transducer = levitate.transducers.PlaneWaveTransducer()
@@ -88,8 +180,9 @@ def test_PlaneWaveTransducer():
         [ 2.72021692e+08-4.53858896e+06j,  5.71278220e+07-2.65994006e+08j],
         [ 5.44043383e+08-9.07717793e+06j,  1.14255644e+08-5.31988013e+08j],
         [ 4.83594118e+08-8.06860260e+06j,  1.01560573e+08-4.72878234e+08j],
-        [ 7.25391178e+08-1.21029039e+07j,  1.52340859e+08-7.09317350e+08j]])
-    np.testing.assert_allclose(transducer.spatial_derivatives(source_pos, source_normal, receiver_pos), expected_result)
+        [ 7.25391178e+08-1.21029039e+07j,  1.52340859e+08-7.09317350e+08j],
+        [3.62695589e+08-6.05145195e+06j, 7.61704294e+07-3.54658675e+08j]])
+    np.testing.assert_allclose(transducer.pressure_derivs(source_pos, source_normal, receiver_pos), expected_result)
 
 
 def test_CircularPiston():
@@ -115,8 +208,9 @@ def test_CircularPiston():
         [ 4.69742337e+07+7.22314736e+07j, -6.45682263e+07-1.56955705e+08j],
         [ 1.68880510e+08+2.61333135e+08j,  1.12904036e+07+2.51731080e+07j],
         [ 6.70487884e+08+1.24899315e+09j, -2.25374325e+05-4.85350052e+02j],
-        [ 6.00924515e+08+1.10756082e+09j,  1.61978412e+06-1.32990931e+03j]])
-    np.testing.assert_allclose(transducer.spatial_derivatives(source_pos, source_normal, receiver_pos), expected_result)
+        [ 6.00924515e+08+1.10756082e+09j,  1.61978412e+06-1.32990931e+03j],
+        [ 1.65922945e+08+3.06976755e+08j, -1.55693915e+06-3.50934304e+06j]])
+    np.testing.assert_allclose(transducer.pressure_derivs(source_pos, source_normal, receiver_pos), expected_result)
 
 
 def test_CircularRing():
@@ -142,5 +236,6 @@ def test_CircularRing():
         [ 4.37922126e+07+6.47773905e+07j, -3.00442186e+07-7.45016718e+07j],
         [ 1.56691171e+08+2.34889313e+08j,  6.22315409e+06+1.15482964e+07j],
         [ 6.08920494e+08+1.13080836e+09j, -1.12129531e+05+1.44617054e+03j],
-        [ 5.50831237e+08+1.00001981e+09j,  8.05741086e+05-1.85496241e+04j]])
-    np.testing.assert_allclose(transducer.spatial_derivatives(source_pos, source_normal, receiver_pos), expected_result)
+        [ 5.50831237e+08+1.00001981e+09j,  8.05741086e+05-1.85496241e+04j],
+        [ 1.53008644e+08+2.76671835e+08j, -8.47676537e+05-1.61653014e+06j]])
+    np.testing.assert_allclose(transducer.pressure_derivs(source_pos, source_normal, receiver_pos), expected_result)

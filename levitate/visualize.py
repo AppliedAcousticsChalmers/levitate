@@ -1,81 +1,6 @@
 """Visualization methods based on the plotly graphing library, and some connivance functions."""
 import numpy as np
-# import plotly.graph_objs as go
-from .materials import Air
-
-
-def dB(x, power=False):
-    r"""Convert ratio to decibels.
-
-    Converting a ratio to decibels depends on whether the ratio is a ratio
-    of amplitudes or a ratio of powers. For amplitudes the decibel value is
-    :math:`20\log(|x|)`, while for power ratios the value is :math:`10\log(|x|)`
-    where :math:`\log` is the base 10 logarithm.
-
-    Parameters
-    ----------
-    x : numeric
-        Linear amplitude or radio, can be complex.
-    power : bool, default False
-        Toggles if the ration is proportional to power.
-
-    Returns
-    -------
-    L : numeric
-        The decibel value.
-    """
-    if power:
-        return 10 * np.log10(np.abs(x))
-    else:
-        return 20 * np.log10(np.abs(x))
-
-
-def SPL(p):
-    """Convert sound pressure to sound pressure level.
-
-    Uses the standard reference value for airborne acoustics: 20 µPa.
-    Note that the input is the pressure amplitude, not he RMS value.
-
-    Parameters
-    ----------
-    p : numeric, complex
-        The complex sound pressure amplitude.
-
-    Returns
-    -------
-    SPL : numeric
-        The sound pressure level
-    """
-    return dB(p / (20e-6 * 2**0.5))
-
-
-def SVL(u):
-    """Convert sound particle velocity to sound velocity level.
-
-    Uses the standard reference value for airborne acoustics: 50 nm/s,
-    which is approximately 20 µPa / c_0 / rho_0
-    Note that the input the velocity amplitude(s), not the RMS values.
-
-    If the first axis of the velocity input has length 3, it will be assumed to
-    be the three Cartesian components of the velocity.
-
-    Parameters
-    ----------
-    u : numeric, complex
-        The complex sound velocity amplitude, or the vector velocity.
-
-    Returns
-    -------
-    SVL : numeric
-        The sound velocity level
-    """
-    u = np.asarray(u)
-    try:
-        if u.shape[0] == 3:
-            u = np.sum(np.abs(u)**2, 0)**0.5
-    except IndexError:
-        pass
-    return dB(u / (50e-9 * 2**0.5))
+from .utils import SPL, SVL
 
 
 class Visualizer:
@@ -104,6 +29,7 @@ class Visualizer:
         `(axis, value)` or `axis` where `axis` is in `['x', 'y', 'z']` and indicates
         which axis to keep constant in the plots. The value indicates at which value
         the slice is taken. Default to `('y', 0)`.
+
     """
 
     def __init__(self, array, xlimits=None, ylimits=None, zlimits=None, resolution=10, constant_axis=('y', 0)):
@@ -208,6 +134,7 @@ class Visualizer:
         -------
         trace : dict
             A plotly style dictionary with the trace for the field.
+
         """
         data = self._mesh
         try:
@@ -251,6 +178,7 @@ class Visualizer:
         -------
         trace : dict
             A plotly style dictionary with the trace for the transducers.
+
         """
         if phases is not None or (type(data) is str and 'phase' in data):
             if phases is None:
@@ -332,6 +260,7 @@ class Visualizer:
         -------
         trap_pos : numpy.ndarray
             The found trap position, or the path from the starting position to the trap position, see `return_path`.
+
         """
         from scipy.integrate import solve_ivp
         mg = rho * 4 * np.pi / 3 * radius**3 * 9.82
@@ -350,6 +279,8 @@ class Visualizer:
             return np.clip(distance - tolerance, 0, None)
         bead_close.terminal = True
         outs = solve_ivp(f, (0, time_interval), np.asarray(start_pos), events=bead_close, vectorized=True, dense_output=return_path)
+        if outs.message != 'A termination event occurred.':
+            print('End criterion not met. Final path position might not be close to trap location.')
         if return_path:
             if return_path is True:
                 return_path = 200

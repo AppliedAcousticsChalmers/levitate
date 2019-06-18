@@ -11,44 +11,33 @@ from plotly.offline import plot
 array = levitate.arrays.RectangularArray((21, 12))
 trap_pos = np.array([-20e-3, 0, 60e-3])
 haptics_pos = np.array([40e-3, 0, 90e-3])
-array.phases = array.focus_phases(trap_pos) + array.twin_signature(trap_pos) + 0.2 * np.random.uniform(-np.pi, np.pi, array.num_transducers)
-
+array.phases = array.focus_phases(trap_pos) + array.signature(trap_pos, stype='twin') + 0.2 * np.random.uniform(-np.pi, np.pi, array.num_transducers)
 
 # The fields are superposed using mutual quiet zones, created by minimizing the
 # pressure and velocity at the secondary point in each field.
-trap_point = levitate.optimization.CostFunctionPoint(
-    trap_pos, array,
-    levitate.algorithms.second_order_stiffness(array, weights=(1, 1, 1)),
-    levitate.algorithms.pressure_squared_magnitude(array, weights=1)
-)
-haptics_quiet_zone = levitate.optimization.CostFunctionPoint(
-    haptics_pos, array,
-    levitate.algorithms.pressure_squared_magnitude(array, weights=1),
-    levitate.algorithms.velocity_squared_magnitude(array, weights=(1e3, 1e3, 1e3)),
-)
+# We will need three algorithms, calculating the pressure magnitude,
+# the velocity magnitude, and the stiffenss of the trap.
+p = abs(levitate.algorithms.Pressure(array))
+v = abs(levitate.algorithms.Velocity(array))
+s = levitate.algorithms.RadiationForceStiffness(array)
 
 # The levitation trap is found using a minimization sequence.
 # First the phases are optimized for just a trap,
 # then the phases and amplitudes are optimized to include the quiet zone.
 trap_result = levitate.optimization.minimize(
-    [[trap_point], [trap_point, haptics_quiet_zone]],
+    [
+        (s * (1, 1, 1) + p * 1)@trap_pos,
+        (s * (1, 1, 1) + p * 1)@trap_pos + (v * (1e3, 1e3, 1e3) + p * 1)@haptics_pos
+    ],
     array, variable_amplitudes=[False, True])[-1]
 
 # The haptics point can be created using a simple focusing algorithm,
 # so we can optimize for the inclusion of the quiet zone straight away.
 # To retain the focus point we set a negative weight for the pressure,
 # i.e. maximizing the pressure.
-haptics_point = levitate.optimization.CostFunctionPoint(
-    haptics_pos, array,
-    levitate.algorithms.pressure_squared_magnitude(array, weights=-1e-3))
-trap_quiet_zone = levitate.optimization.CostFunctionPoint(
-    trap_pos, array,
-    levitate.algorithms.pressure_squared_magnitude(array, weights=1),
-    levitate.algorithms.velocity_squared_magnitude(array, weights=(1e3, 1e3, 1e3)),
-)
 array.phases = array.focus_phases(haptics_pos)
 haptics_result = levitate.optimization.minimize(
-    [haptics_point, trap_quiet_zone],
+    p * (-1)@haptics_pos + (p * 1 + v * (1e3, 1e3, 1e3))@trap_pos,
     array, variable_amplitudes=True)
 
 # Visualize the individual fields, as well as the compound field.

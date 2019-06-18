@@ -7,7 +7,7 @@ import logging
 import itertools
 
 from .materials import Air
-from . import num_spatial_derivatives
+from .utils import num_pressure_derivs
 
 logger = logging.getLogger(__name__)
 warnings.warn("""The cost_functions module is deprecated and will be removed in a further release. Use the algorithms module or the optimization module instead.""")
@@ -451,7 +451,7 @@ def gorkov_divergence(array, location=None, weights=None, spatial_derivatives=No
         The function described above
     """
     if spatial_derivatives is None:
-        spatial_derivatives = array.spatial_derivatives(location, orders=2)
+        spatial_derivatives = array.pressure_derivs(location, orders=2)
 
     V = 4 / 3 * np.pi * radius_sphere**3
     compressibility_air = 1 / (Air.rho * Air.c**2)
@@ -538,7 +538,7 @@ def gorkov_laplacian(array, location=None, weights=None, spatial_derivatives=Non
     """
     # Before defining the cost function and the jacobian, we need to initialize the following variables:
     if spatial_derivatives is None:
-        spatial_derivatives = array.spatial_derivatives(location)
+        spatial_derivatives = array.pressure_derivs(location)
 
     V = 4 / 3 * np.pi * radius_sphere**3
     compressibility_air = 1 / (Air.rho * Air.c**2)
@@ -626,7 +626,7 @@ def second_order_force(array, location=None, weights=None, spatial_derivatives=N
         The function described above
     """
     if spatial_derivatives is None:
-        spatial_derivatives = array.spatial_derivatives(location, orders=2)
+        spatial_derivatives = array.pressure_derivs(location, orders=2)
 
     compressibility_air = 1 / (Air.rho * Air.c**2)
     compressibility_sphere = 1 / (rho_sphere * c_sphere**2)
@@ -726,7 +726,7 @@ def second_order_stiffness(array, location=None, weights=None, spatial_derivativ
         The function described above
     """
     if spatial_derivatives is None:
-        spatial_derivatives = array.spatial_derivatives(location, orders=3)
+        spatial_derivatives = array.pressure_derivs(location, orders=3)
 
     compressibility_air = 1 / (Air.rho * Air.c**2)
     compressibility_sphere = 1 / (rho_sphere * c_sphere**2)
@@ -870,7 +870,7 @@ def pressure(array, location=None, weight=None, spatial_derivatives=None):
         The function described above
     """
     if spatial_derivatives is None:
-        spatial_derivatives = array.spatial_derivatives(location, orders=0)
+        spatial_derivatives = array.pressure_derivs(location, orders=0)
     spatial_derivatives = spatial_derivatives[np.newaxis, 0]  # Get only the first underivated component, but keep the axis
 
     if weight is not None and weight is not False:
@@ -924,9 +924,9 @@ def velocity(array, location=None, weights=None, spatial_derivatives=None):
         The function described above
     """
     if spatial_derivatives is None:
-        spatial_derivatives = array.spatial_derivatives(location, orders=1)
+        spatial_derivatives = array.pressure_derivs(location, orders=1)
     pre_grad_2_vel = 1 / (1j * Air.rho * array.omega)
-    spatial_derivatives = spatial_derivatives[num_spatial_derivatives[0]:num_spatial_derivatives[1]] * pre_grad_2_vel
+    spatial_derivatives = spatial_derivatives[num_pressure_derivs[0]:num_pressure_derivs[1]] * pre_grad_2_vel
 
     if weights is None:
         def calc_values(tot_der):

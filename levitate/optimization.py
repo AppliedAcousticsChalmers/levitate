@@ -1,95 +1,13 @@
+"""Procedures and algorithms for numerical optimization.
+
+The main method currently in use for acoustic levitation (in this package)
+is nonlinear numerical minimization of a cost function. The cost funcion
+should be constructed using the `~levitate.algorithms` module.
+"""
+
 import numpy as np
 import scipy.optimize
 import itertools
-
-
-# TODO: Create a named tuple for the combination of (calc_values, calc_jacobian, weights), i.e. a single const function description
-# Idea: Should there be a separate function with the inputs ...((calc_values, calc_jacobian), weights)?
-
-class CostFunctionPoint:
-    """Class for evaluating algorithms as cost functions.
-
-    Since the algorithms has some shared requirements as the inputs, the sound
-    field attributes is evaluated only once for a single point in space.
-    To use an algorithm as a cost funciton, the function needs to have a `weights`
-    attribute. If the algorithm generator functions are called with a `weights`
-    parameter it will be added as an attribure of the function objects.
-
-    Parameters
-    ----------
-    position : 3 element numeric
-        The position at which to evaluate the cost functions.
-    array : TransducerArray
-        The array for which to optimize.
-    *funcs : pairs of callables
-        Pairs (calc_values, calc_jacobians) of callables representing the cost functions.
-        Each callable should have a 'requires' property and a 'weights' property.
-        See the algorithms module for more details.
-    """
-
-    def __init__(self, position, array, *funcs):
-        # Determine which spatial derivatives are needed and calculate them from the array
-        # Each function stores the required derivaties (and other needed things?) in some defined properties
-        self.position = position
-        self.array = array
-        self._requirements = {}
-        self._spatial_derivatives = None
-        # self._calculate_jacobians = False
-        self._calc_values = []
-        self._calc_jacobians = []
-        # Here is a good place to add some documenting properties to the cost function, like the position,
-        # the included cost functions
-        if len(funcs):
-            self.append(*funcs)
-
-    def __call__(self, complex_transducer_weights):
-        """Evaluate the cost function point.
-
-        Parameters
-        ----------
-        complex_transducer_weights : complex ndarray
-            The complex weights (amplitudes) of the transducer elements in the array.
-
-        Returns
-        -------
-        value : float
-            The summed and weighted cost function results.
-        jacobians : compelex ndarray
-            The derivatives of the cost function value, w.r.t. the transducers
-            as defined in the supplementary documentation.
-        """
-        # This is the top-level function which is called by the minimizer
-        # Determine the input type, e.g. phases_amplitudes, (phases, amplitudes), etc
-        # Pre-compute the amplitude-phase weighted spatial derivatives, and the amplitude-phase weigeted-summed derivatives
-        # Call each cost function and return the sum of values and jacobians, weighted with the cost function weights
-        individual_derivs = np.einsum('i,ji...->ji...', complex_transducer_weights, self._spatial_derivatives)
-        summed_derivs = np.sum(individual_derivs, axis=1)
-
-        value = sum(np.einsum('i..., i', calc_values(summed_derivs), calc_values.weights) for calc_values in self._calc_values)
-        jacobians = sum(np.einsum('i..., i', calc_jacobians(summed_derivs, individual_derivs), calc_jacobians.weights) for calc_jacobians in self._calc_jacobians)
-
-        return value, jacobians
-
-    def _parse_requirements(self, *funcs):
-        updated_requirements = {}
-        # Go through all requirements in all functions and get the highest requirement
-        # of the parsed functions and the already existing functions
-        for func in funcs:
-            for key, value in func.requires.items():
-                if value > self._requirements.get(key, -1):
-                    updated_requirements[key] = value
-                    self._requirements[key] = value
-        for key, value in updated_requirements.items():
-            if key.find('pressure_orders') > -1:
-                self._spatial_derivatives = self.array.spatial_derivatives(self.position, orders=value)
-            else:
-                raise ValueError("Unknown requirement '{}'".format(key))
-
-    def append(self, *funcs):
-        calc_values, calc_jacobians = zip(*funcs)
-        self._parse_requirements(*calc_values, *calc_jacobians)
-        self._calc_values.extend(calc_values)
-        self._calc_jacobians.extend(calc_jacobians)
 
 
 def _minimize_sequence(function_sequence, array,
@@ -117,6 +35,9 @@ def _minimize_sequence(function_sequence, array,
 
     try:
         iter(variable_amplitudes)
+        if type(variable_amplitudes) == str:
+            # Strings are iterable, but 'Phases first' should be repeated
+            raise TypeError
     except TypeError:
         variable_amplitudes = itertools.repeat(variable_amplitudes)
 
@@ -144,10 +65,11 @@ def _minimize_sequence(function_sequence, array,
 
     results = []
     opt_results = []
+    result = start_values
     for idx, (functions, real_imag, var_amp, const_trans, basinhop, clbck, precl, min_kwarg) in enumerate(zip(function_sequence, use_real_imag, variable_amplitudes, constrain_transducers, basinhopping, callback, precall, minimize_kwargs)):
-        start_values = precl(start_values, idx).copy()
+        start_values = precl(result, idx).copy()
         result, opt_res = minimize(functions, array, use_real_imag=real_imag, variable_amplitudes=var_amp, constrain_transducers=const_trans,
-                                   basinhopping=basinhop, return_optim_status=True, minimize_kwargs=min_kwarg)
+                                   basinhopping=basinhop, return_optim_status=True, minimize_kwargs=min_kwarg, start_values=start_values)
         results.append(result.copy())
         opt_results.append(opt_res)
         if clbck(array=array, result=result, optim_status=opt_res, idx=idx) is False:
@@ -159,12 +81,12 @@ def _minimize_sequence(function_sequence, array,
         return np.asarray(results)
 
 
-def _minimize_phase_amplitude(functions, array, start_values,
+def _minimize_phase_amplitude(function, array, start_values,
                               constrain_transducers, variable_amplitudes,
                               basinhopping, minimize_kwargs,
                               return_optim_status):
     if variable_amplitudes == 'phases first':
-        result, status = minimize([functions, functions], array, start_values=start_values, constrain_transducers=constrain_transducers,
+        result, status = minimize([function, function], array, start_values=start_values, constrain_transducers=constrain_transducers,
                                   variable_amplitudes=[False, True], basinhopping=basinhopping, minimize_kwargs=minimize_kwargs,
                                   return_optim_status=True)
         if return_optim_status:
@@ -195,12 +117,7 @@ def _minimize_phase_amplitude(functions, array, start_values,
             call_amplitudes[unconstrained_transducers] = phases_amplitudes[num_unconstrained_transducers:]
             call_complex = call_amplitudes * np.exp(1j * call_phases)
 
-            value = 0
-            jacobians = np.zeros(num_total_transducers, dtype=complex)
-            for f in functions:
-                out = f(call_complex)
-                value += out[0]
-                jacobians += out[1]
+            value, jacobians = function(call_complex)
             jacobians = np.concatenate((
                 -np.imag(jacobians[unconstrained_transducers]),
                 np.einsum('i, i...->i...', 1 / call_amplitudes[unconstrained_transducers], np.real(jacobians[unconstrained_transducers]))
@@ -211,12 +128,7 @@ def _minimize_phase_amplitude(functions, array, start_values,
             call_phases[unconstrained_transducers] = phases[:num_unconstrained_transducers]
             call_complex = call_amplitudes * np.exp(1j * call_phases)
 
-            value = 0
-            jacobians = np.zeros(num_total_transducers, dtype=complex)
-            for f in functions:
-                out = f(call_complex)
-                value += out[0]
-                jacobians += out[1]
+            value, jacobians = function(call_complex)
             jacobians = -np.imag(jacobians[unconstrained_transducers])
             return value, jacobians
     else:
@@ -254,16 +166,14 @@ def minimize(functions, array,
              ):
     """Minimizes a set of cost functions.
 
-    Each cost function should have the signature `f(complex_amplitudes)`
-    where `complex_amplitudes` is an ndarray with weight of each element in the array.
-    The functions should return `value, jacobians` where the jacobians are the
+    The cost function should have the signature `f(complex_amplitudes)`
+    where `complex_amplitudes` is an ndarray with weight of each element in the transducer array.
+    The function should return `value, jacobians` where the jacobians are the
     derivatives of the value w.r.t the transducers as defined in the full documentation.
+    Also see the documentation of the algorithm wrappers for further details.
 
-    This function supports minimization sequences. Pass an iterable of iterables
-    of cost functions to start sequenced minimization, e.g. a list of lists of
-    functions.
-    When using multiple cost functions, either all functions return the
-    jacobians, or no functions return jacobians.
+    This function supports minimization sequences. Pass an iterable of functions
+    to start sequenced minimization, e.g. a list of cost functions.
     The arguments: `use_real_imag`, `variable_amplitudes`, `constrain_transducers`,
     `callback`, `precall`, `basinhopping`, and  `minimize_kwargs` can be given as single
     values or as iterables of the same length as `functions`.
@@ -271,17 +181,16 @@ def minimize(functions, array,
     Parameters
     ----------
     functions
-        The cost functions that should be minimized. A single callable, an
-        iterable of callables, or an iterable of iterables of callables, as
-        described above.
+        The cost function that should be minimized. A single callable, or an
+        iterable of callables, as described above.
     array : `TransducerArray`
         The array from which the cost functions are created.
     start_values : complex ndarray, optional
-        The start values for the optimizatioin. Will default to the current array
+        The start values for the optimization. Will default to the current array
         settings if not given. Note that the precall for minimization sequences can
         overrule this value.
     use_real_imag : bool, default False
-        Toggles if the optimization should run using the phase-amplitude forumation
+        Toggles if the optimization should run using the phase-amplitude formulation
         or the real-imag formulation.
     constrain_transducers : array_like
         Specifies a number of transducers which are constant elements in the
@@ -316,7 +225,7 @@ def minimize(functions, array,
     -------
     result : `ndarray`
         The array phases and amplitudes after minimization.
-        Stacks sequenced result in the first dimension.
+        Stacks sequenced results in the first dimension.
     optim_status : `OptimizeResult`
         Scipy optimization result structure. Optional output,
         toggle with the corresponding input argument.
@@ -327,22 +236,22 @@ def minimize(functions, array,
         start_values = array.complex_amplitudes.copy()
     if constrain_transducers is None or constrain_transducers is False:
         constrain_transducers = []
-    # Handle single function input case
+    # Check if we should do sequenced optimization
     try:
         iter(functions)
     except TypeError:
-        functions = [functions]
-    # Check if we should do sequenced optimization
-    try:
-        iter(next(iter(functions)))
-    except TypeError:
+        do_sequence = False
+    else:
+        do_sequence = True
+
+    if not do_sequence:
         if use_real_imag is True:
-            return _minimize_real_imag(functions=functions, array=array, start_values=start_values,
+            return _minimize_real_imag(function=functions, array=array, start_values=start_values,
                                        constrain_transducers=constrain_transducers, variable_amplitudes=variable_amplitudes,
                                        basinhopping=basinhopping, minimize_kwargs=minimize_kwargs,
                                        return_optim_status=return_optim_status)
         elif use_real_imag is False:
-            return _minimize_phase_amplitude(functions=functions, array=array, start_values=start_values,
+            return _minimize_phase_amplitude(function=functions, array=array, start_values=start_values,
                                              constrain_transducers=constrain_transducers, variable_amplitudes=variable_amplitudes,
                                              basinhopping=basinhopping, minimize_kwargs=minimize_kwargs,
                                              return_optim_status=return_optim_status)
