@@ -16,7 +16,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 __all__ = ['transducers', 'arrays', 'hardware', 'materials', 'optimization', 'algorithms', 'utils']
-__version__ = '2.0.0.dev'
+__version__ = '2.0.0'
 
 
 from . import *

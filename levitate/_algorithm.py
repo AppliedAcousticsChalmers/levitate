@@ -23,7 +23,7 @@ the object evaluates the algorithm implementation with the required parameters a
 returns just the value from the algorithm.
 
 If the algorithm is bound by using the `@` operation a new `BoundAlgorithm`
-object is created, and the position is implicit in the call. 
+object is created, and the position is implicit in the call.
 This is more efficient for repeated calling with the same position,
 since some parts of the calculation can be cached.
 
@@ -100,7 +100,7 @@ A `CostFunctionCollection` will sum the values and jacobians of the stored objec
 
 .. autosummary::
     :nosignatures:
-    
+
     AlgorithmCollection
     CostFunctionCollection
 
