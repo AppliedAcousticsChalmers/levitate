@@ -52,6 +52,7 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.todo',
     'sphinx.ext.mathjax',
+    'sphinx.ext.autosummary',
 ]
 
 autodoc_inherit_docstrings = False
@@ -64,9 +65,9 @@ autodoc_member_order = 'bysource'
 
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
-napoleon_use_admonition_for_examples = False
-napoleon_use_admonition_for_notes = False
-napoleon_use_admonition_for_references = False
+napoleon_use_admonition_for_examples = True
+napoleon_use_admonition_for_notes = True
+napoleon_use_admonition_for_references = True
 napoleon_use_ivar = True
 napoleon_use_param = True
 napoleon_use_rtype = False

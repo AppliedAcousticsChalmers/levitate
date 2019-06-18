@@ -44,12 +44,12 @@ def test_gorkov_differentiations():
     np.testing.assert_allclose(implemented_laplacian[2], d2Udz2)
 
 
-def test_SecondOrder_implementations():
+def test_RadiationForce_implementations():
     amps = large_array.complex_amplitudes
-    force = levitate.algorithms.SecondOrderForce(large_array)
-    stiffness = levitate.algorithms.SecondOrderStiffness(large_array)
-    gradient = levitate.algorithms.SecondOrderForceGradient(large_array)
-    curl = levitate.algorithms.SecondOrderCurl(large_array)
+    force = levitate.algorithms.RadiationForce(large_array)
+    stiffness = levitate.algorithms.RadiationForceStiffness(large_array)
+    gradient = levitate.algorithms.RadiationForceGradient(large_array)
+    curl = levitate.algorithms.RadiationForceCurl(large_array)
 
     delta = 1e-9
     x_plus = pos + np.array([delta, 0, 0])
@@ -100,17 +100,17 @@ sum_ders = np.sum(ind_ders, axis=1)
         [[-3.98912624e-10, -3.97329763e-10], [8.96724049e-12, 8.52751518e-12], [3.07462056e-11, 2.89871868e-11]],
         [[3.33886801e-10, -3.33886801e-10], [1.94724287e-11, -1.94724287e-11], [3.76591861e-11, -3.76591861e-11]]
      ),
-    (levitate.algorithms.SecondOrderForce,
+    (levitate.algorithms.RadiationForce,
         [1.83399145e-10, 4.15099186e-10, 6.22648779e-10],
         [[2.03139282e-10, 1.63659008e-10], [4.04354167e-10, 4.25844205e-10], [6.06531251e-10, 6.38766308e-10]],
         [[3.89064704e-10, -3.89064704e-10], [8.13263002e-10, -8.13263002e-10], [1.21989450e-09, -1.21989450e-09]]
      ),
-    (levitate.algorithms.PressureMagnitudeSquared,
+    (lambda arr: abs(levitate.algorithms.Pressure(arr)),
         2.10706889e+02,
         [2.07034544e+02, 2.14379234e+02],
         [4.15076576e+02, -4.15076576e+02],
      ),
-    (levitate.algorithms.VelocityMagnitudeSquared,
+    (lambda arr: abs(levitate.algorithms.Velocity(arr)),
         [8.93991803e-05, 3.55387889e-04, 7.99622751e-04],
         [[1.07974283e-04, 7.08240775e-05], [3.43002548e-04, 3.67773230e-04], [7.71755733e-04, 8.27489769e-04]],
         [[0.000174546016, -0.000174546016], [0.000699933899, -0.000699933899], [0.001574851272, -0.001574851272]]
@@ -120,15 +120,15 @@ def test_algorithm(algorithm, value_at_pos_1, real_jacobian_at_pos_1, imag_jacob
     algorithm = algorithm(array)
     calc_values, calc_jacobians = algorithm.values, algorithm.jacobians
 
-    val_1 = calc_values(sum_ders[..., 0])
-    val_2 = calc_values(sum_ders[..., 1])
-    val_12 = calc_values(sum_ders)
+    val_1 = calc_values(pressure_derivs_summed=sum_ders[..., 0])
+    val_2 = calc_values(pressure_derivs_summed=sum_ders[..., 1])
+    val_12 = calc_values(pressure_derivs_summed=sum_ders)
     np.testing.assert_allclose(val_1, np.array(value_at_pos_1))
     np.testing.assert_allclose(val_12, np.stack([val_1, val_2], -1))
 
-    jac_1 = calc_jacobians(sum_ders[..., 0], ind_ders[..., 0])
-    jac_2 = calc_jacobians(sum_ders[..., 1], ind_ders[..., 1])
-    jac_12 = calc_jacobians(sum_ders, ind_ders)
+    jac_1 = calc_jacobians(pressure_derivs_summed=sum_ders[..., 0], pressure_derivs_individual=ind_ders[..., 0])
+    jac_2 = calc_jacobians(pressure_derivs_summed=sum_ders[..., 1], pressure_derivs_individual=ind_ders[..., 1])
+    jac_12 = calc_jacobians(pressure_derivs_summed=sum_ders, pressure_derivs_individual=ind_ders)
     np.testing.assert_allclose(jac_1.real, np.array(real_jacobian_at_pos_1))
     np.testing.assert_allclose(jac_1.imag, np.array(imag_jacobian_at_pos_1))
     np.testing.assert_allclose(jac_12, np.stack([jac_1, jac_2], -1))

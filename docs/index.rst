@@ -11,7 +11,8 @@ Contents
     introduction
     package
     examples
-    api_docs
+    api_docs/index
+
 
 .. only:: html
 

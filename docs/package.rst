@@ -1,6 +1,6 @@
 Package Organization and Functionality
 ======================================
-This section covers a broad overview of the package, for a more detailed description see the full :ref:`api_docs`.
+This section covers a broad overview of the package, for a more detailed description see the sections in the full :ref:`api_docs`.
 The package is created using the de facto numerical and scientific computing libraries for python, Numpy_ and Scipy_.
 There are three major parts to the toolbox: models, algorithms, and visualization.
 

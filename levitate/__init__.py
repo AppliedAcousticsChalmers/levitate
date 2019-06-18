@@ -1,42 +1,22 @@
+"""Levitate, a python package for simulating acoustic levitation using ultrasonic transducer arrays.
+
+The API consists of four main modules, and a few supporting modules.
+The main modules contain models to handle transducers and transducer arrays, in the `~levitate.transducers` and `~levitate.arrays` modules respectively,
+algorithms to calculate physical properties in the `~levitate.algorithms` module, and some numerical optimization functions in the `~levitate.optimization` module.
+There is also a `~levitate.visualize` module with some convenience function to show various fields, a few utilities in `~levitate.utils`.
+It is possible to use different materials or material properties from the `~levitate.materials` module.
+
+The `~levitate.hardware` module includes definitions with array geometries corresponding to some physical prototypes,
+and python-c++ combined setup to control Ultrahaptics physical hardware directly from python.
+This implementation of Ultrahaptics control from python is not officially supported by Ultrahaptics, and only enables a very limited subset of the research SDK.
+"""
+
 import logging
 
 logger = logging.getLogger(__name__)
 
-__all__ = ['transducers', 'arrays', 'hardware', 'materials', 'optimization', 'algorithms']
-__version__ = '1.1.0.dev'
+__all__ = ['transducers', 'arrays', 'hardware', 'materials', 'optimization', 'algorithms', 'utils']
+__version__ = '2.0.0.dev'
 
-pressure_derivs_order = ['', 'x', 'y', 'z', 'xx', 'yy', 'zz', 'xy', 'xz', 'yz', 'xxx', 'yyy', 'zzz', 'xxy', 'xxz', 'yyx', 'yyz', 'zzx', 'zzy', 'xyz']
-num_pressure_derivs = [1, 4, 10, 20]
-
-
-class _SphericalHarminicsIndexer:
-    def __call__(self, order, mode):
-        if abs(mode) > order:
-            raise ValueError('Spherical harmonics mode cannot be higher than the order')
-        return int(order**2 + order + mode)
-
-    def __getitem__(self, index):
-        if type(index) == slice:
-            return self.__iter__(index.start, index.stop, index.step)
-        order = (index**0.5) // 1
-        mode = index - order**2 - order
-        return int(order), int(mode)
-
-    def __iter__(self, start=None, stop=None, step=None):
-        index = 0 if start is None else start
-        stop = float('inf') if stop is None else stop
-        step = 1 if step is None else step
-        while index < stop:
-            yield self[index]
-            index += step
-
-    def orders(self, start=None, stop=None):
-        start = 0 if start is None else start**2
-        stop = float('inf') if stop is None else (stop + 1)**2
-        return self.__iter__(start, stop)
-
-
-spherical_harmonics_index = _SphericalHarminicsIndexer()
-del _SphericalHarminicsIndexer
 
 from . import *
