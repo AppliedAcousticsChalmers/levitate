@@ -90,6 +90,14 @@ requirements = dict(
 
 
 @pytest.mark.parametrize("algorithm, value_at_pos_1, jacobian_at_pos_1", [
+    (levitate.algorithms.Pressure,
+        12.068916910969428 + 8.065242302836108j,
+        [-2.014671808191e+00 + 1.584976293557e+01j, +1.408358871916e+01 - 7.784520632737e+00j]
+     ),
+    (levitate.algorithms.Velocity,
+        [+7.327894037353e-03 + 5.975043873706e-03j, +1.570939268938e-02 + 1.042127010721e-02j, +2.356408903408e-02 + 1.563190516081e-02j],
+        [[-1.407708646094e-03 + 1.076187601421e-02j, +8.735602683448e-03 - 4.786832140508e-03j], [-2.681349802084e-03 + 2.049881145565e-02j, +1.839074249147e-02 - 1.007754134844e-02j], [-4.022024703126e-03 + 3.074821718347e-02j, +2.758611373720e-02 - 1.511631202266e-02j]]
+     ),
     (levitate.algorithms.GorkovPotential,
         -6.19402404e-13,
         [-6.08626619e-13 - 1.21656276e-12j, -6.30178190e-13 + 1.21656276e-12j],
@@ -106,17 +114,9 @@ requirements = dict(
         [1.83399145e-10, 4.15099186e-10, 6.22648779e-10],
         [[2.03139282e-10 + 3.89064704e-10j, 1.63659008e-10 - 3.89064704e-10j], [4.04354167e-10 + 8.13263002e-10j, 4.25844205e-10 - 8.13263002e-10j], [6.06531251e-10 + 1.21989450e-09j, 6.38766308e-10 - 1.21989450e-09j]],
      ),
-    (lambda arr: abs(levitate.algorithms.Pressure(arr)),
-        2.10706889e+02,
-        [2.07034544e+02 + 4.15076576e+02j, 2.14379234e+02 - 4.15076576e+02j],
-     ),
-    (lambda arr: abs(levitate.algorithms.Velocity(arr)),
-        [8.93991803e-05, 3.55387889e-04, 7.99622751e-04],
-        [[1.07974283e-04 + 0.000174546016j, 7.08240775e-05 - 0.000174546016j], [3.43002548e-04 + 0.000699933899j, 3.67773230e-04 - 0.000699933899j], [7.71755733e-04 + 0.001574851272j, 8.27489769e-04 - 0.001574851272j]],
-     ),
 ])
 def test_algorithm(algorithm, value_at_pos_1, jacobian_at_pos_1):
-    algorithm = algorithm(array)
+    algorithm = algorithm(array).algorithm
 
     val_1 = algorithm.values(**{key: requirements[key][..., 0] for key in algorithm.values_require})
     val_2 = algorithm.values(**{key: requirements[key][..., 1] for key in algorithm.values_require})
