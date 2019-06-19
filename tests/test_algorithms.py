@@ -82,10 +82,15 @@ array.phases = array.focus_phases((pos_1 + pos_2) / 2)
 spat_ders = array.pressure_derivs(both_pos, orders=3)
 ind_ders = np.einsum('i, ji...->ji...', array.amplitudes * np.exp(1j * array.phases), spat_ders)
 sum_ders = np.sum(ind_ders, axis=1)
+sph_harm = array.spherical_harmonics(both_pos, orders=15)
+ind_harms = np.einsum('i, ji...->ji...', array.amplitudes * np.exp(1j * array.phases), sph_harm)
+sum_harms = np.sum(ind_harms, axis=1)
 
 requirements = dict(
     pressure_derivs_summed=sum_ders,
     pressure_derivs_individual=ind_ders,
+    spherical_harmonics_summed=sum_harms,
+    spherical_harmonics_individual=ind_harms,
 )
 
 
@@ -125,6 +130,10 @@ requirements = dict(
     (levitate.algorithms.RadiationForceGradient, {},
         [[-5.377916683452e-09, +2.991379534396e-10, +4.487069301596e-10], [-1.564536162914e-08, +2.563628836166e-09, +7.321993568902e-10], [-2.346804244372e-08, +7.321993568902e-10, +3.173794966908e-09]],
         None
+     ),
+    (levitate.algorithms.SphericalHarmonicsForce, {'orders': 12},
+        [+9.950696205718e-11, +2.697812005596e-10, +4.046718008394e-10],
+        None,
      ),
 ])
 def test_algorithm(algorithm, kwargs, value_at_pos_1, jacobian_at_pos_1):
