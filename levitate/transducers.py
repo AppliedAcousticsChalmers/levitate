@@ -86,11 +86,10 @@ class TransducerModel:
 
     @property
     def k(self):
-        return self._k
+        return self.omega / self.medium.c
 
     @k.setter
     def k(self, value):
-        self._k = value
         self._omega = value * self.medium.c
 
     @property
@@ -100,7 +99,6 @@ class TransducerModel:
     @omega.setter
     def omega(self, value):
         self._omega = value
-        self._k = value / self.medium.c
 
     @property
     def freq(self):
