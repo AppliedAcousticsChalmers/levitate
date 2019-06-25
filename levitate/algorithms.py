@@ -740,7 +740,7 @@ class SphericalHarmonicsForceDecomposition(SphericalHarmonicsForce):
 
     ndim = 2
 
-    def values(self, spherical_harmonics_summed, partial=False):  # noqa: D102
+    def values(self, spherical_harmonics_summed):  # noqa: D102
         # Reshape coefficients to allow multiple receiver positions
         xy_coefs = self.xy_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
         z_coefs = self.z_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))

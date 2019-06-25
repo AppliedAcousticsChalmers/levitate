@@ -233,3 +233,40 @@ class SphericalHarmonicsIndexer:
         while mode <= order:
             yield mode
             mode += 1
+
+    def ordersum(self, values, axis=None):
+        """Sum spherical harmonics coefficients of the same order.
+
+        Calculates the sum of the coefficients for all modes for each order
+        individually. The `SphericalHarmonicsIndexer` needs to be created to
+        match the orders of the expansion coefficients. This requires that the
+        length of the summation axis is the same as the number of coefficients
+        for the orders specified, i.e. `values.shape[axis] == len(self)`.
+        If no axis is specified, the first suitable axis will be used.
+
+        Parameters
+        ----------
+        values : numpy.ndarray
+            The spherical harmonics expansion coefficients of a field.
+        axis : int, optional
+            The axis over which to sum.
+
+        Returns
+        -------
+        order_summed_coefs : numpy.ndarray
+            The summed coefficients for each order.
+
+        """
+        values = np.asarray(values)
+        if axis is None:
+            for axis in range(values.ndim):
+                if values.shape[axis] == len(self):
+                    break
+            else:
+                raise ValueError('Cannot find axis of length {} in the given values!'.format(len(self)))
+
+        values = np.moveaxis(values, axis, 0)
+        output = np.zeros((self.max_order - self.min_order + 1, ) + values.shape[1:], dtype=values.dtype)
+        for idx, order in enumerate(self.orders):
+            output[idx] = np.sum(values[self(order, -order):self(order, order) + 1], axis=0)
+        return np.moveaxis(output, 0, axis)
