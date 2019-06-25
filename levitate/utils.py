@@ -149,7 +149,9 @@ class SphericalHarmonicsIndexer:
 
     """
 
-    def __init__(self, max_order, min_order=0):
+    def __init__(self, max_order=None, min_order=0):
+        if max_order is None:
+            max_order = float('inf')
         if max_order < min_order:
             # Called as `SphericalHarmonicsIndexer(min_order, max_order)`.
             # Switch the arguments.
@@ -162,7 +164,10 @@ class SphericalHarmonicsIndexer:
     def __call__(self, order, mode):
         if abs(mode) > order:
             raise ValueError('Spherical harmonics mode cannot be higher than the order')
-        return int(order**2 + order + mode - self._min_offset)
+        try:
+            return int(order**2 + order + mode - self._min_offset)
+        except OverflowError:
+            return float('inf')
 
     def __getitem__(self, index):
         if type(index) == slice:
