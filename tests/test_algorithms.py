@@ -142,12 +142,12 @@ def test_algorithm(algorithm, kwargs, value_at_pos_1, jacobian_at_pos_1):
     val_1 = algorithm.values(**{key: requirements[key][..., 0] for key in algorithm.values_require})
     val_2 = algorithm.values(**{key: requirements[key][..., 1] for key in algorithm.values_require})
     val_12 = algorithm.values(**{key: requirements[key] for key in algorithm.values_require})
-    np.testing.assert_allclose(val_1, np.array(value_at_pos_1))
+    np.testing.assert_allclose(val_1, np.array(value_at_pos_1), atol=1e-20)
     np.testing.assert_allclose(val_12, np.stack([val_1, val_2], -1))
 
     if jacobian_at_pos_1 is not None:
         jac_1 = algorithm.jacobians(**{key: requirements[key][..., 0] for key in algorithm.jacobians_require})
         jac_2 = algorithm.jacobians(**{key: requirements[key][..., 1] for key in algorithm.jacobians_require})
         jac_12 = algorithm.jacobians(**{key: requirements[key] for key in algorithm.jacobians_require})
-        np.testing.assert_allclose(jac_1, jacobian_at_pos_1)
+        np.testing.assert_allclose(jac_1, jacobian_at_pos_1, atol=1e-20)
         np.testing.assert_allclose(jac_12, np.stack([jac_1, jac_2], -1))
