@@ -147,6 +147,15 @@ class SphericalHarmonicsIndexer:
         >>> print(sph_idx(0, 0))
         -4
 
+    To get all orders and all modes is separated variables,
+    simply zip the object::
+
+        >>> n, m = zip(*SphericalHarmonicsIndexer(2))
+        >>> print(n)
+        >>> print(m)
+        (0, 1, 1, 1, 2, 2, 2, 2, 2)
+        (0, -1, 0, 1, -2, -1, 0, 1, 2)
+
     """
 
     def __init__(self, max_order=None, min_order=0):
