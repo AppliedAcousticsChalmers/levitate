@@ -33,6 +33,8 @@ class Material(type):
         The density of the material
     compressibility : float
         Compressibility :math:`{1 \over \rho c^2}`, non settable.
+    impedance : float
+        (Specific) Acoustic (wave) impedance :math:`\rho c`, non settable.
 
     """
 
@@ -42,6 +44,10 @@ class Material(type):
     @property
     def compressibility(cls):
         return 1 / (cls.c**2 * cls.rho)
+
+    @property
+    def impedance(cls):
+        return cls.rho * cls.c
 
     @property
     def name(cls):

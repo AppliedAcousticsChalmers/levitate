@@ -682,7 +682,7 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
             bessel_derivative_interior = spherical_jn(n, ka_interior, derivative=True)
             # hankel_derivative_interior = bessel_derivative_interior + 1j * spherical_yn(n, ka_interior, derivative=True)
 
-            relative_impedance = sphere_material.rho / array.medium.rho * sphere_material.c / array.medium.c
+            relative_impedance = sphere_material.impedance / array.medium.impedance
             numerator = bessel_function * bessel_derivative_interior - relative_impedance * bessel_derivative * bessel_function_interior
             denominator = hankel_function * bessel_derivative_interior - relative_impedance * hankel_derivative * bessel_function_interior
             scattering_coefficient = - numerator / denominator
