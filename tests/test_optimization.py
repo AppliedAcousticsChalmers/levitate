@@ -2,6 +2,11 @@ import pytest
 import numpy as np
 import levitate
 
+# Tests created with these air properties
+from levitate.materials import Air
+Air.c = 343
+Air.rho = 1.2
+
 pos = np.array([5, -2, 80]) * 1e-3
 array = levitate.arrays.RectangularArray(shape=2)
 array.phases = array.focus_phases(pos) + array.signature(stype='twin')

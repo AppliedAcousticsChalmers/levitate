@@ -48,5 +48,6 @@ jobs:
         - provider: pypi
           user: CarlAndersson
           password: $PYPI_PASSWORD
+          distributions: "sdist bdist_wheel"
           on:
             tags: true

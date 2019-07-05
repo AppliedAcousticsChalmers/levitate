@@ -2,6 +2,11 @@ import pytest
 import numpy as np
 import levitate
 
+# Tests created with these air properties
+from levitate.materials import Air
+Air.c = 343
+Air.rho = 1.2
+
 classes = levitate._algorithm
 
 pos = np.array([0.1, 0.2, 0.3])
