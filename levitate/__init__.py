@@ -16,7 +16,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 __all__ = ['transducers', 'arrays', 'hardware', 'materials', 'optimization', 'algorithms', 'utils']
-__version__ = '2.0.0'
+
+from . import _version
+__version__ = _version.__version__
+del _version  # Keep the namespace clean. Import from directly form the `_version` module if needed.
 
 
 from . import *
