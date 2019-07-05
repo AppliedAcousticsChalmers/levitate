@@ -8,7 +8,7 @@ def git_version():
     d = os.path.dirname(__file__)
     cmd = ['git', 'describe', '--tags', '--dirty', '--always']
     try:
-        p_out = subprocess.run(cmd, cwd=d, capture_output=True, check=True)
+        p_out = subprocess.run(cmd, cwd=d, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
     except subprocess.CalledProcessError:
         return None
 
