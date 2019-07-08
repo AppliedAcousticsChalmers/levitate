@@ -44,7 +44,7 @@ jobs:
           target-branch: gh-pages
           github-token: $GITHUB_TOKEN
           on:
-            branch: master
+            tags: true
         - provider: pypi
           user: CarlAndersson
           password: $PYPI_PASSWORD
