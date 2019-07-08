@@ -119,30 +119,24 @@ class GorkovPotential(AlgorithmImplementation):
     and :math:`V` is the volume of the particle.
     Note that this is only a suitable measure for small particles, i.e. :math:`ka<<1`,
     where :math:`a` is the radius of the particle.
-
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
-    radius_sphere : float, default 1e-3
-        Radius of the spherical beads.
-    sphere_material : Material
-        The material of the sphere, default Styrofoam.
-
     """
 
     ndim = 0
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=1)
     jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=1, pressure_derivs_individual=1)
 
-    def __eq__(self, other):
-        return (
-            super().__eq__(other)
-            and np.allclose(self.pressure_coefficient, other.pressure_coefficient, atol=0)
-            and np.allclose(self.gradient_coefficient, other.gradient_coefficient, atol=0)
-        )
+    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):  # noqa: D205, D400
+        """
+        Parameters
+        ----------
+        array : TransducerArray
+            The object modeling the array.
+        radius_sphere : float, default 1e-3
+            Radius of the spherical beads.
+        sphere_material : Material
+            The material of the sphere, default Styrofoam.
 
-    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
+        """
         super().__init__(array, *args, **kwargs)
         V = 4 / 3 * np.pi * radius_sphere**3
         monopole_coefficient = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
@@ -150,6 +144,13 @@ class GorkovPotential(AlgorithmImplementation):
         preToVel = 1 / (array.omega * array.medium.rho)  # Converting velocity to pressure gradient using equation of motion
         self.pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
         self.gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
+
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and np.allclose(self.pressure_coefficient, other.pressure_coefficient, atol=0)
+            and np.allclose(self.gradient_coefficient, other.gradient_coefficient, atol=0)
+        )
 
     def values(self, pressure_derivs_summed):  # noqa: D102
         values = self.pressure_coefficient * np.real(pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[0]))
@@ -162,7 +163,7 @@ class GorkovPotential(AlgorithmImplementation):
         return jacobians
 
 
-class GorkovGradient(AlgorithmImplementation):
+class GorkovGradient(GorkovPotential):
     r"""Gradient of Gor'kov's potential, :math:`\nabla U`.
 
     Calculates the Cartesian spatial gradient of Gor'kov's potential,
@@ -174,37 +175,11 @@ class GorkovGradient(AlgorithmImplementation):
     Note that this value is not suitable for sound fields with strong
     traveling wave components. If this is the case, use the
     `RadiationForce` algorithm instead.
-
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
-    radius_sphere : float, default 1e-3
-        Radius of the spherical beads.
-    sphere_material : Material
-        The material of the sphere, default Styrofoam.
-
     """
 
     ndim = 1
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2)
     jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
-
-    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
-        super().__init__(array, *args, **kwargs)
-        V = 4 / 3 * np.pi * radius_sphere**3
-        monopole_coefficient = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
-        dipole_coefficient = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
-        preToVel = 1 / (array.omega * array.medium.rho)  # Converting velocity to pressure gradient using equation of motion
-        self.pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
-        self.gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
-
-    def __eq__(self, other):
-        return (
-            super().__eq__(other)
-            and np.allclose(self.pressure_coefficient, other.pressure_coefficient, atol=0)
-            and np.allclose(self.gradient_coefficient, other.gradient_coefficient, atol=0)
-        )
 
     def values(self, pressure_derivs_summed):  # noqa: D102
         values = np.real(self.pressure_coefficient * np.conj(pressure_derivs_summed[0]) * pressure_derivs_summed[1:4])  # Pressure parts
@@ -221,7 +196,7 @@ class GorkovGradient(AlgorithmImplementation):
         return jacobians * 2
 
 
-class GorkovLaplacian(AlgorithmImplementation):
+class GorkovLaplacian(GorkovPotential):
     r"""Laplacian of Gor'kov's potential, :math:`\nabla^2 U`.
 
     This calculates the Cartesian parts of the Laplacian of
@@ -233,37 +208,11 @@ class GorkovLaplacian(AlgorithmImplementation):
     Note that this value is not suitable for sound fields with strong
     traveling wave components. If this is the case, use the
     `RadiationForceStiffness` algorithm instead.
-
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
-    radius_sphere : float, default 1e-3
-        Radius of the spherical beads.
-    sphere_material : Material
-        The material of the sphere, default Styrofoam.
-
     """
 
     ndim = 1
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3)
     jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
-
-    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
-        super().__init__(array, *args, **kwargs)
-        V = 4 / 3 * np.pi * radius_sphere**3
-        monopole_coefficient = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
-        dipole_coefficient = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
-        preToVel = 1 / (array.omega * array.medium.rho)  # Converting velocity to pressure gradient using equation of motion
-        self.pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
-        self.gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
-
-    def __eq__(self, other):
-        return (
-            super().__eq__(other)
-            and np.allclose(self.pressure_coefficient, other.pressure_coefficient, atol=0)
-            and np.allclose(self.gradient_coefficient, other.gradient_coefficient, atol=0)
-        )
 
     def values(self, pressure_derivs_summed):  # noqa: D102
         values = np.real(self.pressure_coefficient * (np.conj(pressure_derivs_summed[0]) * pressure_derivs_summed[[4, 5, 6]] + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
