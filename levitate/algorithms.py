@@ -682,7 +682,7 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
             bessel_derivative_interior = spherical_jn(n, ka_interior, derivative=True)
             # hankel_derivative_interior = bessel_derivative_interior + 1j * spherical_yn(n, ka_interior, derivative=True)
 
-            relative_impedance = sphere_material.rho / array.medium.rho * sphere_material.c / array.medium.c
+            relative_impedance = sphere_material.impedance / array.medium.impedance
             numerator = bessel_function * bessel_derivative_interior - relative_impedance * bessel_derivative * bessel_function_interior
             denominator = hankel_function * bessel_derivative_interior - relative_impedance * hankel_derivative * bessel_function_interior
             scattering_coefficient = - numerator / denominator
@@ -713,13 +713,46 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
         )
 
     def values(self, spherical_harmonics_summed):  # noqa: D102
-        Fx = np.sum(np.real(self.xy_coefficients[self.N_M] * (
-            spherical_harmonics_summed[self.N_M] * np.conj(spherical_harmonics_summed[self.Nr_Mr])
-            - spherical_harmonics_summed[self.N_mM] * np.conj(spherical_harmonics_summed[self.Nr_mMr])
-        )), axis=0)
-        Fy = np.sum(np.imag(self.xy_coefficients[self.N_M] * (
-            spherical_harmonics_summed[self.N_M] * np.conj(spherical_harmonics_summed[self.Nr_Mr])
-            + spherical_harmonics_summed[self.N_mM] * np.conj(spherical_harmonics_summed[self.Nr_mMr])
-        )), axis=0)
-        Fz = np.sum(np.real(self.z_coefficients[self.N_M] * spherical_harmonics_summed[self.N_M] * np.conj(spherical_harmonics_summed[self.Nr_M])), axis=0)
+        # Reshape coefficients to allow multiple receiver positions
+        xy_coefs = self.xy_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
+        z_coefs = self.z_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
+
+        # Index the arrays only once, faster.
+        N_M = spherical_harmonics_summed[self.N_M]
+        Nr_Mr = spherical_harmonics_summed[self.Nr_Mr]
+        N_mM = spherical_harmonics_summed[self.N_mM]
+        Nr_mMr = spherical_harmonics_summed[self.Nr_mMr]
+        Nr_M = spherical_harmonics_summed[self.Nr_M]
+
+        Fx = np.sum(np.real(xy_coefs * (N_M * np.conj(Nr_Mr) - N_mM * np.conj(Nr_mMr))), axis=0)
+        Fy = np.sum(np.imag(xy_coefs * (N_M * np.conj(Nr_Mr) + N_mM * np.conj(Nr_mMr))), axis=0)
+        Fz = np.sum(np.real(z_coefs * N_M * np.conj(Nr_M)), axis=0)
+
+        return np.stack([Fx, Fy, Fz])
+
+
+class SphericalHarmonicsForceDecomposition(SphericalHarmonicsForce):
+    r"""Radiation force decomposed in spherical harmoncis.
+
+    This is mostly intended for research purposes, when the radiation force
+    decomposed in individual spherical harmonics bases is of interest.
+    """
+
+    ndim = 2
+
+    def values(self, spherical_harmonics_summed):  # noqa: D102
+        # Reshape coefficients to allow multiple receiver positions
+        xy_coefs = self.xy_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
+        z_coefs = self.z_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
+
+        # Index the arrays only once, faster.
+        N_M = spherical_harmonics_summed[self.N_M]
+        Nr_Mr = spherical_harmonics_summed[self.Nr_Mr]
+        N_mM = spherical_harmonics_summed[self.N_mM]
+        Nr_mMr = spherical_harmonics_summed[self.Nr_mMr]
+        Nr_M = spherical_harmonics_summed[self.Nr_M]
+
+        Fx = np.real(xy_coefs * (N_M * np.conj(Nr_Mr) - N_mM * np.conj(Nr_mMr)))
+        Fy = np.imag(xy_coefs * (N_M * np.conj(Nr_Mr) + N_mM * np.conj(Nr_mMr)))
+        Fz = np.real(z_coefs * N_M * np.conj(Nr_M))
         return np.stack([Fx, Fy, Fz])
