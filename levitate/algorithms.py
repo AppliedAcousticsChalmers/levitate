@@ -46,11 +46,6 @@ class Pressure(AlgorithmImplementation):
 
     Calculates the complex-valued sound pressure.
 
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array, optional.
-
     """
 
     ndim = 0
@@ -74,11 +69,6 @@ class Velocity(AlgorithmImplementation):
     from the relation :math:`\dot v = \rho \nabla p`
     applied for monofrequent sound fields.
     This is a vector value using a Cartesian coordinate system.
-
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
 
     """
 

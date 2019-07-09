@@ -205,7 +205,14 @@ class AlgorithmImplementation(metaclass=AlgorithmImplementationMeta):
 
     """
 
-    def __init__(self, array, *args, **kwargs):
+    def __init__(self, array, *args, **kwargs):  # noqa: D205, D400
+        """
+        Parameters
+        ----------
+        array : TransducerArray
+            The object modeling the array.
+
+        """
         self.array = array
 
     def __eq__(self, other):
