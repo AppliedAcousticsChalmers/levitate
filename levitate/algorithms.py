@@ -337,7 +337,7 @@ class RadiationForceStiffness(RadiationForce):
         return jacobians
 
 
-class RadiationForceCurl(AlgorithmImplementation):
+class RadiationForceCurl(RadiationForce):
     r"""Curl or rotation of the radiation force.
 
     Calculates the curl of the radiation force field as
@@ -349,37 +349,16 @@ class RadiationForceCurl(AlgorithmImplementation):
 
     where :math:`F` is the radiation force by [Sapozhnikov]_, see `RadiationForce`.
 
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
-    radius_sphere : float, default 1e-3
-        Radius of the spherical beads.
-    sphere_material : Material
-        The material of the sphere, default Styrofoam.
-
     """
 
     ndim = 1
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2)
     jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
-    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
-        super().__init__(array, *args, **kwargs)
-        f_1 = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
-        f_2 = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
-
-        ka = array.k * radius_sphere
-        overall_coef = 2 * np.pi * array.medium.compressibility / array.k**5
-        self.pressure_coefficient = -2 / 9 * ka**6 * (f_1**2 + f_1 * f_2) * array.k**2 * overall_coef
-        self.velocity_coefficient = -3 * ka**6 / 18 * f_2**2 * overall_coef
-
-    def __eq__(self, other):
-        return (
-            super().__eq__(other)
-            and np.allclose(self.pressure_coefficient, other.pressure_coefficient, atol=0)
-            and np.allclose(self.velocity_coefficient, other.velocity_coefficient, atol=0)
-        )
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.pressure_coefficient = -2 * np.imag(self.pressure_coefficient)
+        self.velocity_coefficient = -2 * np.imag(self.velocity_coefficient)
 
     def values(self, pressure_derivs_summed):  # noqa: D102
         values = self.pressure_coefficient * np.imag(pressure_derivs_summed[[2, 3, 1]] * np.conj(pressure_derivs_summed[[3, 1, 2]]))
