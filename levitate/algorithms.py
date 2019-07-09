@@ -256,22 +256,24 @@ class RadiationForce(AlgorithmImplementation):
     This is more suitable than the Gor'kov formulation for use with progressive
     wave fiends, e.g. single sided arrays, see [Sapozhnikov]_.
 
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
-    radius_sphere : float, default 1e-3
-        Radius of the spherical beads.
-    sphere_material : Material
-        The material of the sphere, default Styrofoam.
-
     """
 
     ndim = 1
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2)
     jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
-    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
+    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):  # noqa: D205, D400
+        """
+        Parameters
+        ----------
+        array : TransducerArray
+            The object modeling the array.
+        radius_sphere : float, default 1e-3
+            Radius of the spherical beads.
+        sphere_material : Material
+            The material of the sphere, default Styrofoam.
+
+        """
         super().__init__(array, *args, **kwargs)
         f_1 = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
         f_2 = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
@@ -312,7 +314,7 @@ class RadiationForce(AlgorithmImplementation):
         return jacobians * self.force_coeff
 
 
-class RadiationForceStiffness(AlgorithmImplementation):
+class RadiationForceStiffness(RadiationForce):
     r"""Radiation force gradient for small beads in arbitrary sound fields.
 
     Calculates the non-mixed spatial derivatives of the radiation force,
@@ -322,44 +324,11 @@ class RadiationForceStiffness(AlgorithmImplementation):
 
     where :math:`F` is the radiation force by [Sapozhnikov]_, see `RadiationForce`.
 
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
-    radius_sphere : float, default 1e-3
-        Radius of the spherical beads.
-    sphere_material : Material
-        The material of the sphere, default Styrofoam.
-
     """
 
     ndim = 1
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3)
     jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
-
-    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
-        super().__init__(array, *args, **kwargs)
-        f_1 = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
-        f_2 = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
-
-        ka = array.k * radius_sphere
-        self.k_square = array.k**2
-        self.psi_0 = -2 * ka**6 / 9 * (f_1**2 + f_2**2 / 4 + f_1 * f_2) - 1j * ka**3 / 3 * (2 * f_1 + f_2)
-        self.psi_1 = -ka**6 / 18 * f_2**2 + 1j * ka**3 / 3 * f_2
-        self.force_coeff = -np.pi / array.k**5 * array.medium.compressibility
-
-        # Including the j factors from the paper directly in the coefficients.
-        self.psi_0 *= 1j
-        self.psi_1 *= 1j
-
-    def __eq__(self, other):
-        return (
-            super().__eq__(other)
-            and np.allclose(self.k_square, other.k_square, atol=0)
-            and np.allclose(self.psi_0, other.psi_0, atol=0)
-            and np.allclose(self.psi_1, other.psi_1, atol=0)
-            and np.allclose(self.force_coeff, other.force_coeff, atol=0)
-        )
 
     def values(self, pressure_derivs_summed):  # noqa: D102
         values = np.real(self.k_square * self.psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[[4, 5, 6]]) + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
@@ -437,7 +406,7 @@ class RadiationForceCurl(AlgorithmImplementation):
         return jacobians
 
 
-class RadiationForceGradient(AlgorithmImplementation):
+class RadiationForceGradient(RadiationForce):
     r"""Full matrix gradient of the radiation force.
 
     Calculates the full gradient matrix of the radiation force on a small spherical bead.
@@ -445,15 +414,6 @@ class RadiationForceGradient(AlgorithmImplementation):
     i.e. the first index is force the force components and the second index is for derivatives.
     This is based on analytical differentiation of the radiation force on small beads from
     [Sapozhnikov]_, see `RadiationForce`.
-
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
-    radius_sphere : float, default 1e-3
-        Radius of the spherical beads.
-    sphere_material : Material
-        The material of the sphere, default Styrofoam.
 
     Todo
     ----
@@ -464,30 +424,6 @@ class RadiationForceGradient(AlgorithmImplementation):
     ndim = 2
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3)
     jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
-
-    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
-        super().__init__(array, *args, **kwargs)
-        f_1 = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
-        f_2 = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
-
-        ka = array.k * radius_sphere
-        self.k_square = array.k**2
-        self.psi_0 = -2 * ka**6 / 9 * (f_1**2 + f_2**2 / 4 + f_1 * f_2) - 1j * ka**3 / 3 * (2 * f_1 + f_2)
-        self.psi_1 = -ka**6 / 18 * f_2**2 + 1j * ka**3 / 3 * f_2
-        self.force_coeff = -np.pi / array.k**5 * array.medium.compressibility
-
-        # Including the j factors from the paper directly in the coefficients.
-        self.psi_0 *= 1j
-        self.psi_1 *= 1j
-
-    def __eq__(self, other):
-        return (
-            super().__eq__(other)
-            and np.allclose(self.k_square, other.k_square, atol=0)
-            and np.allclose(self.psi_0, other.psi_0, atol=0)
-            and np.allclose(self.psi_1, other.psi_1, atol=0)
-            and np.allclose(self.force_coeff, other.force_coeff, atol=0)
-        )
 
     def values(self, pressure_derivs_summed):  # noqa: D102
         values = np.zeros((3, 3) + pressure_derivs_summed.shape[1:])
