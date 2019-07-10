@@ -3,9 +3,9 @@ import levitate.hardware
 import numpy as np
 
 # Tests created with these air properties
-from levitate.materials import Air
-Air.c = 343
-Air.rho = 1.2
+from levitate.materials import air
+air.c = 343
+air.rho = 1.2
 
 # Tests were mostly written before the layout was transposed,
 # so a lot of the "expected" positions etc are transposed in the test hardcoding.
@@ -157,7 +157,7 @@ def test_Array_basics():
     array.k = 730
     np.testing.assert_allclose(2 * np.pi / array.k, array.wavelength)
     array.wavelength = 8.5e-3
-    np.testing.assert_allclose(Air.c, array.wavelength * array.freq)
+    np.testing.assert_allclose(air.c, array.wavelength * array.freq)
     array.freq = 41e3
     np.testing.assert_allclose(array.transducer_model.freq, 41e3)
 

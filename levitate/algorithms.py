@@ -115,7 +115,7 @@ class GorkovPotential(AlgorithmImplementation):
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=1)
     jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=1, pressure_derivs_individual=1)
 
-    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):  # noqa: D205, D400
+    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.styrofoam, *args, **kwargs):  # noqa: D205, D400
         """
         Parameters
         ----------
@@ -124,7 +124,7 @@ class GorkovPotential(AlgorithmImplementation):
         radius_sphere : float, default 1e-3
             Radius of the spherical beads.
         sphere_material : Material
-            The material of the sphere, default Styrofoam.
+            The material of the sphere, default styrofoam.
 
         """
         super().__init__(array, *args, **kwargs)
@@ -253,7 +253,7 @@ class RadiationForce(AlgorithmImplementation):
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2)
     jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
-    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):  # noqa: D205, D400
+    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.styrofoam, *args, **kwargs):  # noqa: D205, D400
         """
         Parameters
         ----------
@@ -262,7 +262,7 @@ class RadiationForce(AlgorithmImplementation):
         radius_sphere : float, default 1e-3
             Radius of the spherical beads.
         sphere_material : Material
-            The material of the sphere, default Styrofoam.
+            The material of the sphere, default styrofoam.
 
         """
         super().__init__(array, *args, **kwargs)
@@ -463,7 +463,7 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
     radius_sphere : float, default 1e-3
         Radius of the spherical beads.
     sphere_material : Material
-        The material of the sphere, default Styrofoam.
+        The material of the sphere, default styrofoam.
     scattering_model:
         Chooses which scattering model to use. Currently `Hard sphere`, `Soft sphere`, and `Compressible sphere`
         are implemented.
@@ -476,7 +476,7 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
 
     ndim = 1
 
-    def __init__(self, array, orders, radius_sphere=1e-3, sphere_material=materials.Styrofoam, scattering_model='Hard sphere', *args, **kwargs):
+    def __init__(self, array, orders, radius_sphere=1e-3, sphere_material=materials.styrofoam, scattering_model='Hard sphere', *args, **kwargs):
         super().__init__(array, *args, **kwargs)
         self.values_require = AlgorithmImplementation.requirement(spherical_harmonics_summed=orders + 1)
 

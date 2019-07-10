@@ -21,7 +21,7 @@ import numpy as np
 import logging
 from scipy.special import j0, j1
 from scipy.special import spherical_jn, spherical_yn, sph_harm
-from .materials import Air
+from .materials import air
 from . import utils
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ class TransducerModel:
     _repr_fmt_spec = '{:%cls(freq=%freq, p0=%p0, medium=%mediumfull)}'
     _str_fmt_spec = '{:%cls(freq=%freq, p0=%p0, medium=%medium)}'
 
-    def __init__(self, freq=40e3, p0=6, medium=Air):
+    def __init__(self, freq=40e3, p0=6, medium=air):
         self.medium = medium
         self.freq = freq
         self.p0 = p0

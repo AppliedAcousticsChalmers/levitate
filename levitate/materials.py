@@ -12,8 +12,8 @@ material properties will not be saved.
 .. autosummary:
     :nosignatures:
 
-    Air
-    Styrofoam
+    air
+    styrofoam
 
 """
 
@@ -66,7 +66,7 @@ class Material(type):
         p.text(str(cls))
 
 
-class Air(metaclass=Material):
+class air(metaclass=Material):
     """Properties of air.
 
     Has default values::
@@ -108,7 +108,7 @@ class Air(metaclass=Material):
         cls.rho = pressure / R_spec / (temperature + 273.15)
 
 
-class Styrofoam(metaclass=Material):
+class styrofoam(metaclass=Material):
     """Properties of styrofoam.
 
     Has default values::
