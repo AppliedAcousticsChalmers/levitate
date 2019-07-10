@@ -26,15 +26,10 @@ subtitle = ''
 # subtitle = 'D1.2 (D2): Python toolbox of sound field/beamformer design methods'
 
 # The short X.Y version
-version = ''
+from levitate import __version__ as release
 # The full version, including alpha/beta/rc tags
-
-release = 'Unknown'
-for line in open('../levitate/__init__.py'):
-    if line.startswith('__version__'):
-        release = line.split('=')[-1].strip().strip('\'"')
-        break
-version = release.rsplit('.', 1)[0]
+version = release
+print('Package version:', version)
 
 # -- General configuration ---------------------------------------------------
 
@@ -55,13 +50,15 @@ extensions = [
     'sphinx.ext.autosummary',
 ]
 
-autodoc_inherit_docstrings = False
+autodoc_inherit_docstrings = True
 
 autodoc_default_options = {
     'member-order': 'bysource',
     'special-members': '__call__',
 }
 autodoc_member_order = 'bysource'
+autoclass_content = 'both'
+
 
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
