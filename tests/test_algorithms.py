@@ -5,9 +5,9 @@ import pytest
 # Hardcoded values for the tests were created using the previous jacobian convention inside the cost functions.
 # The new jacobian convention is conjugated compared to the previous one, and the return format is different
 # for the algorithms compared to the cost functions.
-from levitate.materials import Air
-Air.c = 343
-Air.rho = 1.2
+from levitate.materials import air
+air.c = 343
+air.rho = 1.2
 
 large_array = levitate.arrays.RectangularArray(shape=(9, 8))
 pos = np.array([-23, 12, 34.1]) * 1e-3

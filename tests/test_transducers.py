@@ -3,9 +3,9 @@ import numpy as np
 import pytest
 
 # Tests created with these air properties
-from levitate.materials import Air
-Air.c = 343
-Air.rho = 1.2
+from levitate.materials import air
+air.c = 343
+air.rho = 1.2
 
 source_pos = np.array([0.01, 0.12, -0.025])
 source_normal = np.array([2., 3., 4.])

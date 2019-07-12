@@ -3,9 +3,9 @@ import levitate
 import pickle
 
 # Tests created with these air properties
-from levitate.materials import Air
-Air.c = 343
-Air.rho = 1.2
+from levitate.materials import air
+air.c = 343
+air.rho = 1.2
 
 pos = np.array([0.1, 0.2, 0.3])
 pos_b = np.array([-0.15, 1.27, 0.001])
@@ -18,17 +18,17 @@ def test_gorkov_parameters():
     assert levitate.algorithms.GorkovPotential(array) == levitate.algorithms.GorkovPotential(array)
     assert levitate.algorithms.GorkovPotential(array) == pickle.loads(pickle.dumps(levitate.algorithms.GorkovPotential(array)))
     assert levitate.algorithms.GorkovPotential(array, radius_sphere=1e-3) != levitate.algorithms.GorkovPotential(array, radius_sphere=1.1e-3)
-    assert levitate.algorithms.GorkovPotential(array) != levitate.algorithms.GorkovPotential(array, sphere_material=levitate.materials.Air)
+    assert levitate.algorithms.GorkovPotential(array) != levitate.algorithms.GorkovPotential(array, sphere_material=levitate.materials.air)
 
     assert levitate.algorithms.GorkovGradient(array) == levitate.algorithms.GorkovGradient(array)
     assert levitate.algorithms.GorkovGradient(array) == pickle.loads(pickle.dumps(levitate.algorithms.GorkovGradient(array)))
     assert levitate.algorithms.GorkovGradient(array, radius_sphere=1e-3) != levitate.algorithms.GorkovGradient(array, radius_sphere=1.1e-3)
-    assert levitate.algorithms.GorkovGradient(array) != levitate.algorithms.GorkovGradient(array, sphere_material=levitate.materials.Air)
+    assert levitate.algorithms.GorkovGradient(array) != levitate.algorithms.GorkovGradient(array, sphere_material=levitate.materials.air)
 
     assert levitate.algorithms.GorkovLaplacian(array) == levitate.algorithms.GorkovLaplacian(array)
     assert levitate.algorithms.GorkovLaplacian(array) == pickle.loads(pickle.dumps(levitate.algorithms.GorkovLaplacian(array)))
     assert levitate.algorithms.GorkovLaplacian(array, radius_sphere=1e-3) != levitate.algorithms.GorkovLaplacian(array, radius_sphere=1.1e-3)
-    assert levitate.algorithms.GorkovLaplacian(array) != levitate.algorithms.GorkovLaplacian(array, sphere_material=levitate.materials.Air)
+    assert levitate.algorithms.GorkovLaplacian(array) != levitate.algorithms.GorkovLaplacian(array, sphere_material=levitate.materials.air)
 
 
 def test_radiation_force_parameters():
@@ -36,22 +36,22 @@ def test_radiation_force_parameters():
     assert levitate.algorithms.RadiationForce(array) == levitate.algorithms.RadiationForce(array)
     assert levitate.algorithms.RadiationForce(array) == pickle.loads(pickle.dumps(levitate.algorithms.RadiationForce(array)))
     assert levitate.algorithms.RadiationForce(array, radius_sphere=1e-3) != levitate.algorithms.RadiationForce(array, radius_sphere=1.1e-3)
-    assert levitate.algorithms.RadiationForce(array) != levitate.algorithms.RadiationForce(array, sphere_material=levitate.materials.Air)
+    assert levitate.algorithms.RadiationForce(array) != levitate.algorithms.RadiationForce(array, sphere_material=levitate.materials.air)
 
     assert levitate.algorithms.RadiationForceStiffness(array) == levitate.algorithms.RadiationForceStiffness(array)
     assert levitate.algorithms.RadiationForceStiffness(array) == pickle.loads(pickle.dumps(levitate.algorithms.RadiationForceStiffness(array)))
     assert levitate.algorithms.RadiationForceStiffness(array, radius_sphere=1e-3) != levitate.algorithms.RadiationForceStiffness(array, radius_sphere=1.1e-3)
-    assert levitate.algorithms.RadiationForceStiffness(array) != levitate.algorithms.RadiationForceStiffness(array, sphere_material=levitate.materials.Air)
+    assert levitate.algorithms.RadiationForceStiffness(array) != levitate.algorithms.RadiationForceStiffness(array, sphere_material=levitate.materials.air)
 
     assert levitate.algorithms.RadiationForceCurl(array) == levitate.algorithms.RadiationForceCurl(array)
     assert levitate.algorithms.RadiationForceCurl(array) == pickle.loads(pickle.dumps(levitate.algorithms.RadiationForceCurl(array)))
     assert levitate.algorithms.RadiationForceCurl(array, radius_sphere=1e-3) != levitate.algorithms.RadiationForceCurl(array, radius_sphere=1.1e-3)
-    assert levitate.algorithms.RadiationForceCurl(array) != levitate.algorithms.RadiationForceCurl(array, sphere_material=levitate.materials.Air)
+    assert levitate.algorithms.RadiationForceCurl(array) != levitate.algorithms.RadiationForceCurl(array, sphere_material=levitate.materials.air)
 
     assert levitate.algorithms.RadiationForceGradient(array) == levitate.algorithms.RadiationForceGradient(array)
     assert levitate.algorithms.RadiationForceGradient(array) == pickle.loads(pickle.dumps(levitate.algorithms.RadiationForceGradient(array)))
     assert levitate.algorithms.RadiationForceGradient(array, radius_sphere=1e-3) != levitate.algorithms.RadiationForceGradient(array, radius_sphere=1.1e-3)
-    assert levitate.algorithms.RadiationForceGradient(array) != levitate.algorithms.RadiationForceGradient(array, sphere_material=levitate.materials.Air)
+    assert levitate.algorithms.RadiationForceGradient(array) != levitate.algorithms.RadiationForceGradient(array, sphere_material=levitate.materials.air)
 
 
 def test_spherical_harmonics_parameters():
@@ -60,7 +60,7 @@ def test_spherical_harmonics_parameters():
     assert levitate.algorithms.SphericalHarmonicsForce(array, orders=2) != levitate.algorithms.SphericalHarmonicsForce(array, orders=3)
     assert levitate.algorithms.SphericalHarmonicsForce(array, orders=2) != levitate.algorithms.SphericalHarmonicsForce(array, orders=2, radius_sphere=1.1e-3)
     assert levitate.algorithms.SphericalHarmonicsForce(array, orders=2) != levitate.algorithms.SphericalHarmonicsForce(array, orders=2, scattering_model='compressible')
-    assert levitate.algorithms.SphericalHarmonicsForce(array, orders=2, scattering_model='compressible') != levitate.algorithms.SphericalHarmonicsForce(array, orders=2, sphere_material=levitate.materials.Air, scattering_model='compressible')
+    assert levitate.algorithms.SphericalHarmonicsForce(array, orders=2, scattering_model='compressible') != levitate.algorithms.SphericalHarmonicsForce(array, orders=2, sphere_material=levitate.materials.air, scattering_model='compressible')
 
 
 def test_direct_params():

@@ -3,9 +3,9 @@ import numpy as np
 import levitate
 
 # Tests created with these air properties
-from levitate.materials import Air
-Air.c = 343
-Air.rho = 1.2
+from levitate.materials import air
+air.c = 343
+air.rho = 1.2
 
 pos = np.array([5, -2, 80]) * 1e-3
 array = levitate.arrays.RectangularArray(shape=2)
