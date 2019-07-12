@@ -6,7 +6,7 @@ import scipy.optimize
 import logging
 import itertools
 
-from .materials import Air
+from .materials import air
 from .utils import num_pressure_derivs
 
 logger = logging.getLogger(__name__)
@@ -454,13 +454,13 @@ def gorkov_divergence(array, location=None, weights=None, spatial_derivatives=No
         spatial_derivatives = array.pressure_derivs(location, orders=2)
 
     V = 4 / 3 * np.pi * radius_sphere**3
-    compressibility_air = 1 / (Air.rho * Air.c**2)
+    compressibility_air = 1 / (air.rho * air.c**2)
     compressibility_sphere = 1 / (rho_sphere * c_sphere**2)
     monopole_coefficient = 1 - compressibility_sphere / compressibility_air  # f_1 in H. Bruus 2012
-    dipole_coefficient = 2 * (rho_sphere / Air.rho - 1) / (2 * rho_sphere / Air.rho + 1)   # f_2 in H. Bruus 2012
-    preToVel = 1 / (array.omega * Air.rho)  # Converting velocity to pressure gradient using equation of motion
+    dipole_coefficient = 2 * (rho_sphere / air.rho - 1) / (2 * rho_sphere / air.rho + 1)   # f_2 in H. Bruus 2012
+    preToVel = 1 / (array.omega * air.rho)  # Converting velocity to pressure gradient using equation of motion
     pressure_coefficient = V / 4 * compressibility_air * monopole_coefficient
-    gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * Air.rho
+    gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * air.rho
 
     def calc_values(tot_der):
         Ux = (pressure_coefficient * (tot_der[1] * np.conj(tot_der[0])).real -  # Gx G
@@ -541,13 +541,13 @@ def gorkov_laplacian(array, location=None, weights=None, spatial_derivatives=Non
         spatial_derivatives = array.pressure_derivs(location)
 
     V = 4 / 3 * np.pi * radius_sphere**3
-    compressibility_air = 1 / (Air.rho * Air.c**2)
+    compressibility_air = 1 / (air.rho * air.c**2)
     compressibility_sphere = 1 / (rho_sphere * c_sphere**2)
     monopole_coefficient = 1 - compressibility_sphere / compressibility_air  # f_1 in H. Bruus 2012
-    dipole_coefficient = 2 * (rho_sphere / Air.rho - 1) / (2 * rho_sphere / Air.rho + 1)   # f_2 in H. Bruus 2012
-    preToVel = 1 / (array.omega * Air.rho)  # Converting velocity to pressure gradient using equation of motion
+    dipole_coefficient = 2 * (rho_sphere / air.rho - 1) / (2 * rho_sphere / air.rho + 1)   # f_2 in H. Bruus 2012
+    preToVel = 1 / (array.omega * air.rho)  # Converting velocity to pressure gradient using equation of motion
     pressure_coefficient = V / 4 * compressibility_air * monopole_coefficient
-    gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * Air.rho
+    gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * air.rho
 
     def calc_values(tot_der):
         Uxx = (pressure_coefficient * (tot_der[4] * np.conj(tot_der[0]) + tot_der[1] * np.conj(tot_der[1])).real -  # Gxx G + Gx Gx
@@ -628,10 +628,10 @@ def second_order_force(array, location=None, weights=None, spatial_derivatives=N
     if spatial_derivatives is None:
         spatial_derivatives = array.pressure_derivs(location, orders=2)
 
-    compressibility_air = 1 / (Air.rho * Air.c**2)
+    compressibility_air = 1 / (air.rho * air.c**2)
     compressibility_sphere = 1 / (rho_sphere * c_sphere**2)
     f_1 = 1 - compressibility_sphere / compressibility_air  # f_1 in H. Bruus 2012
-    f_2 = 2 * (rho_sphere / Air.rho - 1) / (2 * rho_sphere / Air.rho + 1)   # f_2 in H. Bruus 2012
+    f_2 = 2 * (rho_sphere / air.rho - 1) / (2 * rho_sphere / air.rho + 1)   # f_2 in H. Bruus 2012
 
     ka = array.k * radius_sphere
     psi_0 = -2 * ka**6 / 9 * (f_1**2 + f_2**2 / 4 + f_1 * f_2) - 1j * ka**3 / 3 * (2 * f_1 + f_2)
@@ -728,10 +728,10 @@ def second_order_stiffness(array, location=None, weights=None, spatial_derivativ
     if spatial_derivatives is None:
         spatial_derivatives = array.pressure_derivs(location, orders=3)
 
-    compressibility_air = 1 / (Air.rho * Air.c**2)
+    compressibility_air = 1 / (air.rho * air.c**2)
     compressibility_sphere = 1 / (rho_sphere * c_sphere**2)
     f_1 = 1 - compressibility_sphere / compressibility_air  # f_1 in H. Bruus 2012
-    f_2 = 2 * (rho_sphere / Air.rho - 1) / (2 * rho_sphere / Air.rho + 1)   # f_2 in H. Bruus 2012
+    f_2 = 2 * (rho_sphere / air.rho - 1) / (2 * rho_sphere / air.rho + 1)   # f_2 in H. Bruus 2012
 
     ka = array.k * radius_sphere
     psi_0 = -2 * ka**6 / 9 * (f_1**2 + f_2**2 / 4 + f_1 * f_2) - 1j * ka**3 / 3 * (2 * f_1 + f_2)
@@ -925,7 +925,7 @@ def velocity(array, location=None, weights=None, spatial_derivatives=None):
     """
     if spatial_derivatives is None:
         spatial_derivatives = array.pressure_derivs(location, orders=1)
-    pre_grad_2_vel = 1 / (1j * Air.rho * array.omega)
+    pre_grad_2_vel = 1 / (1j * air.rho * array.omega)
     spatial_derivatives = spatial_derivatives[num_pressure_derivs[0]:num_pressure_derivs[1]] * pre_grad_2_vel
 
     if weights is None:

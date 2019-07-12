@@ -46,11 +46,6 @@ class Pressure(AlgorithmImplementation):
 
     Calculates the complex-valued sound pressure.
 
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array, optional.
-
     """
 
     ndim = 0
@@ -74,11 +69,6 @@ class Velocity(AlgorithmImplementation):
     from the relation :math:`\dot v = \rho \nabla p`
     applied for monofrequent sound fields.
     This is a vector value using a Cartesian coordinate system.
-
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
 
     """
 
@@ -119,30 +109,24 @@ class GorkovPotential(AlgorithmImplementation):
     and :math:`V` is the volume of the particle.
     Note that this is only a suitable measure for small particles, i.e. :math:`ka<<1`,
     where :math:`a` is the radius of the particle.
-
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
-    radius_sphere : float, default 1e-3
-        Radius of the spherical beads.
-    sphere_material : Material
-        The material of the sphere, default Styrofoam.
-
     """
 
     ndim = 0
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=1)
     jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=1, pressure_derivs_individual=1)
 
-    def __eq__(self, other):
-        return (
-            super().__eq__(other)
-            and np.allclose(self.pressure_coefficient, other.pressure_coefficient, atol=0)
-            and np.allclose(self.gradient_coefficient, other.gradient_coefficient, atol=0)
-        )
+    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.styrofoam, *args, **kwargs):  # noqa: D205, D400
+        """
+        Parameters
+        ----------
+        array : TransducerArray
+            The object modeling the array.
+        radius_sphere : float, default 1e-3
+            Radius of the spherical beads.
+        sphere_material : Material
+            The material of the sphere, default styrofoam.
 
-    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
+        """
         super().__init__(array, *args, **kwargs)
         V = 4 / 3 * np.pi * radius_sphere**3
         monopole_coefficient = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
@@ -150,6 +134,13 @@ class GorkovPotential(AlgorithmImplementation):
         preToVel = 1 / (array.omega * array.medium.rho)  # Converting velocity to pressure gradient using equation of motion
         self.pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
         self.gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
+
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and np.allclose(self.pressure_coefficient, other.pressure_coefficient, atol=0)
+            and np.allclose(self.gradient_coefficient, other.gradient_coefficient, atol=0)
+        )
 
     def values(self, pressure_derivs_summed):  # noqa: D102
         values = self.pressure_coefficient * np.real(pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[0]))
@@ -162,7 +153,7 @@ class GorkovPotential(AlgorithmImplementation):
         return jacobians
 
 
-class GorkovGradient(AlgorithmImplementation):
+class GorkovGradient(GorkovPotential):
     r"""Gradient of Gor'kov's potential, :math:`\nabla U`.
 
     Calculates the Cartesian spatial gradient of Gor'kov's potential,
@@ -174,37 +165,11 @@ class GorkovGradient(AlgorithmImplementation):
     Note that this value is not suitable for sound fields with strong
     traveling wave components. If this is the case, use the
     `RadiationForce` algorithm instead.
-
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
-    radius_sphere : float, default 1e-3
-        Radius of the spherical beads.
-    sphere_material : Material
-        The material of the sphere, default Styrofoam.
-
     """
 
     ndim = 1
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2)
     jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
-
-    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
-        super().__init__(array, *args, **kwargs)
-        V = 4 / 3 * np.pi * radius_sphere**3
-        monopole_coefficient = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
-        dipole_coefficient = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
-        preToVel = 1 / (array.omega * array.medium.rho)  # Converting velocity to pressure gradient using equation of motion
-        self.pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
-        self.gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
-
-    def __eq__(self, other):
-        return (
-            super().__eq__(other)
-            and np.allclose(self.pressure_coefficient, other.pressure_coefficient, atol=0)
-            and np.allclose(self.gradient_coefficient, other.gradient_coefficient, atol=0)
-        )
 
     def values(self, pressure_derivs_summed):  # noqa: D102
         values = np.real(self.pressure_coefficient * np.conj(pressure_derivs_summed[0]) * pressure_derivs_summed[1:4])  # Pressure parts
@@ -221,7 +186,7 @@ class GorkovGradient(AlgorithmImplementation):
         return jacobians * 2
 
 
-class GorkovLaplacian(AlgorithmImplementation):
+class GorkovLaplacian(GorkovPotential):
     r"""Laplacian of Gor'kov's potential, :math:`\nabla^2 U`.
 
     This calculates the Cartesian parts of the Laplacian of
@@ -233,37 +198,11 @@ class GorkovLaplacian(AlgorithmImplementation):
     Note that this value is not suitable for sound fields with strong
     traveling wave components. If this is the case, use the
     `RadiationForceStiffness` algorithm instead.
-
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
-    radius_sphere : float, default 1e-3
-        Radius of the spherical beads.
-    sphere_material : Material
-        The material of the sphere, default Styrofoam.
-
     """
 
     ndim = 1
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3)
     jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
-
-    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
-        super().__init__(array, *args, **kwargs)
-        V = 4 / 3 * np.pi * radius_sphere**3
-        monopole_coefficient = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
-        dipole_coefficient = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
-        preToVel = 1 / (array.omega * array.medium.rho)  # Converting velocity to pressure gradient using equation of motion
-        self.pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
-        self.gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
-
-    def __eq__(self, other):
-        return (
-            super().__eq__(other)
-            and np.allclose(self.pressure_coefficient, other.pressure_coefficient, atol=0)
-            and np.allclose(self.gradient_coefficient, other.gradient_coefficient, atol=0)
-        )
 
     def values(self, pressure_derivs_summed):  # noqa: D102
         values = np.real(self.pressure_coefficient * (np.conj(pressure_derivs_summed[0]) * pressure_derivs_summed[[4, 5, 6]] + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
@@ -306,15 +245,7 @@ class RadiationForce(AlgorithmImplementation):
 
     This is more suitable than the Gor'kov formulation for use with progressive
     wave fiends, e.g. single sided arrays, see [Sapozhnikov]_.
-
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
-    radius_sphere : float, default 1e-3
-        Radius of the spherical beads.
-    sphere_material : Material
-        The material of the sphere, default Styrofoam.
+    The actual implementation uses a further algebraic simplification of the above expresion.
 
     """
 
@@ -322,48 +253,50 @@ class RadiationForce(AlgorithmImplementation):
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2)
     jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
-    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
+    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.styrofoam, *args, **kwargs):  # noqa: D205, D400
+        """
+        Parameters
+        ----------
+        array : TransducerArray
+            The object modeling the array.
+        radius_sphere : float, default 1e-3
+            Radius of the spherical beads.
+        sphere_material : Material
+            The material of the sphere, default styrofoam.
+
+        """
         super().__init__(array, *args, **kwargs)
         f_1 = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
         f_2 = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
 
         ka = array.k * radius_sphere
-        self.k_square = array.k**2
-        self.psi_0 = -2 * ka**6 / 9 * (f_1**2 + f_2**2 / 4 + f_1 * f_2) - 1j * ka**3 / 3 * (2 * f_1 + f_2)
-        self.psi_1 = -ka**6 / 18 * f_2**2 + 1j * ka**3 / 3 * f_2
-        self.force_coeff = -np.pi / array.k**5 * array.medium.compressibility
-
-        # Including the j factors from the paper directly in the coefficients.
-        self.psi_0 *= 1j
-        self.psi_1 *= 1j
+        overall_coeff = -np.pi / array.k**5 * array.medium.compressibility
+        self.pressure_coefficient = (ka**3 * 2 / 3 * f_1 - 2j / 9 * ka**6 * (f_1**2 + f_1 * f_2)) * array.k**2 * overall_coeff
+        self.velocity_coefficient = (-ka**3 * f_2 - 1j / 6 * ka**6 * f_2**2) * overall_coeff
 
     def __eq__(self, other):
         return (
             super().__eq__(other)
-            and np.allclose(self.k_square, other.k_square, atol=0)
-            and np.allclose(self.psi_0, other.psi_0, atol=0)
-            and np.allclose(self.psi_1, other.psi_1, atol=0)
-            and np.allclose(self.force_coeff, other.force_coeff, atol=0)
+            and np.allclose(self.pressure_coefficient, other.pressure_coefficient, atol=0)
+            and np.allclose(self.velocity_coefficient, other.velocity_coefficient, atol=0)
         )
 
     def values(self, pressure_derivs_summed):  # noqa: D102
-        values = np.real(self.k_square * self.psi_0 * pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[[1, 2, 3]]))
-        values += np.real(self.k_square * self.psi_1 * pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[0]))
-        values += np.real(3 * self.psi_1 * pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[[4, 7, 8]]))
-        values += np.real(3 * self.psi_1 * pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[[7, 5, 9]]))
-        values += np.real(3 * self.psi_1 * pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[[8, 9, 6]]))
-        return values * self.force_coeff
+        values = np.real(self.pressure_coefficient * pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[[1, 2, 3]]))
+        values += np.real(self.velocity_coefficient * pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[[4, 7, 8]]))
+        values += np.real(self.velocity_coefficient * pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[[7, 5, 9]]))
+        values += np.real(self.velocity_coefficient * pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[[8, 9, 6]]))
+        return values
 
     def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):  # noqa: D102
-        jacobians = self.k_square * (self.psi_0 * pressure_derivs_individual[0] * np.conj(pressure_derivs_summed[[1, 2, 3], None]) + np.conj(self.psi_0) * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[[1, 2, 3]])
-        jacobians += self.k_square * (self.psi_1 * pressure_derivs_individual[[1, 2, 3]] * np.conj(pressure_derivs_summed[0]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[0])
-        jacobians += 3 * (self.psi_1 * pressure_derivs_individual[1] * np.conj(pressure_derivs_summed[[4, 7, 8], None]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[4, 7, 8]])
-        jacobians += 3 * (self.psi_1 * pressure_derivs_individual[2] * np.conj(pressure_derivs_summed[[7, 5, 9], None]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[2]) * pressure_derivs_individual[[7, 5, 9]])
-        jacobians += 3 * (self.psi_1 * pressure_derivs_individual[3] * np.conj(pressure_derivs_summed[[8, 9, 6], None]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[3]) * pressure_derivs_individual[[8, 9, 6]])
-        return jacobians * self.force_coeff
+        jacobians = self.pressure_coefficient * pressure_derivs_individual[0] * np.conj(pressure_derivs_summed[[1, 2, 3], None]) + np.conj(self.pressure_coefficient) * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[[1, 2, 3]]
+        jacobians += self.velocity_coefficient * pressure_derivs_individual[1] * np.conj(pressure_derivs_summed[[4, 7, 8], None]) + np.conj(self.velocity_coefficient) * np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[4, 7, 8]]
+        jacobians += self.velocity_coefficient * pressure_derivs_individual[2] * np.conj(pressure_derivs_summed[[7, 5, 9], None]) + np.conj(self.velocity_coefficient) * np.conj(pressure_derivs_summed[2]) * pressure_derivs_individual[[7, 5, 9]]
+        jacobians += self.velocity_coefficient * pressure_derivs_individual[3] * np.conj(pressure_derivs_summed[[8, 9, 6], None]) + np.conj(self.velocity_coefficient) * np.conj(pressure_derivs_summed[3]) * pressure_derivs_individual[[8, 9, 6]]
+        return jacobians
 
 
-class RadiationForceStiffness(AlgorithmImplementation):
+class RadiationForceStiffness(RadiationForce):
     r"""Radiation force gradient for small beads in arbitrary sound fields.
 
     Calculates the non-mixed spatial derivatives of the radiation force,
@@ -373,63 +306,28 @@ class RadiationForceStiffness(AlgorithmImplementation):
 
     where :math:`F` is the radiation force by [Sapozhnikov]_, see `RadiationForce`.
 
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
-    radius_sphere : float, default 1e-3
-        Radius of the spherical beads.
-    sphere_material : Material
-        The material of the sphere, default Styrofoam.
-
     """
 
     ndim = 1
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3)
     jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
 
-    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
-        super().__init__(array, *args, **kwargs)
-        f_1 = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
-        f_2 = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
-
-        ka = array.k * radius_sphere
-        self.k_square = array.k**2
-        self.psi_0 = -2 * ka**6 / 9 * (f_1**2 + f_2**2 / 4 + f_1 * f_2) - 1j * ka**3 / 3 * (2 * f_1 + f_2)
-        self.psi_1 = -ka**6 / 18 * f_2**2 + 1j * ka**3 / 3 * f_2
-        self.force_coeff = -np.pi / array.k**5 * array.medium.compressibility
-
-        # Including the j factors from the paper directly in the coefficients.
-        self.psi_0 *= 1j
-        self.psi_1 *= 1j
-
-    def __eq__(self, other):
-        return (
-            super().__eq__(other)
-            and np.allclose(self.k_square, other.k_square, atol=0)
-            and np.allclose(self.psi_0, other.psi_0, atol=0)
-            and np.allclose(self.psi_1, other.psi_1, atol=0)
-            and np.allclose(self.force_coeff, other.force_coeff, atol=0)
-        )
-
     def values(self, pressure_derivs_summed):  # noqa: D102
-        values = np.real(self.k_square * self.psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[[4, 5, 6]]) + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
-        values += np.real(self.k_square * self.psi_1 * (pressure_derivs_summed[[4, 5, 6]] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
-        values += np.real(3 * self.psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[[10, 15, 17]]) + pressure_derivs_summed[[4, 7, 8]] * np.conj(pressure_derivs_summed[[4, 7, 8]])))
-        values += np.real(3 * self.psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[[13, 11, 18]]) + pressure_derivs_summed[[7, 5, 9]] * np.conj(pressure_derivs_summed[[7, 5, 9]])))
-        values += np.real(3 * self.psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[[14, 16, 12]]) + pressure_derivs_summed[[8, 9, 6]] * np.conj(pressure_derivs_summed[[8, 9, 6]])))
-        return values * self.force_coeff
+        values = np.real(self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[[4, 5, 6]]) + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
+        values += np.real(self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[[10, 15, 17]]) + pressure_derivs_summed[[4, 7, 8]] * np.conj(pressure_derivs_summed[[4, 7, 8]])))
+        values += np.real(self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[[13, 11, 18]]) + pressure_derivs_summed[[7, 5, 9]] * np.conj(pressure_derivs_summed[[7, 5, 9]])))
+        values += np.real(self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[[14, 16, 12]]) + pressure_derivs_summed[[8, 9, 6]] * np.conj(pressure_derivs_summed[[8, 9, 6]])))
+        return values
 
     def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):  # noqa: D102
-        jacobians = self.k_square * (self.psi_0 * pressure_derivs_individual[0] * np.conj(pressure_derivs_summed[[4, 5, 6], None]) + np.conj(self.psi_0) * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[[4, 5, 6]] + (self.psi_0 + np.conj(self.psi_0)) * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[[1, 2, 3]])
-        jacobians += self.k_square * (self.psi_1 * pressure_derivs_individual[[4, 5, 6]] * np.conj(pressure_derivs_summed[0]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[[4, 5, 6], None]) * pressure_derivs_individual[0] + (self.psi_1 + np.conj(self.psi_1)) * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[[1, 2, 3]])
-        jacobians += 3 * (self.psi_1 * pressure_derivs_individual[1] * np.conj(pressure_derivs_summed[[10, 15, 17], None]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[10, 15, 17]] + (self.psi_1 + np.conj(self.psi_1)) * np.conj(pressure_derivs_summed[[4, 7, 8], None]) * pressure_derivs_individual[[4, 7, 8]])
-        jacobians += 3 * (self.psi_1 * pressure_derivs_individual[2] * np.conj(pressure_derivs_summed[[13, 11, 18], None]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[2]) * pressure_derivs_individual[[13, 11, 18]] + (self.psi_1 + np.conj(self.psi_1)) * np.conj(pressure_derivs_summed[[7, 5, 9], None]) * pressure_derivs_individual[[7, 5, 9]])
-        jacobians += 3 * (self.psi_1 * pressure_derivs_individual[3] * np.conj(pressure_derivs_summed[[14, 16, 12], None]) + np.conj(self.psi_1) * np.conj(pressure_derivs_summed[3]) * pressure_derivs_individual[[14, 16, 12]] + (self.psi_1 + np.conj(self.psi_1)) * np.conj(pressure_derivs_summed[[8, 9, 6], None]) * pressure_derivs_individual[[8, 9, 6]])
-        return jacobians * self.force_coeff
+        jacobians = self.pressure_coefficient * pressure_derivs_individual[0] * np.conj(pressure_derivs_summed[[4, 5, 6], None]) + np.conj(self.pressure_coefficient) * np.conj(pressure_derivs_summed[0]) * pressure_derivs_individual[[4, 5, 6]] + (self.pressure_coefficient + np.conj(self.pressure_coefficient)) * np.conj(pressure_derivs_summed[[1, 2, 3], None]) * pressure_derivs_individual[[1, 2, 3]]
+        jacobians += self.velocity_coefficient * pressure_derivs_individual[1] * np.conj(pressure_derivs_summed[[10, 15, 17], None]) + np.conj(self.velocity_coefficient) * np.conj(pressure_derivs_summed[1]) * pressure_derivs_individual[[10, 15, 17]] + (self.velocity_coefficient + np.conj(self.velocity_coefficient)) * np.conj(pressure_derivs_summed[[4, 7, 8], None]) * pressure_derivs_individual[[4, 7, 8]]
+        jacobians += self.velocity_coefficient * pressure_derivs_individual[2] * np.conj(pressure_derivs_summed[[13, 11, 18], None]) + np.conj(self.velocity_coefficient) * np.conj(pressure_derivs_summed[2]) * pressure_derivs_individual[[13, 11, 18]] + (self.velocity_coefficient + np.conj(self.velocity_coefficient)) * np.conj(pressure_derivs_summed[[7, 5, 9], None]) * pressure_derivs_individual[[7, 5, 9]]
+        jacobians += self.velocity_coefficient * pressure_derivs_individual[3] * np.conj(pressure_derivs_summed[[14, 16, 12], None]) + np.conj(self.velocity_coefficient) * np.conj(pressure_derivs_summed[3]) * pressure_derivs_individual[[14, 16, 12]] + (self.velocity_coefficient + np.conj(self.velocity_coefficient)) * np.conj(pressure_derivs_summed[[8, 9, 6], None]) * pressure_derivs_individual[[8, 9, 6]]
+        return jacobians
 
 
-class RadiationForceCurl(AlgorithmImplementation):
+class RadiationForceCurl(RadiationForce):
     r"""Curl or rotation of the radiation force.
 
     Calculates the curl of the radiation force field as
@@ -441,37 +339,16 @@ class RadiationForceCurl(AlgorithmImplementation):
 
     where :math:`F` is the radiation force by [Sapozhnikov]_, see `RadiationForce`.
 
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
-    radius_sphere : float, default 1e-3
-        Radius of the spherical beads.
-    sphere_material : Material
-        The material of the sphere, default Styrofoam.
-
     """
 
     ndim = 1
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2)
     jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
-    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
-        super().__init__(array, *args, **kwargs)
-        f_1 = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
-        f_2 = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
-
-        ka = array.k * radius_sphere
-        overall_coef = 2 * np.pi * array.medium.compressibility / array.k**5
-        self.pressure_coefficient = -2 / 9 * ka**6 * (f_1**2 + f_1 * f_2) * array.k**2 * overall_coef
-        self.velocity_coefficient = -3 * ka**6 / 18 * f_2**2 * overall_coef
-
-    def __eq__(self, other):
-        return (
-            super().__eq__(other)
-            and np.allclose(self.pressure_coefficient, other.pressure_coefficient, atol=0)
-            and np.allclose(self.velocity_coefficient, other.velocity_coefficient, atol=0)
-        )
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.pressure_coefficient = -2 * np.imag(self.pressure_coefficient)
+        self.velocity_coefficient = -2 * np.imag(self.velocity_coefficient)
 
     def values(self, pressure_derivs_summed):  # noqa: D102
         values = self.pressure_coefficient * np.imag(pressure_derivs_summed[[2, 3, 1]] * np.conj(pressure_derivs_summed[[3, 1, 2]]))
@@ -488,7 +365,7 @@ class RadiationForceCurl(AlgorithmImplementation):
         return jacobians
 
 
-class RadiationForceGradient(AlgorithmImplementation):
+class RadiationForceGradient(RadiationForce):
     r"""Full matrix gradient of the radiation force.
 
     Calculates the full gradient matrix of the radiation force on a small spherical bead.
@@ -496,15 +373,6 @@ class RadiationForceGradient(AlgorithmImplementation):
     i.e. the first index is force the force components and the second index is for derivatives.
     This is based on analytical differentiation of the radiation force on small beads from
     [Sapozhnikov]_, see `RadiationForce`.
-
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
-    radius_sphere : float, default 1e-3
-        Radius of the spherical beads.
-    sphere_material : Material
-        The material of the sphere, default Styrofoam.
 
     Todo
     ----
@@ -516,96 +384,63 @@ class RadiationForceGradient(AlgorithmImplementation):
     values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3)
     jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
 
-    def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.Styrofoam, *args, **kwargs):
-        super().__init__(array, *args, **kwargs)
-        f_1 = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
-        f_2 = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
-
-        ka = array.k * radius_sphere
-        self.k_square = array.k**2
-        self.psi_0 = -2 * ka**6 / 9 * (f_1**2 + f_2**2 / 4 + f_1 * f_2) - 1j * ka**3 / 3 * (2 * f_1 + f_2)
-        self.psi_1 = -ka**6 / 18 * f_2**2 + 1j * ka**3 / 3 * f_2
-        self.force_coeff = -np.pi / array.k**5 * array.medium.compressibility
-
-        # Including the j factors from the paper directly in the coefficients.
-        self.psi_0 *= 1j
-        self.psi_1 *= 1j
-
-    def __eq__(self, other):
-        return (
-            super().__eq__(other)
-            and np.allclose(self.k_square, other.k_square, atol=0)
-            and np.allclose(self.psi_0, other.psi_0, atol=0)
-            and np.allclose(self.psi_1, other.psi_1, atol=0)
-            and np.allclose(self.force_coeff, other.force_coeff, atol=0)
-        )
-
     def values(self, pressure_derivs_summed):  # noqa: D102
         values = np.zeros((3, 3) + pressure_derivs_summed.shape[1:])
         values[0, 0] = np.real(  # F_{x,x}
-            self.k_square * self.psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[4]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[1]))
-            + self.k_square * self.psi_1 * (pressure_derivs_summed[4] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[1]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[10]) + pressure_derivs_summed[4] * np.conj(pressure_derivs_summed[4]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[13]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[7]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[14]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[8]))
+            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[4]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[1]))
+            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[10]) + pressure_derivs_summed[4] * np.conj(pressure_derivs_summed[4]))
+            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[13]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[7]))
+            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[14]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[8]))
         )
         values[0, 1] = np.real(  # F_{x,y}
-            self.k_square * self.psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[7]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[1]))
-            + self.k_square * self.psi_1 * (pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[2]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[13]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[4]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[15]) + pressure_derivs_summed[5] * np.conj(pressure_derivs_summed[7]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[8]))
+            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[7]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[1]))
+            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[13]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[4]))
+            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[15]) + pressure_derivs_summed[5] * np.conj(pressure_derivs_summed[7]))
+            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[8]))
         )
         values[0, 2] = np.real(  # F_{x,z}
-            self.k_square * self.psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[8]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[1]))
-            + self.k_square * self.psi_1 * (pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[3]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[14]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[4]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[7]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[17]) + pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[8]))
+            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[8]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[1]))
+            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[14]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[4]))
+            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[7]))
+            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[17]) + pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[8]))
         )
         values[1, 0] = np.real(  # F_{y,x}
-            self.k_square * self.psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[7]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[2]))
-            + self.k_square * self.psi_1 * (pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[1]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[13]) + pressure_derivs_summed[4] * np.conj(pressure_derivs_summed[7]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[15]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[5]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[9]))
+            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[7]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[2]))
+            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[13]) + pressure_derivs_summed[4] * np.conj(pressure_derivs_summed[7]))
+            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[15]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[5]))
+            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[9]))
         )
         values[1, 1] = np.real(  # F_{y,y}
-            self.k_square * self.psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[5]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[2]))
-            + self.k_square * self.psi_1 * (pressure_derivs_summed[5] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[2]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[15]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[7]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[11]) + pressure_derivs_summed[5] * np.conj(pressure_derivs_summed[5]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[16]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[9]))
+            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[5]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[2]))
+            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[15]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[7]))
+            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[11]) + pressure_derivs_summed[5] * np.conj(pressure_derivs_summed[5]))
+            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[16]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[9]))
         )
         values[1, 2] = np.real(  # F_{y,z}
-            self.k_square * self.psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[9]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[2]))
-            + self.k_square * self.psi_1 * (pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[3]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[7]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[16]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[5]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[18]) + pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[9]))
+            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[9]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[2]))
+            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[7]))
+            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[16]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[5]))
+            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[18]) + pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[9]))
         )
         values[2, 0] = np.real(  # F_{z,x}
-            self.k_square * self.psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[8]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[3]))
-            + self.k_square * self.psi_1 * (pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[1]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[14]) + pressure_derivs_summed[4] * np.conj(pressure_derivs_summed[8]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[9]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[17]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[6]))
+            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[8]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[3]))
+            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[14]) + pressure_derivs_summed[4] * np.conj(pressure_derivs_summed[8]))
+            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[9]))
+            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[17]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[6]))
         )
         values[2, 1] = np.real(  # F_{z,y}
-            self.k_square * self.psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[9]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[3]))
-            + self.k_square * self.psi_1 * (pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[2]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[8]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[16]) + pressure_derivs_summed[5] * np.conj(pressure_derivs_summed[9]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[18]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[6]))
+            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[9]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[3]))
+            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[8]))
+            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[16]) + pressure_derivs_summed[5] * np.conj(pressure_derivs_summed[9]))
+            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[18]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[6]))
         )
         values[2, 2] = np.real(  # F_{z,z}
-            self.k_square * self.psi_0 * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[6]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[3]))
-            + self.k_square * self.psi_1 * (pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[0]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[3]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[17]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[8]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[18]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[9]))
-            + 3 * self.psi_1 * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[12]) + pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[6]))
+            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[6]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[3]))
+            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[17]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[8]))
+            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[18]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[9]))
+            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[12]) + pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[6]))
         )
-        return values * self.force_coeff
+        return values
 
 
 class SphericalHarmonicsForce(AlgorithmImplementation):
@@ -628,7 +463,7 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
     radius_sphere : float, default 1e-3
         Radius of the spherical beads.
     sphere_material : Material
-        The material of the sphere, default Styrofoam.
+        The material of the sphere, default styrofoam.
     scattering_model:
         Chooses which scattering model to use. Currently `Hard sphere`, `Soft sphere`, and `Compressible sphere`
         are implemented.
@@ -641,7 +476,7 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
 
     ndim = 1
 
-    def __init__(self, array, orders, radius_sphere=1e-3, sphere_material=materials.Styrofoam, scattering_model='Hard sphere', *args, **kwargs):
+    def __init__(self, array, orders, radius_sphere=1e-3, sphere_material=materials.styrofoam, scattering_model='Hard sphere', *args, **kwargs):
         super().__init__(array, *args, **kwargs)
         self.values_require = AlgorithmImplementation.requirement(spherical_harmonics_summed=orders + 1)
 
@@ -682,7 +517,7 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
             bessel_derivative_interior = spherical_jn(n, ka_interior, derivative=True)
             # hankel_derivative_interior = bessel_derivative_interior + 1j * spherical_yn(n, ka_interior, derivative=True)
 
-            relative_impedance = sphere_material.rho / array.medium.rho * sphere_material.c / array.medium.c
+            relative_impedance = sphere_material.impedance / array.medium.impedance
             numerator = bessel_function * bessel_derivative_interior - relative_impedance * bessel_derivative * bessel_function_interior
             denominator = hankel_function * bessel_derivative_interior - relative_impedance * hankel_derivative * bessel_function_interior
             scattering_coefficient = - numerator / denominator
@@ -713,13 +548,46 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
         )
 
     def values(self, spherical_harmonics_summed):  # noqa: D102
-        Fx = np.sum(np.real(self.xy_coefficients[self.N_M] * (
-            spherical_harmonics_summed[self.N_M] * np.conj(spherical_harmonics_summed[self.Nr_Mr])
-            - spherical_harmonics_summed[self.N_mM] * np.conj(spherical_harmonics_summed[self.Nr_mMr])
-        )), axis=0)
-        Fy = np.sum(np.imag(self.xy_coefficients[self.N_M] * (
-            spherical_harmonics_summed[self.N_M] * np.conj(spherical_harmonics_summed[self.Nr_Mr])
-            + spherical_harmonics_summed[self.N_mM] * np.conj(spherical_harmonics_summed[self.Nr_mMr])
-        )), axis=0)
-        Fz = np.sum(np.real(self.z_coefficients[self.N_M] * spherical_harmonics_summed[self.N_M] * np.conj(spherical_harmonics_summed[self.Nr_M])), axis=0)
+        # Reshape coefficients to allow multiple receiver positions
+        xy_coefs = self.xy_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
+        z_coefs = self.z_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
+
+        # Index the arrays only once, faster.
+        N_M = spherical_harmonics_summed[self.N_M]
+        Nr_Mr = spherical_harmonics_summed[self.Nr_Mr]
+        N_mM = spherical_harmonics_summed[self.N_mM]
+        Nr_mMr = spherical_harmonics_summed[self.Nr_mMr]
+        Nr_M = spherical_harmonics_summed[self.Nr_M]
+
+        Fx = np.sum(np.real(xy_coefs * (N_M * np.conj(Nr_Mr) - N_mM * np.conj(Nr_mMr))), axis=0)
+        Fy = np.sum(np.imag(xy_coefs * (N_M * np.conj(Nr_Mr) + N_mM * np.conj(Nr_mMr))), axis=0)
+        Fz = np.sum(np.real(z_coefs * N_M * np.conj(Nr_M)), axis=0)
+
+        return np.stack([Fx, Fy, Fz])
+
+
+class SphericalHarmonicsForceDecomposition(SphericalHarmonicsForce):
+    r"""Radiation force decomposed in spherical harmoncis.
+
+    This is mostly intended for research purposes, when the radiation force
+    decomposed in individual spherical harmonics bases is of interest.
+    """
+
+    ndim = 2
+
+    def values(self, spherical_harmonics_summed):  # noqa: D102
+        # Reshape coefficients to allow multiple receiver positions
+        xy_coefs = self.xy_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
+        z_coefs = self.z_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
+
+        # Index the arrays only once, faster.
+        N_M = spherical_harmonics_summed[self.N_M]
+        Nr_Mr = spherical_harmonics_summed[self.Nr_Mr]
+        N_mM = spherical_harmonics_summed[self.N_mM]
+        Nr_mMr = spherical_harmonics_summed[self.Nr_mMr]
+        Nr_M = spherical_harmonics_summed[self.Nr_M]
+
+        Fx = np.real(xy_coefs * (N_M * np.conj(Nr_Mr) - N_mM * np.conj(Nr_mMr)))
+        Fy = np.imag(xy_coefs * (N_M * np.conj(Nr_Mr) + N_mM * np.conj(Nr_mMr)))
+        Fz = np.real(z_coefs * N_M * np.conj(Nr_M))
         return np.stack([Fx, Fy, Fz])

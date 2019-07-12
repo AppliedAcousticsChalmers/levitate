@@ -147,9 +147,20 @@ class SphericalHarmonicsIndexer:
         >>> print(sph_idx(0, 0))
         -4
 
+    To get all orders and all modes is separated variables,
+    simply zip the object::
+
+        >>> n, m = zip(*SphericalHarmonicsIndexer(2))
+        >>> print(n)
+        >>> print(m)
+        (0, 1, 1, 1, 2, 2, 2, 2, 2)
+        (0, -1, 0, 1, -2, -1, 0, 1, 2)
+
     """
 
-    def __init__(self, max_order, min_order=0):
+    def __init__(self, max_order=None, min_order=0):
+        if max_order is None:
+            max_order = float('inf')
         if max_order < min_order:
             # Called as `SphericalHarmonicsIndexer(min_order, max_order)`.
             # Switch the arguments.
@@ -162,7 +173,10 @@ class SphericalHarmonicsIndexer:
     def __call__(self, order, mode):
         if abs(mode) > order:
             raise ValueError('Spherical harmonics mode cannot be higher than the order')
-        return int(order**2 + order + mode - self._min_offset)
+        try:
+            return int(order**2 + order + mode - self._min_offset)
+        except OverflowError:
+            return float('inf')
 
     def __getitem__(self, index):
         if type(index) == slice:
@@ -228,3 +242,40 @@ class SphericalHarmonicsIndexer:
         while mode <= order:
             yield mode
             mode += 1
+
+    def ordersum(self, values, axis=None):
+        """Sum spherical harmonics coefficients of the same order.
+
+        Calculates the sum of the coefficients for all modes for each order
+        individually. The `SphericalHarmonicsIndexer` needs to be created to
+        match the orders of the expansion coefficients. This requires that the
+        length of the summation axis is the same as the number of coefficients
+        for the orders specified, i.e. `values.shape[axis] == len(self)`.
+        If no axis is specified, the first suitable axis will be used.
+
+        Parameters
+        ----------
+        values : numpy.ndarray
+            The spherical harmonics expansion coefficients of a field.
+        axis : int, optional
+            The axis over which to sum.
+
+        Returns
+        -------
+        order_summed_coefs : numpy.ndarray
+            The summed coefficients for each order.
+
+        """
+        values = np.asarray(values)
+        if axis is None:
+            for axis in range(values.ndim):
+                if values.shape[axis] == len(self):
+                    break
+            else:
+                raise ValueError('Cannot find axis of length {} in the given values!'.format(len(self)))
+
+        values = np.moveaxis(values, axis, 0)
+        output = np.zeros((self.max_order - self.min_order + 1, ) + values.shape[1:], dtype=values.dtype)
+        for idx, order in enumerate(self.orders):
+            output[idx] = np.sum(values[self(order, -order):self(order, order) + 1], axis=0)
+        return np.moveaxis(output, 0, axis)
