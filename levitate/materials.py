@@ -45,22 +45,24 @@ class MaterialMeta(type):
     """
 
     def __new__(cls, name, bases, dct):
-        dct.setdefault('properties', set())
+        dct.setdefault('properties', {})
         dct['_instances'] = []
         for base in bases:
             try:
-                dct['properties'] |= base.properties
+                for prop in base.properties:
+                    dct['properties'].setdefault(prop, getattr(base, prop).__doc__)
             except AttributeError:
                 pass
 
         for prop in dct['properties']:
-            dct[prop] = cls.class_instance_property(prop)
-            # dct[prop] = ClassInstanceProperty(prop)
+            dct[prop] = cls.class_instance_property(prop, dct['properties'][prop])
             dct.setdefault('_' + prop, None)  # We need at least a placeholder value not to break the first instance.
+        dct['properties'] = set(dct['properties'].keys())
         return super().__new__(cls, name, bases, dct)
 
     @staticmethod
-    def class_instance_property(name):
+    def class_instance_property(name, doc=None):
+        """Create a local/global property."""
         key = '_' + name
         def getter(self):
             if self._use_global:
@@ -72,7 +74,7 @@ class MaterialMeta(type):
                 return setattr(self.__class__, key, val)
             else:
                 return setattr(self, key, val)
-        return property(getter, setter)
+        return property(getter, setter, doc=doc)
 
 
 class Material(metaclass=MaterialMeta):
@@ -92,7 +94,10 @@ class Material(metaclass=MaterialMeta):
     _str_fmt_spec = '{:%name}'
     _repr_fmt_spec = '{:%name(%props)}'
     _use_global_bool = True
-    properties = {'c', 'rho'}
+    properties = {
+        'c': 'The (longitudinal) speed of sound in the material, in m/s.',
+        'rho': 'The density of the material, in kg/m^3.',
+    }
 
     def __init__(self, **kwargs):
         with warnings.catch_warnings(record=True) as w:
@@ -102,10 +107,12 @@ class Material(metaclass=MaterialMeta):
 
     @property
     def compressibility(self):
+        r"""Compressibility :math:`{1 \over \rho c^2}`, non settable."""
         return 1 / (self.c**2 * self.rho)
 
     @property
     def impedance(self):
+        r"""(Specific) Acoustic (wave) impedance :math:`\rho c`, non settable."""
         return self.rho * self.c
 
     @property
@@ -203,10 +210,16 @@ class Gas(Material):
 
 
 class Solid(Material):
-    properties = {'poisson_ratio'}
+    properties = {'poisson_ratio': "Poisson's ratio, related to shear wave speed."}
 
     @property
     def c_transversal(self):
+        r"""Transversal wave speed.
+
+        The speed of sound for transversal waves, i.e. shear waves.
+        Calculated as :math:`c\sqrt{{1-2\nu}\over{2-2\nu}}`, where
+        :math:`\nu` is the Poisson's ratio.
+        """
         nu = self.poisson_ratio
         return self.c * (0.5 * (1 - 2 * nu) / (1 - nu))**0.5
 
