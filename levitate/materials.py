@@ -199,10 +199,34 @@ class Material(metaclass=MaterialMeta):
 
 
 class Gas(Material):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    """Base class for ideal gases.
+
+    All ideal gases can determine the wave speed and density from
+    the ambient temperature and pressure using more basic material
+    constants, see `update_properties`.
+    """
 
     def update_properties(self, temperature=None, pressure=None):
+        r"""Update the material properties with the ambient conditions.
+
+        Sets the material properties of air according to
+
+        .. math::
+            c &= \sqrt{\gamma R T}\\
+            \rho &= {P \over R T}
+
+        where :math:`T` is the ambient temperature in Kelvin, :math:`P` is the
+        ambient pressure, :math:`\gamma` is the adiabatic index, and :math:`R`
+        is the specific gas constant for the gas.
+
+        Parameters
+        ----------
+        temperature : float
+            The ambient temperature, in degrees Celsius. Defaults to 20.
+        pressure : float
+            The static ambient air pressure, in Pa. Defaults to 101325.
+
+        """
         temperature = temperature if temperature is not None else 20
         pressure = pressure if pressure is not None else 101325
         self.c = (self._gamma * self._R_spec * (temperature + 273.15))**0.5
@@ -210,6 +234,12 @@ class Gas(Material):
 
 
 class Solid(Material):
+    """Base class for elastic solids.
+
+    Solids can support shear waves, which is important for some
+    scattering problems.
+    """
+
     properties = {'poisson_ratio': "Poisson's ratio, related to shear wave speed."}
 
     @property
@@ -225,11 +255,28 @@ class Solid(Material):
 
 
 class Air(Gas):
+    """Properties of air.
+
+    Has default values::
+
+        c = 343.2367605312694
+        rho = 1.2040847588826422
+    """
+
     _R_spec = 287.05864074988347
     _gamma = 1.4
 
 
 class Styrofoam(Solid):
+    """Properties of styrofoam.
+
+    Has default values::
+
+        c = 2350
+        rho = 25
+        poisson_ratio = 0.35
+    """
+
     _c = 2350
     _rho = 25
     _poisson_ratio = 0.35
