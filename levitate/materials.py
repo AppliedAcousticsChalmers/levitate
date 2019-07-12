@@ -4,10 +4,24 @@ Many functions need access to some material properties.
 In order to ensure that the properties of a specific material
 is the same everywhere, they are all collected in classes here.
 
-Warning
--------
-When pickling objects in the package, any changes made to
-material properties will not be saved.
+.. admonition:: Pickling
+
+    Pickling materials require some special consideration. In general there
+    should be a single set of properties defining a material, but loading
+    some data which is saved with modified properties will create a conflict.
+    The newly loaded material will be in a "Local" state, using modified properties
+    different from the global ones. It is recommended to resolve this by avoiding the
+    problem entirely by modifying the global properties before loading the old data.
+    If this is not possible or preferable, there are three functions intended to
+    resolve the conflict using either the global or the local properties.
+
+Note
+----
+Updating global material properties will change the properties throughout
+the entire package, but some classes (notably the algorithms) pre-calculate
+a lot of material-dependent properties. These properties will **NOT** be
+updated after a material update. It is therefore highly recommended to
+define the material properties once in the beginning of a session.
 
 .. autosummary:
     :nosignatures:
@@ -21,6 +35,15 @@ import warnings
 
 
 class MaterialMeta(type):
+    """Metaclass for materials.
+
+    This metaclass will automatically create the properties
+    defines in the `properties` variable in the class or its
+    bases. The properties implement a local/global system,
+    where each instance will default to use the global properties
+    unless otherwise specified.
+    """
+
     def __new__(cls, name, bases, dct):
         dct.setdefault('properties', set())
         dct['_instances'] = []
@@ -53,6 +76,19 @@ class MaterialMeta(type):
 
 
 class Material(metaclass=MaterialMeta):
+    r"""Main base class for materials.
+
+    This class handles most of the functionality of the materials in the package.
+    Each material is required to have (at least) a speed of sound and a density,
+    from which the impedance and the compressibility can be calculated.
+    In most cases there should only be a single instance of each material class,
+    defining the properties of said material. Multiple instances might be
+    created while pickling see the section below. If a new material of an
+    existing material class is created with modified properties, it will
+    also be created in a "Local" state.
+
+    """
+
     _str_fmt_spec = '{:%name}'
     _repr_fmt_spec = '{:%name(%props)}'
     _use_global_bool = True
@@ -89,17 +125,36 @@ class Material(metaclass=MaterialMeta):
         self._use_global_bool = val
 
     def load_from_global(self):
+        """Load properties from the global state.
+
+        Useful only on materials in a local state to resolve conflicts.
+        Replaces the current local properties with the global properties
+        and goes to global mode, completely removing the stored values.
+        """
         self._use_global = True
         for prop in self.properties:
             setattr(self, '_' + prop, getattr(self.__class__, '_' + prop))
 
     def push_to_global(self):
+        """Push the local properties to the global state.
+
+        Useful only on materials in a local state to resolve conflicts.
+        Replaces the current global properties with the modified local
+        ones, completely overriding the global properties for all global
+        instances.
+        """
         self._use_global = True
         for prop in self.properties:
             setattr(self.__class__, '_' + prop, getattr(self, '_' + prop))
 
     @classmethod
     def force_all_to_global(cls):
+        """Force all instances of this material to use global properties.
+
+        Useful to resolve material conflicts by choosing the global state
+        for all instances of the material. Will never change the global
+        properties, even if called from a locally modified instance.
+        """
         for instance in cls._instances:
             instance._use_global = True
 
