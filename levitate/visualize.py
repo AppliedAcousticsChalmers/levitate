@@ -161,7 +161,7 @@ class Visualizer:
         return self.scalar_field(calculator=[self.calculate.velocity, SVL],
                                  cmin=min, cmax=max, colorscale='Viridis', colorbar={'title': 'Particle velocity in dB re. 50 nm/s'})
 
-    def transducers(self, data=None, phases=None, amplitudes=None, signature_pos=None):
+    def transducers(self, data=None, phases=None, amplitudes=None, signature_pos=None, trace_type='scatter3d'):
         """Create transducer visualization.
 
         A 3d scatter trace of the transducer elements in an array.
@@ -208,21 +208,101 @@ class Visualizer:
             cmax = 1
             colorscale = [[0.0, 'hsv(0,255,255)'], [0.25, 'hsv(90,255,255)'], [0.5, 'hsv(180,255,255)'], [0.75, 'hsv(270,255,255)'], [1.0, 'hsv(360,255,255)']]
         elif data is None:
-            return self.transducers(data='phases')
+            return self.transducers(data='phases', trace_type=trace_type)
         else:
             title = 'Transducer data'
             cmin = np.min(data)
             cmax = np.max(data)
             colorscale = 'Viridis'
 
-        marker = dict(color=data, colorscale=colorscale, size=16, colorbar={'title': title, 'x': -0.02}, cmin=cmin, cmax=cmax)
-        return dict(
-            type='scatter3d', mode='markers',
-            x=self.array.transducer_positions[0],
-            y=self.array.transducer_positions[1],
-            z=self.array.transducer_positions[2],
-            marker=marker
-        )
+        if trace_type == 'scatter3d':
+            marker = dict(color=data, colorscale=colorscale, size=16, colorbar={'title': title, 'x': -0.02}, cmin=cmin, cmax=cmax)
+            trace = dict(
+                type='scatter3d', mode='markers',
+                x=self.array.transducer_positions[0],
+                y=self.array.transducer_positions[1],
+                z=self.array.transducer_positions[2],
+                marker=marker
+            )
+
+        if trace_type == 'mesh3d':
+            # Get parameters for the shape
+            upper_radius = self.array.transducer_size / 2
+            lower_radius = upper_radius * 2 / 3
+            height = upper_radius
+            num_points = 50  # Points in each circle
+            num_vertices = 2 * num_points + 2  # Vertices per transducer
+            theta = np.arange(num_points) / num_points * 2 * np.pi
+            cos = np.cos(theta)
+            sin = np.sin(theta)
+
+            # Create base index arrays
+            up_center = [0] * num_points
+            up_first = list(range(1, num_points + 1))
+            up_second = list(range(2, num_points + 1)) + [1]
+            down_center = [num_points + 1] * num_points
+            down_first = list(range(num_points + 2, 2 * num_points + 2))
+            down_second = list(range(num_points + 3, 2 * num_points + 2)) + [num_points + 2]
+            # Lists for base index arrays
+            i = []
+            j = []
+            k = []
+            # Upper disk base indices
+            i += up_center
+            j += up_first
+            k += up_second
+            # Lower disk base indices
+            i += down_center
+            j += down_second
+            k += down_first
+            # Half side base indices
+            i += up_first
+            j += down_first
+            k += up_second
+            # Other half side indices
+            i += up_second
+            j += down_first
+            k += down_second
+            # Base indices as array
+            base_indices = np.stack([i, j, k], axis=0)
+
+            # Lists for storing the transducer meshes
+            points = []
+            indices = []
+            vertex_color = []
+
+            for t_idx in range(self.array.num_transducers):
+                position = self.array.transducer_positions[:, t_idx]
+                normal = self.array.transducer_normals[:, t_idx]
+
+                # Find two vectors that sweep the circle
+                if normal[2] != 0:
+                    v1 = np.array([1., 1., 1.])
+                    v1[2] = -(v1[0] * normal[0] + v1[1] * normal[1]) / normal[2]
+                else:
+                    v1 = np.array([0., 0., 1.])
+
+                v1 /= np.sum(v1**2)**0.5
+                v2 = np.cross(v1, normal)
+                circle = cos * v1[:, None] + sin * v2[:, None]
+
+                upper_circle = circle * upper_radius + position[:, None]
+                lower_circle = circle * lower_radius + position[:, None] - height * normal[:, None]
+                points.append(np.concatenate([position[:, None], upper_circle, position[:, None] - height * normal[:, None], lower_circle], axis=1))
+                indices.append(base_indices + t_idx * num_vertices)
+                vertex_color.append([data[t_idx]] * num_vertices)
+
+            points = np.concatenate(points, axis=1)
+            indices = np.concatenate(indices, axis=1)
+            vertex_color = np.concatenate(vertex_color)
+            trace = dict(
+                type='mesh3d',
+                x=points[0], y=points[1], z=points[2],
+                i=indices[0], j=indices[1], k=indices[2],
+                intensity=vertex_color, colorscale=colorscale,
+                colorbar={'title': title, 'x': -0.02}, cmin=cmin, cmax=cmax,
+            )
+        return trace
 
     def find_trap(self, start_pos, tolerance=10e-6, time_interval=50, return_path=False, rho=25, radius=1e-3):
         r"""Find the approximate location of a levitation trap.
