@@ -11,7 +11,7 @@ API Documentation
 
     transducers
     arrays
-    algorithms
+    fields
     optimization
     utilities
-    algorithm_wrappers
+    field_wrappers
