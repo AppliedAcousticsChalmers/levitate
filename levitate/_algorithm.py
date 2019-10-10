@@ -1,125 +1,125 @@
-"""Implementation of algorithm wrapper protocol.
+"""Implementation of field wrapper protocol.
 
-The API for the implemented algorithms consists of two parts:
-the actual implementation of the algorithms in `AlgorithmImplemention`
-objects, and the wrapper classes `AlgorithmBase` and its subclasses.
-When objects of the `AlgorithmImplementation` type is instantiated
+The API for the implemented fields consists of two parts:
+the actual implementation of the fields in `FieldImplemention`
+objects, and the wrapper classes `FieldBase` and its subclasses.
+When objects of the `FieldImplementation` type is instantiated
 they will automagically be wrapped inside a different object, which is
 returned to the caller.
 The wrapper objects are of different variants, corresponding to the use case.
 
 Note that it is not intended that a user manually creates any of these objects,
 since there are many pit-falls when choosing the correct type. Instead call the
-implemented algorithms to get a basic algorithm type and manipulate it using
+implemented fields to get a basic field type and manipulate it using
 the arithmetic API to create the desired functionality.
 To validate that an API arithmetic manipulation actually does what was intended,
 simply print the resulting object to inspect the new structure.
 
 Basic Types
 -----------
-The basic type is a simple `Algorithm`, which is the default return type from
+The basic type is a simple `Field`, which is the default return type from
 instantiating. When called with transducer complex amplitudes and a set of positions,
-the object evaluates the algorithm implementation with the required parameters and
-returns just the value from the algorithm.
+the object evaluates the field implementation with the required parameters and
+returns just the value from the field.
 
-If the algorithm is bound by using the `@` operation a new `BoundAlgorithm`
+If the field is bound by using the `@` operation a new `FieldPoint`
 object is created, and the position is implicit in the call.
 This is more efficient for repeated calling with the same position,
 since some parts of the calculation can be cached.
 
-If the algorithm is weighed with the `*` operation a new `UnboundCostFunction`
-object is created, and the return from a call is changed. Cost function type
+If the field is weighed with the `*` operation a new `CostField`
+object is created, and the return from a call is changed. Cost field type
 objects will return the weighed sum of the different parts of the implemented
-algorithm, as well as the jacobians of said value with respect to the transducers.
+field, as well as the jacobians of said value with respect to the transducers.
 The jacobians are returned if a form that allow for simple calculation of the
 jacobians with respect to transducer real part, imaginary part, amplitude, or phase.
 
-If an algorithm if both bound and weighted it is a `CostFunction`, created wither
-by binding an `UnboundCostFunction` or by weighting a `BoundAlgorithm`.
-This will have the same caching and call signature as a `BoundAlgorithm`, but
-the same return values as an `UnboundCostFunction`. This form is the most suitable
+If a field is both bound and weighted it is a `CostFieldPoint`, created either
+by binding a `CostField` or by weighting a `FieldPoint`.
+This will have the same caching and call signature as a `FieldPoint`, but
+the same return values as an `CostField`. This form is the most suitable
 for numerical optimizations.
 
 .. autosummary::
     :nosignatures:
 
-    Algorithm
-    BoundAlgorithm
-    UnboundCostFunction
-    CostFunction
+    Field
+    FieldPoint
+    CostField
+    CostFieldPoint
 
-Magnitude Squared Types
------------------------
+Squared Types
+-------------
 Each of the above types can be used to change the values (and jacobians)
 to calculate the squared magnitude of the values, possible with a static
 target shift applied before taking the magnitude.
-There are four types, `MagnitudeSquaredAlgorithm`, `MagnitudeSquaredBoundAlgorithm`,
-`MagnnitudeSquaredUnboundCostFunction`, and `MagnitudeSquaredCostFunction`, each
+There are four types, `SquaredField`, `SquaredFieldPoint`,
+`SquaredCostField`, and `SquaredCostFieldPoint`, each
 corresponding to one of the basic types.
 They are created by taking the absolute value of a basic object, or by subtracting
 a fixed value from a basic object. Note that the square is not apparent from the API,
 which is less intuitive that the other parts in the API.
-In all other regards, the magnitude squared versions behave like their basic counterparts.
+In all other regards, the squared versions behave like their basic counterparts.
 
 .. autosummary::
     :nosignatures:
 
-    MagnitudeSquaredAlgorithm
-    MagnitudeSquaredBoundAlgorithm
-    MagnitudeSquaredUnboundCostFunction
-    MagnitudeSquaredCostFunction
+    SquaredField
+    SquaredFieldPoint
+    SquaredCostField
+    SquaredCostFieldPoint
 
-Points
-------
-Points are objects which collect basic objects operating at the same point in space.
-Two objects of the same basic type (or a magnitude squared version of said basic type)
-can be added together. If the algorithm are either unbound or bound to the same
-position, a point-type object is created. Again, there are four types, each corresponding
-to one of the basic types: `AlgorithmPoint`, `BoundAlgorithmPoint`, `UnboundCostFunctionPoint`,
-and `CostFunctionPoint`.
-The two algorithm-style points will evaluate all included algorithm and return the individual
-values from the included algorithms. The two cost-function-style points will sum the values
-from the included cost functions.
-
-.. autosummary::
-    :nosignatures:
-
-    AlgorithmPoint
-    BoundAlgorithmPoint
-    UnboundCostFunctionPoint
-    CostFunctionPoint
-
-Collections
------------
-Collections are objects which collect point-type object bound to different points.
-There are only two types: `AlgorithmCollection` similar to a `BoundAlgorithm`,
-and `CostFunctionCollection` similar to a `CostFunction`. It is not possible to
-have unbound collections, they would simply be unbound points.
-An `AlgorithmCollection` returns the values from the stored algorithms.
-A `CostFunctionCollection` will sum the values and jacobians of the stored objects.
+MultiField
+----------
+MultiFields are objects which collect basic fields operating at the same point(s) in space.
+Two objects of the same basic type (or a squared version of said basic type)
+can be added together. If the fields are either unbound or bound to the same
+position, a multi-field-type object is created. Again, there are four types, each corresponding
+to one of the basic types: `MultiField`, `MultiFieldPoint`, `MultiCostField`,
+and `MultiCostFieldPoint`.
+The two field-style variants will evaluate all included fields and return the individual
+values from the included fields. The two cost-field-style variants will sum the values
+from the included cost fields.
 
 .. autosummary::
     :nosignatures:
 
-    AlgorithmCollection
-    CostFunctionCollection
+    MultiField
+    MultiFieldPoint
+    MultiCostField
+    MultiCostFieldPoint
+
+MultiPoint
+----------
+MultiPoints are objects which collect multi-field-type objects bound to different points.
+There are only two types: `MultiFieldMultiPoint` similar to a `MutiFieldPoint`,
+and `MultiCostFieldMultiPoint` similar to a `MultiCostFieldPoint`. It is not possible to
+have unbound multi-points, they would simply be unbound.
+An `MultiFieldMultiPoint` returns the values from the stored algorithms.
+A `MultiCostFieldMultiPoint` will sum the values and jacobians of the stored objects.
+
+.. autosummary::
+    :nosignatures:
+
+    MultiFieldMultiPoint
+    MultiCostFieldMultiPoint
 
 Implementation Details
 ----------------------
 To make the API work as intended, there are a couple additional
 classes and functions.
-The base class for the implemented algorithms, `AlgorithmImplementation` is
-only used as a super class when implementing new algorithms. See its documentation
-for more details on how to extend the package with new algorithm implementations.
+The base class for the implemented algorithms, `FieldImplementation` is
+only used as a super class when implementing new physical fields. See its documentation
+for more details on how to extend the package with new field implementations.
 
-The wrapping of `AlgorithmImplementation` inside `Algorithm` objects is implemented
-in the `AlgorithmImplementationMeta` class, in the `~AlgorithmImplementationMeta.__call__` method.
+The wrapping of `FieldImplementation` inside `Field` objects is implemented
+in the `FieldImplementationMeta` class, in the `~FieldImplementationMeta.__call__` method.
 This also accepts additional `weight` and `position` parameters to directly create
-the other three basic types, instead of the default `Algorithm`.
+the other three basic types, instead of the default `Field`.
 
-`AlgorithmBase` is the top-level class for all wrappers, and handles evaluation of
+`FieldBase` is the top-level class for all wrappers, and handles evaluation of
 spatial structures, caching, etc.
-Similarly there is a `MagnitudeSquaredBase`, which is wrapping the base `Algorithm` objects'
+Similarly there is a `SquaredFieldBase`, which is wrapping the base `Field` objects'
 calculation functions with the magnitude and square.
 """
 
