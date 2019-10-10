@@ -18,7 +18,7 @@ is the same everywhere, they are all collected in classes here.
 Note
 ----
 Updating global material properties will change the properties throughout
-the entire package, but some classes (notably the algorithms) pre-calculate
+the entire package, but some classes (notably the fields) pre-calculate
 a lot of material-dependent properties. These properties will **NOT** be
 updated after a material update. It is therefore highly recommended to
 define the material properties once in the beginning of a session.

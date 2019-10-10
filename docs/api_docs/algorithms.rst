@@ -1,7 +1,7 @@
 .. default-role:: py:obj
 
-Algorithms
-==========
-.. automodule:: levitate.algorithms
+Fields
+======
+.. automodule:: levitate.fields
     :members:
 

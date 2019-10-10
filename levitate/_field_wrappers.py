@@ -95,7 +95,7 @@ MultiPoints are objects which collect multi-field-type objects bound to differen
 There are only two types: `MultiFieldMultiPoint` similar to a `MutiFieldPoint`,
 and `MultiCostFieldMultiPoint` similar to a `MultiCostFieldPoint`. It is not possible to
 have unbound multi-points, they would simply be unbound.
-An `MultiFieldMultiPoint` returns the values from the stored algorithms.
+A `MultiFieldMultiPoint` returns the values from the stored fields.
 A `MultiCostFieldMultiPoint` will sum the values and jacobians of the stored objects.
 
 .. autosummary::
@@ -108,7 +108,7 @@ Implementation Details
 ----------------------
 To make the API work as intended, there are a couple additional
 classes and functions.
-The base class for the implemented algorithms, `FieldImplementation` is
+The base class for the implemented fields, `FieldImplementation` is
 only used as a super class when implementing new physical fields. See its documentation
 for more details on how to extend the package with new field implementations.
 
@@ -676,7 +676,7 @@ class CostField(Field):
 
         :return: `CostFieldPoint`
     -
-        Converts to a magnitude target algorithm.
+        Converts to a squared magnitude target field.
 
         :return: `SquaredCostField`
 
@@ -1524,7 +1524,7 @@ class MultiCostFieldPoint(MultiCostField, MultiFieldPoint):
     -------
     +
         Adds an `CostFieldPoint` or `MultiCostFieldPoint` to the  current set of fields.
-        If the newly added algorithm is not bound to the same position,
+        If the newly added field is not bound to the same position,
         a `MultiCostFieldMultiPoint` will be created and returned.
 
         :return: `MultiCostFieldPoint` or `MultiCostFieldMultiPoint`

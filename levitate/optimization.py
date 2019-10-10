@@ -2,7 +2,7 @@
 
 The main method currently in use for acoustic levitation (in this package)
 is nonlinear numerical minimization of a cost function. The cost funcion
-should be constructed using the `~levitate.algorithms` module.
+should be constructed using the `~levitate.fields` module.
 """
 
 import numpy as np
@@ -170,7 +170,7 @@ def minimize(functions, array,
     where `complex_amplitudes` is an ndarray with weight of each element in the transducer array.
     The function should return `value, jacobians` where the jacobians are the
     derivatives of the value w.r.t the transducers as defined in the full documentation.
-    Also see the documentation of the algorithm wrappers for further details.
+    Also see the documentation of the field wrappers for further details.
 
     This function supports minimization sequences. Pass an iterable of functions
     to start sequenced minimization, e.g. a list of cost functions.

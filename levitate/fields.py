@@ -1,13 +1,13 @@
 """A collection of levitation related mathematical implementations.
 
-The algorithms is one of the most important parts of the package,
+The fields is one of the most important parts of the package,
 containing implementations of various ways to calculate levitate-related physical properties.
-To simplify the management and manipulation of the implemented algorithms they are wrapped
+To simplify the management and manipulation of the implemented fields they are wrapped
 in an additional abstraction layer.
-The short version is that the classes implemented in the `~levitate.algorithms` module
-will not return objects of the called class, but typically objects of `~levitate._algorithm.Algorithm`.
+The short version is that the classes implemented in the `~levitate.fields` module
+will not return objects of the called class, but typically objects of `~levitate.field_wrappers.Field`.
 These objects support algebraic operations, like `+`, `*`, and `abs`. The full description of
-what the different operands do can be found in the documentation of `~levitate._algorithm`.
+what the different operands do can be found in the documentation of `~levitate._field_wrappers`.
 
 .. autosummary::
     :nosignatures:
@@ -164,7 +164,7 @@ class GorkovGradient(GorkovPotential):
 
     Note that this value is not suitable for sound fields with strong
     traveling wave components. If this is the case, use the
-    `RadiationForce` algorithm instead.
+    `RadiationForce` field instead.
     """
 
     ndim = 1
@@ -197,7 +197,7 @@ class GorkovLaplacian(GorkovPotential):
 
     Note that this value is not suitable for sound fields with strong
     traveling wave components. If this is the case, use the
-    `RadiationForceStiffness` algorithm instead.
+    `RadiationForceStiffness` field instead.
     """
 
     ndim = 1
