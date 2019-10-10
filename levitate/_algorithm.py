@@ -166,7 +166,7 @@ class FieldImplementationMeta(type):
         elif weight is None:
             alg = FieldPoint(field=obj, position=position)
         elif position is None:
-            alg = UnboundCostFunction(algorithm=obj, weight=weight)
+            alg = CostField(field=obj, weight=weight)
         elif weight is not None and position is not None:
             alg = CostFunction(algorithm=obj, weight=weight, position=position)
         return alg
@@ -541,7 +541,7 @@ class Field(FieldBase):
         weight = np.asarray(weight)
         if weight.dtype == object:
             return NotImplemented
-        return UnboundCostFunction(weight=weight, algorithm=self.field)
+        return CostField(weight=weight, field=self.field)
 
     def __matmul__(self, position):
         position = np.asarray(position)
@@ -645,40 +645,40 @@ class FieldPoint(Field):
         return CostFunction(weight=weight, position=self.position, algorithm=self.field)
 
 
-class UnboundCostFunction(Field):
-    """Unbound cost functions for single point, single algorithms.
+class CostField(Field):
+    """Unbound cost field for single point, single field.
 
-    See `Algorithm` for more precise description.
+    See `Field` for more precise description.
 
     Parameters
     ----------
-    algorithm : AlgorithmImplementation
-        The implemented algorithm to use for calculations.
+    field : FieldImplementation
+        The implemented field to use for calculations.
     weight : numpy.ndarray
         The weight to use for the summation of values. Needs to have the same
-        number of dimensions as the `AlgorithmImplementation` used.
+        number of dimensions as the `FieldImplementation` used.
 
     Methods
     -------
     +
-        Adds this algorithm with another `UnboundCostFunction` or `UnboundCostFunctionPoint`.
+        Adds this field with another `CostField` or `MultiCostField`.
 
-        :return: `UnboundCostFunctionPoint`.
+        :return: `MultiCostField`.
     *
         Rescale the weight, i.e. multiplies the current weight with the new value.
         The weight needs to have the correct number of dimensions, but will
         otherwise broadcast properly.
 
-        :return: `UnboundCostFunction`
+        :return: `CostField`
     @
-        Bind the algorithm to a point in space. The point needs to have
+        Bind the field to a point in space. The point needs to have
         3 elements in the first dimension.
 
-        :return: `CostFunction`
+        :return: `CostFieldPoint`
     -
         Converts to a magnitude target algorithm.
 
-        :return: `MagnitudeSquaredUnboundCostFunction`
+        :return: `SquaredCostField`
 
     """
 
@@ -686,8 +686,8 @@ class UnboundCostFunction(Field):
     _is_bound = False
     _is_cost = True
 
-    def __init__(self, algorithm, weight, **kwargs):
-        super().__init__(algorithm=algorithm, **kwargs)
+    def __init__(self, field, weight, **kwargs):
+        super().__init__(field=field, **kwargs)
         self.weight = np.asarray(weight)
         if self.weight.ndim < self.ndim:
             extra_dims = self.ndim - self.weight.ndim
@@ -702,21 +702,21 @@ class UnboundCostFunction(Field):
         )
 
     def __call__(self, complex_transducer_amplitudes, position):
-        """Evaluate the algorithm implementation.
+        """Evaluate the field implementation.
 
         Parameters
         ----------
         compelx_transducer_amplitudes : complex numpy.ndarray
             Complex representation of the transducer phases and amplitudes of the
-            array used to create the algorithm.
+            array used to create the field.
         position : array-like
-            The position(s) where to evaluate the algorithm.
+            The position(s) where to evaluate the field.
             The first dimension needs to have 3 elements.
 
         Returns
         -------
         values: ndarray
-            The values of the implemented algorithm used to create the wrapper.
+            The values of the implemented fiield used to create the wrapper.
         jacobians : ndarray
             The jacobians of the values with respect to the transducers.
 
@@ -742,16 +742,16 @@ class UnboundCostFunction(Field):
         weight = np.asarray(weight)
         if weight.dtype == object:
             return NotImplemented
-        return UnboundCostFunction(self.algorithm, self.weight * weight)
+        return CostField(field=self.field, weight=self.weight * weight)
 
     def __matmul__(self, position):
         position = np.asarray(position)
         if position.ndim < 1 or position.shape[0] != 3:
             return NotImplemented
-        return CostFunction(weight=self.weight, position=position, algorithm=self.algorithm)
+        return CostFunction(weight=self.weight, position=position, algorithm=self.field)
 
 
-class CostFunction(UnboundCostFunction, FieldPoint):
+class CostFunction(CostField, FieldPoint):
     """Cost functions for single point, single algorithms.
 
     See `Algorithm` for more precise description.
@@ -1065,7 +1065,7 @@ class MagnitudeSquaredBoundAlgorithm(MagnitudeSquaredBase, FieldPoint):
         return MagnitudeSquaredCostFunction(algorithm=algorithm, target=self.target, weight=algorithm.weight, position=algorithm.position)
 
 
-class MagnitudeSquaredUnboundCostFunction(MagnitudeSquaredBase, UnboundCostFunction):
+class MagnitudeSquaredUnboundCostFunction(MagnitudeSquaredBase, CostField):
     """Magnitude target unbound cost function class.
 
     Calculates the squared magnitude difference between the algorithm value(s)
