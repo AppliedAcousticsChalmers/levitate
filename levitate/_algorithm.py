@@ -1402,7 +1402,7 @@ class BoundAlgorithmPoint(AlgorithmPoint):
             return NotImplemented
         if type(other) == BoundAlgorithmPoint and np.allclose(self.position, other.position):
             return BoundAlgorithmPoint(*self.algorithms, *other.algorithms)
-        elif isinstance(other, BoundAlgorithm) and np.allclose(self.position, other.position):
+        elif isinstance(other, FieldPoint) and np.allclose(self.position, other.position):
             return BoundAlgorithmPoint(*self.algorithms, other)
         else:
             return AlgorithmCollection(self, other)
