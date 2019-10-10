@@ -168,7 +168,7 @@ class FieldImplementationMeta(type):
         elif position is None:
             alg = CostField(field=obj, weight=weight)
         elif weight is not None and position is not None:
-            alg = CostFunction(algorithm=obj, weight=weight, position=position)
+            alg = CostFieldPoint(field=obj, weight=weight, position=position)
         return alg
 
 
@@ -642,7 +642,7 @@ class FieldPoint(Field):
         weight = np.asarray(weight)
         if weight.dtype == object:
             return NotImplemented
-        return CostFunction(weight=weight, position=self.position, algorithm=self.field)
+        return CostFieldPoint(weight=weight, position=self.position, field=self.field)
 
 
 class CostField(Field):
@@ -748,46 +748,46 @@ class CostField(Field):
         position = np.asarray(position)
         if position.ndim < 1 or position.shape[0] != 3:
             return NotImplemented
-        return CostFunction(weight=self.weight, position=position, algorithm=self.field)
+        return CostFieldPoint(weight=self.weight, position=position, field=self.field)
 
 
-class CostFunction(CostField, FieldPoint):
-    """Cost functions for single point, single algorithms.
+class CostFieldPoint(CostField, FieldPoint):
+    """Cost function for single point, single fields.
 
-    See `Algorithm` for more precise description.
+    See `Field` for more precise description.
 
     Parameters
     ----------
-    algorithm : AlgorithmImplementation
-        The implemented algorithm to use for calculations.
+    field : FieldImplementation
+        The implemented field to use for calculations.
     weight : numpy.ndarray
         The weight to use for the summation of values. Needs to have the same
-        number of dimensions as the `AlgorithmImplementation` used.
+        number of dimensions as the `FieldImplementation` used.
     position : numpy.ndarray
         The position to bind to.
 
     Methods
     -------
     +
-        Adds this algorithm with another `CostFunction`,
-        `CostFunctionPoint`, or `CostFunctionCollection`.
+        Adds this field with another `CostFieldPoint`,
+        `MultiCostFieldPoint`, or `MultiCostFieldMultiPoint`.
 
-        :return: `CostFunctionPoint`,or `CostFunctionCollection`
+        :return: `MultiCostFieldPoint`,or `MultiCostFieldMultiPoint`
     *
         Rescale the weight, i.e. multiplies the current weight with the new value.
         The weight needs to have the correct number of dimensions, but will
         otherwise broadcast properly.
 
-        :return: `CostFunction`
+        :return: `CostFieldPoint`
     @
-        Re-bind the algorithm to a new point in space. The point needs to have
+        Re-bind the field to a new point in space. The point needs to have
         3 elements in the first dimension.
 
-        :return: `CostFunction`
+        :return: `CostFieldPoint`
     -
-        Converts to a magnitude target algorithm.
+        Converts to a magnitude target field.
 
-        :return: `MagnitudeSquaredCostFunction`
+        :return: `SquaredCostFieldPoint`
 
     """
 
@@ -795,26 +795,26 @@ class CostFunction(CostField, FieldPoint):
     _is_bound = True
     _is_cost = True
 
-    # Inheritance order is important here, we need to resolve to UnboundCostFunction.__mul__ and not BoundAlgorithm.__mul__
-    def __init__(self, algorithm, weight, position, **kwargs):
-        super().__init__(algorithm=algorithm, weight=weight, position=position, **kwargs)
+    # Inheritance order is important here, we need to resolve to CostField.__mul__ and not FieldPoint.__mul__
+    def __init__(self, field, weight, position, **kwargs):
+        super().__init__(field=field, weight=weight, position=position, **kwargs)
 
     def __eq__(self, other):
         return super().__eq__(other)
 
     def __call__(self, complex_transducer_amplitudes):
-        """Evaluate the algorithm implementation.
+        """Evaluate the field implementation.
 
         Parameters
         ----------
-        compelx_transducer_amplitudes : complex numpy.ndarray
+        complex_transducer_amplitudes : complex numpy.ndarray
             Complex representation of the transducer phases and amplitudes of the
-            array used to create the algorithm.
+            array used to create the field.
 
         Returns
         -------
         values: ndarray
-            The values of the implemented algorithm used to create the wrapper.
+            The values of the implemented field used to create the wrapper.
         jacobians : ndarray
             The jacobians of the values with respect to the transducers.
 
@@ -843,7 +843,7 @@ class CostFunction(CostField, FieldPoint):
         weight = np.asarray(weight)
         if weight.dtype == object:
             return NotImplemented
-        return CostFunction(self.algorithm, self.weight * weight, self.position)
+        return CostFieldPoint(field=self.field, weight=self.weight * weight, position=self.position)
 
 
 class MagnitudeSquaredBase(Field):
@@ -1122,7 +1122,7 @@ class MagnitudeSquaredUnboundCostFunction(MagnitudeSquaredBase, CostField):
         return MagnitudeSquaredUnboundCostFunction(algorithm=algorithm, target=self.target, weight=algorithm.weight)
 
 
-class MagnitudeSquaredCostFunction(MagnitudeSquaredBase, CostFunction):
+class MagnitudeSquaredCostFunction(MagnitudeSquaredBase, CostFieldPoint):
     """Magnitude target cost function class.
 
     Calculates the squared magnitude difference between the algorithm value(s)
@@ -1582,7 +1582,7 @@ class CostFunctionPoint(UnboundCostFunctionPoint, BoundAlgorithmPoint):
             return NotImplemented
         if type(other) == CostFunctionPoint and np.allclose(self.position, other.position):
             return CostFunctionPoint(*self.algorithms, *other.algorithms)
-        elif isinstance(other, CostFunction) and np.allclose(self.position, other.position):
+        elif isinstance(other, CostFieldPoint) and np.allclose(self.position, other.position):
             return CostFunctionPoint(*self.algorithms, other)
         else:
             return CostFunctionCollection(self, other)
