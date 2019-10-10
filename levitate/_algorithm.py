@@ -164,7 +164,7 @@ class FieldImplementationMeta(type):
         if weight is None and position is None:
             alg = Field(field=obj)
         elif weight is None:
-            alg = BoundAlgorithm(algorithm=obj, position=position)
+            alg = FieldPoint(field=obj, position=position)
         elif position is None:
             alg = UnboundCostFunction(algorithm=obj, weight=weight)
         elif weight is not None and position is not None:
@@ -547,47 +547,47 @@ class Field(FieldBase):
         position = np.asarray(position)
         if position.ndim < 1 or position.shape[0] != 3:
             return NotImplemented
-        return BoundAlgorithm(position=position, algorithm=self.field)
+        return FieldPoint(position=position, field=self.field)
 
     def __format__(self, format_spec):
         name = getattr(self, 'name', None) or 'Unknown'
         return super().__format__(format_spec.replace('%name', name))
 
 
-class BoundAlgorithm(Field):
-    """Position-bound class for single point, single algorithms.
+class FieldPoint(Field):
+    """Position-bound class for single point, single field.
 
-    See `Algorithm` for more precise description.
+    See `Field` for more precise description.
 
     Parameters
     ----------
-    algorithm : AlgorithmImplementation
-        The implemented algorithm to use for calculations.
+    field : FieldImplementation
+        The implemented field to use for calculations.
     position : numpy.ndarray
         The position to bind to.
 
     Methods
     -------
     +
-        Adds this algorithm with another `BoundAlgorithm`,
-        `BoundAlgorithmPoint`, or `AlgorithmCollection`.
+        Adds this field with another `FieldPoint`,
+        `MultiFieldPoint`, or `MultiFieldMultiPoint`.
 
-        :return: `BoundAlgorithmPoint` or `AlgorithmCollection`.
+        :return: `MultiFieldPoint` or `MultiFieldMultiPoint`.
     *
-        Weight the algorithm with a suitable weight.
+        Weight the field with a suitable weight.
         The weight needs to have the correct number of dimensions, but will
         otherwise broadcast properly.
 
-        :return: `CostFunction`
+        :return: `CostFieldPoint`
     @
-        Re-bind the algorithm to a new point in space. The point needs to have
+        Re-bind the field to a new point in space. The point needs to have
         3 elements in the first dimension.
 
-        :return: `BoundAlgorithm`
+        :return: `FieldPoint`
     -
-        Converts to a magnitude target algorithm.
+        Converts to a magnitude target field.
 
-        :return: `MagnitudeSquaredBoundAlgorithm`
+        :return: `SquaredFieldPoint`
 
     """
 
@@ -595,8 +595,8 @@ class BoundAlgorithm(Field):
     _is_bound = True
     _is_cost = False
 
-    def __init__(self, algorithm, position, **kwargs):
-        super().__init__(algorithm=algorithm, **kwargs)
+    def __init__(self, field, position, **kwargs):
+        super().__init__(field=field, **kwargs)
         self.position = position
 
     def __eq__(self, other):
@@ -606,18 +606,18 @@ class BoundAlgorithm(Field):
         )
 
     def __call__(self, complex_transducer_amplitudes):
-        """Evaluate the algorithm implementation.
+        """Evaluate the field implementation.
 
         Parameters
         ----------
         compelx_transducer_amplitudes : complex numpy.ndarray
             Complex representation of the transducer phases and amplitudes of the
-            array used to create the algorithm.
+            array used to create the field.
 
         Returns
         -------
         values: ndarray
-            The values of the implemented algorithm used to create the wrapper.
+            The values of the implemented field used to create the wrapper.
 
         """
         spatial_structures = self._spatial_structures()
@@ -642,7 +642,7 @@ class BoundAlgorithm(Field):
         weight = np.asarray(weight)
         if weight.dtype == object:
             return NotImplemented
-        return CostFunction(weight=weight, position=self.position, algorithm=self.algorithm)
+        return CostFunction(weight=weight, position=self.position, algorithm=self.field)
 
 
 class UnboundCostFunction(Field):
@@ -751,7 +751,7 @@ class UnboundCostFunction(Field):
         return CostFunction(weight=self.weight, position=position, algorithm=self.algorithm)
 
 
-class CostFunction(UnboundCostFunction, BoundAlgorithm):
+class CostFunction(UnboundCostFunction, FieldPoint):
     """Cost functions for single point, single algorithms.
 
     See `Algorithm` for more precise description.
@@ -1004,7 +1004,7 @@ class MagnitudeSquaredAlgorithm(MagnitudeSquaredBase, Field):
         return MagnitudeSquaredUnboundCostFunction(algorithm=algorithm, target=self.target, weight=algorithm.weight)
 
 
-class MagnitudeSquaredBoundAlgorithm(MagnitudeSquaredBase, BoundAlgorithm):
+class MagnitudeSquaredBoundAlgorithm(MagnitudeSquaredBase, FieldPoint):
     """Magnitude target bound algorithm class.
 
     Calculates the squared magnitude difference between the algorithm value(s)
