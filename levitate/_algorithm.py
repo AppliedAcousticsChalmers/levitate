@@ -535,7 +535,7 @@ class Field(FieldBase):
             return NotImplemented
 
     def __sub__(self, target):
-        return MagnitudeSquaredAlgorithm(algorithm=self, target=target)
+        return SquaredField(field=self, target=target)
 
     def __mul__(self, weight):
         weight = np.asarray(weight)
@@ -636,7 +636,7 @@ class FieldPoint(Field):
             return NotImplemented
 
     def __sub__(self, target):
-        return MagnitudeSquaredBoundAlgorithm(algorithm=self, target=target, position=self.position)
+        return SquaredFieldPoint(field=self, target=target, position=self.position)
 
     def __mul__(self, weight):
         weight = np.asarray(weight)
@@ -736,7 +736,7 @@ class CostField(Field):
             return NotImplemented
 
     def __sub__(self, target):
-        return MagnitudeSquaredUnboundCostFunction(algorithm=self, target=target, weight=self.weight)
+        return SquaredCostField(field=self, target=target, weight=self.weight)
 
     def __mul__(self, weight):
         weight = np.asarray(weight)
@@ -837,7 +837,7 @@ class CostFieldPoint(CostField, FieldPoint):
             return NotImplemented
 
     def __sub__(self, target):
-        return MagnitudeSquaredCostFunction(algorithm=self, target=target, weight=self.weight, position=self.position)
+        return SquaredCostFieldPoint(field=self, target=target, weight=self.weight, position=self.position)
 
     def __mul__(self, weight):
         weight = np.asarray(weight)
@@ -846,18 +846,18 @@ class CostFieldPoint(CostField, FieldPoint):
         return CostFieldPoint(field=self.field, weight=self.weight * weight, position=self.position)
 
 
-class MagnitudeSquaredBase(Field):
-    """Base class for magnitude target algorithms.
+class SquaredFieldBase(Field):
+    """Base class for magnitude target fields.
 
-    Uses an algorithm  :math:`A` to instead calculate :math:`V = |A - A_0|^2`,
-    i.e. the squared magnitude difference to a target. For multi-dimensional algorithms
+    Uses a field  :math:`A` to instead calculate :math:`V = |A - A_0|^2`,
+    i.e. the squared magnitude difference to a target. For multi-dimensional fields
     the target needs to have the same (or a broadcastable) shape.
     The jacobians are calculated as :math:`dV = 2 dA (A-A_0)`.
 
     Parameters
     ----------
-    algorithm: Algorithm-like
-        A wrapper of an algorithm implementation, of the same type as the magnitude target.
+    field: Field-like
+        A wrapper of a field implementation, of the same type as the magnitude target.
     target numpy.ndarray
         The static offset target value(s).
 
@@ -867,14 +867,14 @@ class MagnitudeSquaredBase(Field):
 
     """
 
-    def __init__(self, algorithm, target, **kwargs):
-        if type(self) == MagnitudeSquaredBase:
-            raise AssertionError('`MagnitudeSquaredBase` should never be directly instantiated!')
-        self.values_require = algorithm.values_require.copy()
-        self.jacobians_require = algorithm.jacobians_require.copy()
-        for key, value in algorithm.values_require.items():
+    def __init__(self, field, target, **kwargs):
+        if type(self) == SquaredFieldBase:
+            raise AssertionError('`SquaredFieldBase` should never be directly instantiated!')
+        self.values_require = field.values_require.copy()
+        self.jacobians_require = field.jacobians_require.copy()
+        for key, value in field.values_require.items():
             self.jacobians_require[key] = max(value, self.jacobians_require.get(key, -1))
-        super().__init__(algorithm=algorithm, **kwargs)
+        super().__init__(field=field, **kwargs)
         target = np.asarray(target)
         self.target = target
 
@@ -886,37 +886,37 @@ class MagnitudeSquaredBase(Field):
 
     @property
     def name(self):
-        return self.algorithm.name
+        return self.field.name
 
     def values(self, **kwargs):
         """Calculate squared magnitude difference.
 
-        If the underlying algorithm returns :math:`A`, this function returns
+        If the underlying field returns :math:`A`, this function returns
         :math:`|A - A_0|^2`, where :math:`A_0` is the target value.
 
         For information about parameters, see the documentation of the values function
-        of the underlying objects, accessed through the `algorithm` properties.
+        of the underlying objects, accessed through the `field` properties.
         """
-        values = self.algorithm.values(**kwargs)
+        values = self.field.values(**kwargs)
         values -= self.target.reshape(self.target.shape + (values.ndim - self.ndim) * (1,))
         return np.real(values * np.conj(values))
 
     def jacobians(self, **kwargs):
         """Calculate jacobians squared magnitude difference.
 
-        If the underlying algorithm returns :math:`dA`, the derivative of the value(s)
+        If the underlying field returns :math:`dA`, the derivative of the value(s)
         with respect to the transducers, this function returns
         :math:`2 dA (A - A_0)`, where :math:`A_0` is the target value.
 
         For information about parameters, see the documentation of the values function
-        of the underlying objects, accessed through the `algorithm` properties.
+        of the underlying objects, accessed through the `field` properties.
         """
-        values = self.algorithm.values(**{key: kwargs[key] for key in self.algorithm.values_require})
+        values = self.field.values(**{key: kwargs[key] for key in self.field.values_require})
         values -= self.target.reshape(self.target.shape + (values.ndim - self.ndim) * (1,))
-        jacobians = self.algorithm.jacobians(**{key: kwargs[key] for key in self.algorithm.jacobians_require})
+        jacobians = self.field.jacobians(**{key: kwargs[key] for key in self.field.jacobians_require})
         return 2 * jacobians * np.conj(values.reshape(values.shape[:self.ndim] + (1,) + values.shape[self.ndim:]))
 
-    # These properties are needed to not overwrite the requirements defined in the algorithm implementations.
+    # These properties are needed to not overwrite the requirements defined in the field implementations.
     @property
     def values_require(self):
         return self._values_require
@@ -939,7 +939,7 @@ class MagnitudeSquaredBase(Field):
             kwargs['position'] = self.position
         if self._is_cost:
             kwargs['weight'] = self.weight
-        return type(self)(self.algorithm, self.target + target, **kwargs)
+        return type(self)(field=self.field, target=self.target + target, **kwargs)
 
     def __format__(self, format_spec):
         target_str = ' - %target' if not np.allclose(self.target, 0) else ''
@@ -947,40 +947,40 @@ class MagnitudeSquaredBase(Field):
         return super().__format__(format_spec)
 
 
-class MagnitudeSquaredAlgorithm(MagnitudeSquaredBase, Field):
-    """Magnitude target algorithm class.
+class SquaredField(SquaredFieldBase, Field):
+    """Magnitude target field class.
 
-    Calculates the squared magnitude difference between the algorithm value(s)
+    Calculates the squared magnitude difference between the field value(s)
     and a static target value(s).
 
     Parameters
     ----------
-    algorithm: Algorithm
-        A wrapper of an algorithm implementation.
+    field: Field
+        A wrapper of an field implementation.
     target: numpy.ndarray
         The static offset target value(s).
 
     Methods
     -------
     +
-        Adds this algorithm with another `Algorithm` or `AlgorithmPoint`.
+        Adds this field with another `Field` or `MultiField`.
 
-        :return: `AlgorithmPoint`
+        :return: `MultiField`
     *
-        Weight the algorithm with a suitable weight.
+        Weight the field with a suitable weight.
         The weight needs to have the correct number of dimensions, but will
         otherwise broadcast properly.
 
-        :return: `MagnitudeSquaredUnboundCostFunction`
+        :return: `SquaredCostField`
     @
-        Bind the algorithm to a point in space. The point needs to have
+        Bind the field to a point in space. The point needs to have
         3 elements in the first dimension.
 
-        :return: `MagnitudeSquaredBoundAlgorithm`
+        :return: `SquaredFieldPoint`
     -
         Shifts the current target value(s) with the new values.
 
-        :return: `MagnitudeSquaredAlgorithm`
+        :return: `SquaredField`
 
     """
 
@@ -988,7 +988,7 @@ class MagnitudeSquaredAlgorithm(MagnitudeSquaredBase, Field):
         if other == 0:
             return self
         other_type = type(other)
-        if MagnitudeSquaredBase in other_type.__bases__:
+        if SquaredFieldBase in other_type.__bases__:
             other_type = other_type.__bases__[1]
         if other_type == type(self).__bases__[1]:
             return AlgorithmPoint(self, other)
@@ -996,49 +996,49 @@ class MagnitudeSquaredAlgorithm(MagnitudeSquaredBase, Field):
             return NotImplemented
 
     def __matmul__(self, position):
-        algorithm = self.algorithm @ position
-        return MagnitudeSquaredBoundAlgorithm(algorithm=algorithm, target=self.target, position=algorithm.position)
+        field = self.field @ position
+        return SquaredFieldPoint(field=field, target=self.target, position=field.position)
 
     def __mul__(self, weight):
-        algorithm = self.algorithm * weight
-        return MagnitudeSquaredUnboundCostFunction(algorithm=algorithm, target=self.target, weight=algorithm.weight)
+        field = self.field * weight
+        return SquaredCostField(field=field, target=self.target, weight=field.weight)
 
 
-class MagnitudeSquaredBoundAlgorithm(MagnitudeSquaredBase, FieldPoint):
-    """Magnitude target bound algorithm class.
+class SquaredFieldPoint(SquaredFieldBase, FieldPoint):
+    """Magnitude target bound field class.
 
-    Calculates the squared magnitude difference between the algorithm value(s)
+    Calculates the squared magnitude difference between the field value(s)
     and a static target value(s).
 
     Parameters
     ----------
-    algorithm: BoundAlgorithm
-        A wrapper of an algorithm implementation.
+    field: FieldPoint
+        A wrapper of an field implementation.
     target: numpy.ndarray
         The static offset target value(s).
 
     Methods
     -------
     +
-        Adds this algorithm with another `BoundAlgorithm`,
-        `BoundAlgorithmPoint`, or `AlgorithmCollection`.
+        Adds this field with another `FieldPoint`,
+        `MultiFieldPoint`, or `MultiFieldMultiPoint`.
 
-        :return: `BoundAlgorithmPoint`, or `AlgorithmCollection`
+        :return: `MultiFieldPoint`, or `MultiFieldMultiPoint`
     *
-        Weight the algorithm with a suitable weight.
+        Weight the field with a suitable weight.
         The weight needs to have the correct number of dimensions, but will
         otherwise broadcast properly.
 
-        :return: `MagnitudeSquaredCostFunction`
+        :return: `SquaredCostFieldPoint`
     @
-        Re-bind the algorithm to a point in space. The point needs to have
+        Re-bind the field to a point in space. The point needs to have
         3 elements in the first dimension.
 
-        :return: `MagnitudeSquaredBoundAlgorithm`
+        :return: `SquaredFieldPoint`
     -
         Shifts the current target value(s) with the new values.
 
-        :return: `MagnitudeSquaredBoundAlgorithm`
+        :return: `SquaredFieldPoint`
 
     """
 
@@ -1046,7 +1046,7 @@ class MagnitudeSquaredBoundAlgorithm(MagnitudeSquaredBase, FieldPoint):
         if other == 0:
             return self
         other_type = type(other)
-        if MagnitudeSquaredBase in other_type.__bases__:
+        if SquaredFieldBase in other_type.__bases__:
             other_type = other_type.__bases__[1]
         if other_type == type(self).__bases__[1]:
             if np.allclose(self.position, other.position):
@@ -1057,48 +1057,48 @@ class MagnitudeSquaredBoundAlgorithm(MagnitudeSquaredBase, FieldPoint):
             return NotImplemented
 
     def __matmul__(self, position):
-        algorithm = self.algorithm @ position
-        return MagnitudeSquaredBoundAlgorithm(algorithm=algorithm, target=self.target, position=algorithm.position)
+        field = self.field @ position
+        return SquaredFieldPoint(field=field, target=self.target, position=field.position)
 
     def __mul__(self, weight):
-        algorithm = self.algorithm * weight
-        return MagnitudeSquaredCostFunction(algorithm=algorithm, target=self.target, weight=algorithm.weight, position=algorithm.position)
+        field = self.field * weight
+        return SquaredCostFieldPoint(field=field, target=self.target, weight=field.weight, position=field.position)
 
 
-class MagnitudeSquaredUnboundCostFunction(MagnitudeSquaredBase, CostField):
-    """Magnitude target unbound cost function class.
+class SquaredCostField(SquaredFieldBase, CostField):
+    """Magnitude target unbound cost field class.
 
-    Calculates the squared magnitude difference between the algorithm value(s)
+    Calculates the squared magnitude difference between the field value(s)
     and a static target value(s).
 
     Parameters
     ----------
-    algorithm: UnboundCostFunction
-        A wrapper of an algorithm implementation.
+    field: CostField
+        A wrapper of an field implementation.
     target: numpy.ndarray
         The static offset target value(s).
 
     Methods
     -------
     +
-        Adds this algorithm with another `UnboundCostFunction` or `UnboundCostFunctionPoint`.
+        Adds this field with another `CostField` or `MultiCostField`.
 
-        :return: `UnboundCostFunctionPoint`
+        :return: `MultiCostField`
     *
         Rescale the weight, i.e. multiplies the current weight with the new value.
         The weight needs to have the correct number of dimensions, but will
         otherwise broadcast properly.
 
-        :return: `MagnitudeSquaredUnboundCostFunction`
+        :return: `SquaredCostField`
     @
-        Bind the algorithm to a point in space. The point needs to have
+        Bind the field to a point in space. The point needs to have
         3 elements in the first dimension.
 
-        :return: `MagnitudeSquaredCostFunction`
+        :return: `SquaredCostFieldPoint`
     -
         Shifts the current target value(s) with the new values.
 
-        :return: `MagnitudeSquaredUnboundCostFunction`
+        :return: `SquaredCostField`
 
     """
 
@@ -1106,7 +1106,7 @@ class MagnitudeSquaredUnboundCostFunction(MagnitudeSquaredBase, CostField):
         if other == 0:
             return self
         other_type = type(other)
-        if MagnitudeSquaredBase in other_type.__bases__:
+        if SquaredFieldBase in other_type.__bases__:
             other_type = other_type.__bases__[1]
         if other_type == type(self).__bases__[1]:
             return UnboundCostFunctionPoint(self, other)
@@ -1114,49 +1114,49 @@ class MagnitudeSquaredUnboundCostFunction(MagnitudeSquaredBase, CostField):
             return NotImplemented
 
     def __matmul__(self, position):
-        algorithm = self.algorithm @ position
-        return MagnitudeSquaredCostFunction(algorithm=algorithm, target=self.target, position=algorithm.position, weight=algorithm.weight)
+        field = self.field @ position
+        return SquaredCostFieldPoint(field=field, target=self.target, position=field.position, weight=field.weight)
 
     def __mul__(self, weight):
-        algorithm = self.algorithm * weight
-        return MagnitudeSquaredUnboundCostFunction(algorithm=algorithm, target=self.target, weight=algorithm.weight)
+        field = self.field * weight
+        return SquaredCostField(field=field, target=self.target, weight=field.weight)
 
 
-class MagnitudeSquaredCostFunction(MagnitudeSquaredBase, CostFieldPoint):
+class SquaredCostFieldPoint(SquaredFieldBase, CostFieldPoint):
     """Magnitude target cost function class.
 
-    Calculates the squared magnitude difference between the algorithm value(s)
+    Calculates the squared magnitude difference between the field value(s)
     and a static target value(s).
 
     Parameters
     ----------
-    algorithm: CostFunction
-        A wrapper of an algorithm implementation.
+    field: CostFieldPoint
+        A wrapper of an field implementation.
     target: numpy.ndarray
         The static offset target value(s).
 
     Methods
     -------
     +
-        Adds this algorithm with another `CostFunction`,
-        `CostFunctionPoint`, or `CostFunctionCollection`.
+        Adds this field with another `CostFieldPoint`,
+        `MultiCostFieldPoint`, or `MultiCostFieldMultiPoint`.
 
-        :return: `CostFunctionPoint`, or `CostFunctionCollection`
+        :return: `MultiCostFieldPoint`, or `MultiCostFieldMultiPoint`
     *
         Rescale the weight, i.e. multiplies the current weight with the new value.
         The weight needs to have the correct number of dimensions, but will
         otherwise broadcast properly.
 
-        :return: `MagnitudeSquaredCostFunction`
+        :return: `SquaredCostFieldPoint`
     @
-        Bind the algorithm to a point in space. The point needs to have
+        Bind the field to a point in space. The point needs to have
         3 elements in the first dimension.
 
-        :return: `MagnitudeSquaredCostFunction`
+        :return: `SquaredCostFieldPoint`
     -
         Shifts the current target value(s) with the new values.
 
-        :return: `MagnitudeSquaredCostFunction`
+        :return: `SquaredCostFieldPoint`
 
     """
 
@@ -1164,7 +1164,7 @@ class MagnitudeSquaredCostFunction(MagnitudeSquaredBase, CostFieldPoint):
         if other == 0:
             return self
         other_type = type(other)
-        if MagnitudeSquaredBase in other_type.__bases__:
+        if SquaredFieldBase in other_type.__bases__:
             other_type = other_type.__bases__[1]
         if other_type == type(self).__bases__[1]:
             if np.allclose(self.position, other.position):
@@ -1175,12 +1175,12 @@ class MagnitudeSquaredCostFunction(MagnitudeSquaredBase, CostFieldPoint):
             return NotImplemented
 
     def __matmul__(self, position):
-        algorithm = self.algorithm @ position
-        return MagnitudeSquaredCostFunction(algorithm=algorithm, target=self.target, position=algorithm.position, weight=algorithm.weight)
+        field = self.field @ position
+        return SquaredCostFieldPoint(field=field, target=self.target, position=field.position, weight=field.weight)
 
     def __mul__(self, weight):
-        algorithm = self.algorithm * weight
-        return MagnitudeSquaredCostFunction(algorithm=algorithm, target=self.target, weight=algorithm.weight, position=algorithm.position)
+        field = self.field * weight
+        return SquaredCostFieldPoint(field=field, target=self.target, weight=field.weight, position=field.position)
 
 
 class AlgorithmPoint(FieldBase):
