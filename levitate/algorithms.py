@@ -35,13 +35,13 @@ References
 
 import numpy as np
 from . import materials, utils
-from ._algorithm import AlgorithmImplementation
+from ._algorithm import FieldImplementation
 from ._algorithms_legacy import gorkov_potential, gorkov_gradient, gorkov_laplacian  # noqa: F401
 from ._algorithms_legacy import second_order_force, second_order_stiffness, second_order_curl, second_order_force_gradient  # noqa: F401
 from ._algorithms_legacy import pressure_squared_magnitude, velocity_squared_magnitude  # noqa: F401
 
 
-class Pressure(AlgorithmImplementation):
+class Pressure(FieldImplementation):
     """Complex sound pressure :math:`p`.
 
     Calculates the complex-valued sound pressure.
@@ -49,8 +49,8 @@ class Pressure(AlgorithmImplementation):
     """
 
     ndim = 0
-    values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=0)
-    jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_individual=0)
+    values_require = FieldImplementation.requirement(pressure_derivs_summed=0)
+    jacobians_require = FieldImplementation.requirement(pressure_derivs_individual=0)
 
     def values(self, pressure_derivs_summed):  # noqa: D102
         return pressure_derivs_summed[0]
@@ -59,7 +59,7 @@ class Pressure(AlgorithmImplementation):
         return pressure_derivs_individual[0]
 
 
-class Velocity(AlgorithmImplementation):
+class Velocity(FieldImplementation):
     r"""Complex sound particle velocity :math:`v`.
 
     Calculates the sound particle velocity
@@ -73,8 +73,8 @@ class Velocity(AlgorithmImplementation):
     """
 
     ndim = 1
-    values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=1)
-    jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_individual=1)
+    values_require = FieldImplementation.requirement(pressure_derivs_summed=1)
+    jacobians_require = FieldImplementation.requirement(pressure_derivs_individual=1)
 
     def __init__(self, array, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
@@ -93,7 +93,7 @@ class Velocity(AlgorithmImplementation):
         return self.pre_grad_2_vel * pressure_derivs_individual[1:4]
 
 
-class GorkovPotential(AlgorithmImplementation):
+class GorkovPotential(FieldImplementation):
     r"""Gor'kov's potential :math:`U`.
 
     Calculates the Gor'kov potential [Gorkov]_
@@ -112,8 +112,8 @@ class GorkovPotential(AlgorithmImplementation):
     """
 
     ndim = 0
-    values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=1)
-    jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=1, pressure_derivs_individual=1)
+    values_require = FieldImplementation.requirement(pressure_derivs_summed=1)
+    jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=1, pressure_derivs_individual=1)
 
     def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.styrofoam, *args, **kwargs):  # noqa: D205, D400
         """
@@ -168,8 +168,8 @@ class GorkovGradient(GorkovPotential):
     """
 
     ndim = 1
-    values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2)
-    jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
+    values_require = FieldImplementation.requirement(pressure_derivs_summed=2)
+    jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
     def values(self, pressure_derivs_summed):  # noqa: D102
         values = np.real(self.pressure_coefficient * np.conj(pressure_derivs_summed[0]) * pressure_derivs_summed[1:4])  # Pressure parts
@@ -201,8 +201,8 @@ class GorkovLaplacian(GorkovPotential):
     """
 
     ndim = 1
-    values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3)
-    jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
+    values_require = FieldImplementation.requirement(pressure_derivs_summed=3)
+    jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
 
     def values(self, pressure_derivs_summed):  # noqa: D102
         values = np.real(self.pressure_coefficient * (np.conj(pressure_derivs_summed[0]) * pressure_derivs_summed[[4, 5, 6]] + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
@@ -219,7 +219,7 @@ class GorkovLaplacian(GorkovPotential):
         return jacobians * 2
 
 
-class RadiationForce(AlgorithmImplementation):
+class RadiationForce(FieldImplementation):
     r"""Radiation force calculation for small beads in arbitrary sound fields.
 
     Calculates the radiation force on a small particle in a sound field which
@@ -250,8 +250,8 @@ class RadiationForce(AlgorithmImplementation):
     """
 
     ndim = 1
-    values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2)
-    jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
+    values_require = FieldImplementation.requirement(pressure_derivs_summed=2)
+    jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
     def __init__(self, array, radius_sphere=1e-3, sphere_material=materials.styrofoam, *args, **kwargs):  # noqa: D205, D400
         """
@@ -309,8 +309,8 @@ class RadiationForceStiffness(RadiationForce):
     """
 
     ndim = 1
-    values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3)
-    jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
+    values_require = FieldImplementation.requirement(pressure_derivs_summed=3)
+    jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
 
     def values(self, pressure_derivs_summed):  # noqa: D102
         values = np.real(self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[[4, 5, 6]]) + pressure_derivs_summed[[1, 2, 3]] * np.conj(pressure_derivs_summed[[1, 2, 3]])))
@@ -342,8 +342,8 @@ class RadiationForceCurl(RadiationForce):
     """
 
     ndim = 1
-    values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2)
-    jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
+    values_require = FieldImplementation.requirement(pressure_derivs_summed=2)
+    jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -381,8 +381,8 @@ class RadiationForceGradient(RadiationForce):
     """
 
     ndim = 2
-    values_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3)
-    jacobians_require = AlgorithmImplementation.requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
+    values_require = FieldImplementation.requirement(pressure_derivs_summed=3)
+    jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
 
     def values(self, pressure_derivs_summed):  # noqa: D102
         values = np.zeros((3, 3) + pressure_derivs_summed.shape[1:])
@@ -443,7 +443,7 @@ class RadiationForceGradient(RadiationForce):
         return values
 
 
-class SphericalHarmonicsForce(AlgorithmImplementation):
+class SphericalHarmonicsForce(FieldImplementation):
     r"""Spherical harmonics based radiation force.
 
     Expands the local sound field in spherical harmonics and calculates
@@ -478,7 +478,7 @@ class SphericalHarmonicsForce(AlgorithmImplementation):
 
     def __init__(self, array, orders, radius_sphere=1e-3, sphere_material=materials.styrofoam, scattering_model='Hard sphere', *args, **kwargs):
         super().__init__(array, *args, **kwargs)
-        self.values_require = AlgorithmImplementation.requirement(spherical_harmonics_summed=orders + 1)
+        self.values_require = FieldImplementation.requirement(spherical_harmonics_summed=orders + 1)
 
         sph_idx = utils.SphericalHarmonicsIndexer(orders)
         from scipy.special import spherical_jn, spherical_yn
