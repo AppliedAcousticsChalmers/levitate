@@ -137,7 +137,7 @@ requirements = dict(
      ),
 ])
 def test_algorithm(algorithm, kwargs, value_at_pos_1, jacobian_at_pos_1):
-    algorithm = algorithm(array, **kwargs).algorithm
+    algorithm = algorithm(array, **kwargs).field
 
     val_1 = algorithm.values(**{key: requirements[key][..., 0] for key in algorithm.values_require})
     val_2 = algorithm.values(**{key: requirements[key][..., 1] for key in algorithm.values_require})

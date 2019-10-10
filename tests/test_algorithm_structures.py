@@ -46,15 +46,15 @@ cost_functions = [cost_function, cost_function_b, magnitude_squared_cost_functio
 
 def test_basics():
     # Make sure that all the above actually are what they should
-    assert type(algorithm) == classes.Algorithm
-    assert type(bound_algorithm) == classes.BoundAlgorithm
-    assert type(unbound_cost_function) == classes.UnboundCostFunction
-    assert type(cost_function) == classes.CostFunction
+    assert type(algorithm) == classes.Field
+    assert type(bound_algorithm) == classes.FieldPoint
+    assert type(unbound_cost_function) == classes.CostField
+    assert type(cost_function) == classes.CostFieldPoint
 
-    assert type(magnitude_squared_algorithm) == classes.MagnitudeSquaredAlgorithm
-    assert type(magnitude_squared_bound_algorithm) == classes.MagnitudeSquaredBoundAlgorithm
-    assert type(magnitude_squared_unbound_cost_function) == classes.MagnitudeSquaredUnboundCostFunction
-    assert type(magnitude_squared_cost_function) == classes.MagnitudeSquaredCostFunction
+    assert type(magnitude_squared_algorithm) == classes.SquaredField
+    assert type(magnitude_squared_bound_algorithm) == classes.SquaredFieldPoint
+    assert type(magnitude_squared_unbound_cost_function) == classes.SquaredCostField
+    assert type(magnitude_squared_cost_function) == classes.SquaredCostFieldPoint
 
     assert type(algorithm_point) == classes.AlgorithmPoint
     assert type(bound_algorithm_point) == classes.BoundAlgorithmPoint
@@ -142,9 +142,9 @@ def test_algorithm():
     not_addable(algorithm, cost_functions)
 
     # Test of other morphing
-    mult(algorithm, classes.UnboundCostFunction)
-    bind(algorithm, classes.BoundAlgorithm)
-    sub(algorithm, classes.MagnitudeSquaredAlgorithm)
+    mult(algorithm, classes.CostField)
+    bind(algorithm, classes.FieldPoint)
+    sub(algorithm, classes.SquaredField)
 
     # Test misc
     str(algorithm)
@@ -164,9 +164,9 @@ def test_bound_algorithm():
     not_addable(bound_algorithm, cost_functions)
 
     # Test of other morphing
-    mult(bound_algorithm, classes.CostFunction)
-    bind(bound_algorithm, classes.BoundAlgorithm)
-    sub(bound_algorithm, classes.MagnitudeSquaredBoundAlgorithm)
+    mult(bound_algorithm, classes.CostFieldPoint)
+    bind(bound_algorithm, classes.FieldPoint)
+    sub(bound_algorithm, classes.SquaredFieldPoint)
 
     # Test misc
     str(bound_algorithm)
@@ -182,9 +182,9 @@ def test_unbound_cost_function():
     not_addable(unbound_cost_function, cost_functions)
 
     # Test of other morphing
-    mult(unbound_cost_function, classes.UnboundCostFunction)
-    bind(unbound_cost_function, classes.CostFunction)
-    sub(unbound_cost_function, classes.MagnitudeSquaredUnboundCostFunction)
+    mult(unbound_cost_function, classes.CostField)
+    bind(unbound_cost_function, classes.CostFieldPoint)
+    sub(unbound_cost_function, classes.SquaredCostField)
 
     # Test misc
     str(unbound_cost_function)
@@ -204,9 +204,9 @@ def test_cost_function():
     not_addable(cost_function, bound_algorithms)
 
     # Test of other morphing
-    mult(cost_function, classes.CostFunction)
-    bind(cost_function, classes.CostFunction)
-    sub(cost_function, classes.MagnitudeSquaredCostFunction)
+    mult(cost_function, classes.CostFieldPoint)
+    bind(cost_function, classes.CostFieldPoint)
+    sub(cost_function, classes.SquaredCostFieldPoint)
 
     # Test misc
     str(cost_function)
@@ -222,9 +222,9 @@ def test_magnitude_squared_algorithm():
     not_addable(magnitude_squared_algorithm, cost_functions)
 
     # Test of other morphing
-    mult(magnitude_squared_algorithm, classes.MagnitudeSquaredUnboundCostFunction)
-    bind(magnitude_squared_algorithm, classes.MagnitudeSquaredBoundAlgorithm)
-    sub(magnitude_squared_algorithm, classes.MagnitudeSquaredAlgorithm)
+    mult(magnitude_squared_algorithm, classes.SquaredCostField)
+    bind(magnitude_squared_algorithm, classes.SquaredFieldPoint)
+    sub(magnitude_squared_algorithm, classes.SquaredField)
 
     # Test misc
     str(magnitude_squared_algorithm)
@@ -244,9 +244,9 @@ def test_magnitude_squared_bound_algorithm():
     not_addable(magnitude_squared_bound_algorithm, cost_functions)
 
     # Test of other morphing
-    mult(magnitude_squared_bound_algorithm, classes.MagnitudeSquaredCostFunction)
-    bind(magnitude_squared_bound_algorithm, classes.MagnitudeSquaredBoundAlgorithm)
-    sub(magnitude_squared_bound_algorithm, classes.MagnitudeSquaredBoundAlgorithm)
+    mult(magnitude_squared_bound_algorithm, classes.SquaredCostFieldPoint)
+    bind(magnitude_squared_bound_algorithm, classes.SquaredFieldPoint)
+    sub(magnitude_squared_bound_algorithm, classes.SquaredFieldPoint)
 
     # Test misc
     str(magnitude_squared_bound_algorithm)
@@ -262,9 +262,9 @@ def test_magnitude_squared_unbound_cost_function():
     not_addable(magnitude_squared_unbound_cost_function, cost_functions)
 
     # Test of other morphing
-    mult(magnitude_squared_unbound_cost_function, classes.MagnitudeSquaredUnboundCostFunction)
-    bind(magnitude_squared_unbound_cost_function, classes.MagnitudeSquaredCostFunction)
-    sub(magnitude_squared_unbound_cost_function, classes.MagnitudeSquaredUnboundCostFunction)
+    mult(magnitude_squared_unbound_cost_function, classes.SquaredCostField)
+    bind(magnitude_squared_unbound_cost_function, classes.SquaredCostFieldPoint)
+    sub(magnitude_squared_unbound_cost_function, classes.SquaredCostField)
 
     # Test misc
     str(magnitude_squared_unbound_cost_function)
@@ -284,9 +284,9 @@ def test_magnitude_squared_cost_function():
     not_addable(magnitude_squared_cost_function, bound_algorithms)
 
     # Test of other morphing
-    mult(magnitude_squared_cost_function, classes.MagnitudeSquaredCostFunction)
-    bind(magnitude_squared_cost_function, classes.MagnitudeSquaredCostFunction)
-    sub(magnitude_squared_cost_function, classes.MagnitudeSquaredCostFunction)
+    mult(magnitude_squared_cost_function, classes.SquaredCostFieldPoint)
+    bind(magnitude_squared_cost_function, classes.SquaredCostFieldPoint)
+    sub(magnitude_squared_cost_function, classes.SquaredCostFieldPoint)
 
     # Test misc
     str(magnitude_squared_cost_function)
