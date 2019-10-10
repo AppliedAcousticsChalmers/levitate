@@ -4,7 +4,7 @@ import pytest
 
 # Hardcoded values for the tests were created using the previous jacobian convention inside the cost functions.
 # The new jacobian convention is conjugated compared to the previous one, and the return format is different
-# for the algorithms compared to the cost functions.
+# for the fields compared to the cost functions.
 from levitate.materials import air
 air.c = 343
 air.rho = 1.2
@@ -94,7 +94,7 @@ requirements = dict(
 )
 
 
-@pytest.mark.parametrize("algorithm, kwargs, value_at_pos_1, jacobian_at_pos_1", [
+@pytest.mark.parametrize("field, kwargs, value_at_pos_1, jacobian_at_pos_1", [
     (levitate.fields.Pressure, {},
         12.068916910969428 + 8.065242302836108j,
         [-2.014671808191e+00 + 1.584976293557e+01j, +1.408358871916e+01 - 7.784520632737e+00j]
@@ -136,18 +136,18 @@ requirements = dict(
         None,
      ),
 ])
-def test_algorithm(algorithm, kwargs, value_at_pos_1, jacobian_at_pos_1):
-    algorithm = algorithm(array, **kwargs).field
+def test_field(field, kwargs, value_at_pos_1, jacobian_at_pos_1):
+    field = field(array, **kwargs).field
 
-    val_1 = algorithm.values(**{key: requirements[key][..., 0] for key in algorithm.values_require})
-    val_2 = algorithm.values(**{key: requirements[key][..., 1] for key in algorithm.values_require})
-    val_12 = algorithm.values(**{key: requirements[key] for key in algorithm.values_require})
+    val_1 = field.values(**{key: requirements[key][..., 0] for key in field.values_require})
+    val_2 = field.values(**{key: requirements[key][..., 1] for key in field.values_require})
+    val_12 = field.values(**{key: requirements[key] for key in field.values_require})
     np.testing.assert_allclose(val_1, np.array(value_at_pos_1), atol=1e-20)
     np.testing.assert_allclose(val_12, np.stack([val_1, val_2], -1))
 
     if jacobian_at_pos_1 is not None:
-        jac_1 = algorithm.jacobians(**{key: requirements[key][..., 0] for key in algorithm.jacobians_require})
-        jac_2 = algorithm.jacobians(**{key: requirements[key][..., 1] for key in algorithm.jacobians_require})
-        jac_12 = algorithm.jacobians(**{key: requirements[key] for key in algorithm.jacobians_require})
+        jac_1 = field.jacobians(**{key: requirements[key][..., 0] for key in field.jacobians_require})
+        jac_2 = field.jacobians(**{key: requirements[key][..., 1] for key in field.jacobians_require})
+        jac_12 = field.jacobians(**{key: requirements[key] for key in field.jacobians_require})
         np.testing.assert_allclose(jac_1, jacobian_at_pos_1, atol=1e-20)
         np.testing.assert_allclose(jac_12, np.stack([jac_1, jac_2], -1))
