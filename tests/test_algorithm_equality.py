@@ -15,126 +15,126 @@ array_b = levitate.arrays.RectangularArray(shape=(5, 4))
 
 def test_gorkov_parameters():
 
-    assert levitate.algorithms.GorkovPotential(array) == levitate.algorithms.GorkovPotential(array)
-    assert levitate.algorithms.GorkovPotential(array) == pickle.loads(pickle.dumps(levitate.algorithms.GorkovPotential(array)))
-    assert levitate.algorithms.GorkovPotential(array, radius_sphere=1e-3) != levitate.algorithms.GorkovPotential(array, radius_sphere=1.1e-3)
-    assert levitate.algorithms.GorkovPotential(array) != levitate.algorithms.GorkovPotential(array, sphere_material=levitate.materials.air)
+    assert levitate.fields.GorkovPotential(array) == levitate.fields.GorkovPotential(array)
+    assert levitate.fields.GorkovPotential(array) == pickle.loads(pickle.dumps(levitate.fields.GorkovPotential(array)))
+    assert levitate.fields.GorkovPotential(array, radius_sphere=1e-3) != levitate.fields.GorkovPotential(array, radius_sphere=1.1e-3)
+    assert levitate.fields.GorkovPotential(array) != levitate.fields.GorkovPotential(array, sphere_material=levitate.materials.air)
 
-    assert levitate.algorithms.GorkovGradient(array) == levitate.algorithms.GorkovGradient(array)
-    assert levitate.algorithms.GorkovGradient(array) == pickle.loads(pickle.dumps(levitate.algorithms.GorkovGradient(array)))
-    assert levitate.algorithms.GorkovGradient(array, radius_sphere=1e-3) != levitate.algorithms.GorkovGradient(array, radius_sphere=1.1e-3)
-    assert levitate.algorithms.GorkovGradient(array) != levitate.algorithms.GorkovGradient(array, sphere_material=levitate.materials.air)
+    assert levitate.fields.GorkovGradient(array) == levitate.fields.GorkovGradient(array)
+    assert levitate.fields.GorkovGradient(array) == pickle.loads(pickle.dumps(levitate.fields.GorkovGradient(array)))
+    assert levitate.fields.GorkovGradient(array, radius_sphere=1e-3) != levitate.fields.GorkovGradient(array, radius_sphere=1.1e-3)
+    assert levitate.fields.GorkovGradient(array) != levitate.fields.GorkovGradient(array, sphere_material=levitate.materials.air)
 
-    assert levitate.algorithms.GorkovLaplacian(array) == levitate.algorithms.GorkovLaplacian(array)
-    assert levitate.algorithms.GorkovLaplacian(array) == pickle.loads(pickle.dumps(levitate.algorithms.GorkovLaplacian(array)))
-    assert levitate.algorithms.GorkovLaplacian(array, radius_sphere=1e-3) != levitate.algorithms.GorkovLaplacian(array, radius_sphere=1.1e-3)
-    assert levitate.algorithms.GorkovLaplacian(array) != levitate.algorithms.GorkovLaplacian(array, sphere_material=levitate.materials.air)
+    assert levitate.fields.GorkovLaplacian(array) == levitate.fields.GorkovLaplacian(array)
+    assert levitate.fields.GorkovLaplacian(array) == pickle.loads(pickle.dumps(levitate.fields.GorkovLaplacian(array)))
+    assert levitate.fields.GorkovLaplacian(array, radius_sphere=1e-3) != levitate.fields.GorkovLaplacian(array, radius_sphere=1.1e-3)
+    assert levitate.fields.GorkovLaplacian(array) != levitate.fields.GorkovLaplacian(array, sphere_material=levitate.materials.air)
 
 
 def test_radiation_force_parameters():
 
-    assert levitate.algorithms.RadiationForce(array) == levitate.algorithms.RadiationForce(array)
-    assert levitate.algorithms.RadiationForce(array) == pickle.loads(pickle.dumps(levitate.algorithms.RadiationForce(array)))
-    assert levitate.algorithms.RadiationForce(array, radius_sphere=1e-3) != levitate.algorithms.RadiationForce(array, radius_sphere=1.1e-3)
-    assert levitate.algorithms.RadiationForce(array) != levitate.algorithms.RadiationForce(array, sphere_material=levitate.materials.air)
+    assert levitate.fields.RadiationForce(array) == levitate.fields.RadiationForce(array)
+    assert levitate.fields.RadiationForce(array) == pickle.loads(pickle.dumps(levitate.fields.RadiationForce(array)))
+    assert levitate.fields.RadiationForce(array, radius_sphere=1e-3) != levitate.fields.RadiationForce(array, radius_sphere=1.1e-3)
+    assert levitate.fields.RadiationForce(array) != levitate.fields.RadiationForce(array, sphere_material=levitate.materials.air)
 
-    assert levitate.algorithms.RadiationForceStiffness(array) == levitate.algorithms.RadiationForceStiffness(array)
-    assert levitate.algorithms.RadiationForceStiffness(array) == pickle.loads(pickle.dumps(levitate.algorithms.RadiationForceStiffness(array)))
-    assert levitate.algorithms.RadiationForceStiffness(array, radius_sphere=1e-3) != levitate.algorithms.RadiationForceStiffness(array, radius_sphere=1.1e-3)
-    assert levitate.algorithms.RadiationForceStiffness(array) != levitate.algorithms.RadiationForceStiffness(array, sphere_material=levitate.materials.air)
+    assert levitate.fields.RadiationForceStiffness(array) == levitate.fields.RadiationForceStiffness(array)
+    assert levitate.fields.RadiationForceStiffness(array) == pickle.loads(pickle.dumps(levitate.fields.RadiationForceStiffness(array)))
+    assert levitate.fields.RadiationForceStiffness(array, radius_sphere=1e-3) != levitate.fields.RadiationForceStiffness(array, radius_sphere=1.1e-3)
+    assert levitate.fields.RadiationForceStiffness(array) != levitate.fields.RadiationForceStiffness(array, sphere_material=levitate.materials.air)
 
-    assert levitate.algorithms.RadiationForceCurl(array) == levitate.algorithms.RadiationForceCurl(array)
-    assert levitate.algorithms.RadiationForceCurl(array) == pickle.loads(pickle.dumps(levitate.algorithms.RadiationForceCurl(array)))
-    assert levitate.algorithms.RadiationForceCurl(array, radius_sphere=1e-3) != levitate.algorithms.RadiationForceCurl(array, radius_sphere=1.1e-3)
-    assert levitate.algorithms.RadiationForceCurl(array) != levitate.algorithms.RadiationForceCurl(array, sphere_material=levitate.materials.air)
+    assert levitate.fields.RadiationForceCurl(array) == levitate.fields.RadiationForceCurl(array)
+    assert levitate.fields.RadiationForceCurl(array) == pickle.loads(pickle.dumps(levitate.fields.RadiationForceCurl(array)))
+    assert levitate.fields.RadiationForceCurl(array, radius_sphere=1e-3) != levitate.fields.RadiationForceCurl(array, radius_sphere=1.1e-3)
+    assert levitate.fields.RadiationForceCurl(array) != levitate.fields.RadiationForceCurl(array, sphere_material=levitate.materials.air)
 
-    assert levitate.algorithms.RadiationForceGradient(array) == levitate.algorithms.RadiationForceGradient(array)
-    assert levitate.algorithms.RadiationForceGradient(array) == pickle.loads(pickle.dumps(levitate.algorithms.RadiationForceGradient(array)))
-    assert levitate.algorithms.RadiationForceGradient(array, radius_sphere=1e-3) != levitate.algorithms.RadiationForceGradient(array, radius_sphere=1.1e-3)
-    assert levitate.algorithms.RadiationForceGradient(array) != levitate.algorithms.RadiationForceGradient(array, sphere_material=levitate.materials.air)
+    assert levitate.fields.RadiationForceGradient(array) == levitate.fields.RadiationForceGradient(array)
+    assert levitate.fields.RadiationForceGradient(array) == pickle.loads(pickle.dumps(levitate.fields.RadiationForceGradient(array)))
+    assert levitate.fields.RadiationForceGradient(array, radius_sphere=1e-3) != levitate.fields.RadiationForceGradient(array, radius_sphere=1.1e-3)
+    assert levitate.fields.RadiationForceGradient(array) != levitate.fields.RadiationForceGradient(array, sphere_material=levitate.materials.air)
 
 
 def test_spherical_harmonics_parameters():
-    assert levitate.algorithms.SphericalHarmonicsForce(array, orders=2) == levitate.algorithms.SphericalHarmonicsForce(array, orders=2)
-    assert levitate.algorithms.SphericalHarmonicsForce(array, orders=2) == pickle.loads(pickle.dumps(levitate.algorithms.SphericalHarmonicsForce(array, orders=2)))
-    assert levitate.algorithms.SphericalHarmonicsForce(array, orders=2) != levitate.algorithms.SphericalHarmonicsForce(array, orders=3)
-    assert levitate.algorithms.SphericalHarmonicsForce(array, orders=2) != levitate.algorithms.SphericalHarmonicsForce(array, orders=2, radius_sphere=1.1e-3)
-    assert levitate.algorithms.SphericalHarmonicsForce(array, orders=2) != levitate.algorithms.SphericalHarmonicsForce(array, orders=2, scattering_model='compressible')
-    assert levitate.algorithms.SphericalHarmonicsForce(array, orders=2, scattering_model='compressible') != levitate.algorithms.SphericalHarmonicsForce(array, orders=2, sphere_material=levitate.materials.air, scattering_model='compressible')
+    assert levitate.fields.SphericalHarmonicsForce(array, orders=2) == levitate.fields.SphericalHarmonicsForce(array, orders=2)
+    assert levitate.fields.SphericalHarmonicsForce(array, orders=2) == pickle.loads(pickle.dumps(levitate.fields.SphericalHarmonicsForce(array, orders=2)))
+    assert levitate.fields.SphericalHarmonicsForce(array, orders=2) != levitate.fields.SphericalHarmonicsForce(array, orders=3)
+    assert levitate.fields.SphericalHarmonicsForce(array, orders=2) != levitate.fields.SphericalHarmonicsForce(array, orders=2, radius_sphere=1.1e-3)
+    assert levitate.fields.SphericalHarmonicsForce(array, orders=2) != levitate.fields.SphericalHarmonicsForce(array, orders=2, scattering_model='compressible')
+    assert levitate.fields.SphericalHarmonicsForce(array, orders=2, scattering_model='compressible') != levitate.fields.SphericalHarmonicsForce(array, orders=2, sphere_material=levitate.materials.air, scattering_model='compressible')
 
 
 def test_direct_params():
-    assert levitate.algorithms.GorkovPotential(array) != levitate.algorithms.GorkovPotential(array_b)
-    assert levitate.algorithms.GorkovPotential(array) != levitate.algorithms.GorkovPotential(array, weight=1)
-    assert levitate.algorithms.GorkovPotential(array) != levitate.algorithms.GorkovPotential(array, position=pos)
-    assert levitate.algorithms.GorkovPotential(array) != levitate.algorithms.GorkovPotential(array, weight=1, position=pos)
+    assert levitate.fields.GorkovPotential(array) != levitate.fields.GorkovPotential(array_b)
+    assert levitate.fields.GorkovPotential(array) != levitate.fields.GorkovPotential(array, weight=1)
+    assert levitate.fields.GorkovPotential(array) != levitate.fields.GorkovPotential(array, position=pos)
+    assert levitate.fields.GorkovPotential(array) != levitate.fields.GorkovPotential(array, weight=1, position=pos)
 
 
 def test_simple_types():
     # Algorithm, should diff if array, algorithm, or type is different.
-    assert levitate.algorithms.GorkovPotential(array) == levitate.algorithms.GorkovPotential(array)
-    assert levitate.algorithms.GorkovPotential(array) == pickle.loads(pickle.dumps(levitate.algorithms.GorkovPotential(array)))
-    assert levitate.algorithms.GorkovPotential(array) != levitate.algorithms.GorkovPotential(array_b)
-    assert levitate.algorithms.GorkovPotential(array) != levitate.algorithms.GorkovGradient(array)
-    assert levitate.algorithms.GorkovPotential(array) != levitate.algorithms.GorkovPotential(array) * 1
-    assert levitate.algorithms.GorkovPotential(array) != levitate.algorithms.GorkovPotential(array) @ pos
-    assert levitate.algorithms.GorkovPotential(array) != levitate.algorithms.GorkovPotential(array) * 1 @ pos
+    assert levitate.fields.GorkovPotential(array) == levitate.fields.GorkovPotential(array)
+    assert levitate.fields.GorkovPotential(array) == pickle.loads(pickle.dumps(levitate.fields.GorkovPotential(array)))
+    assert levitate.fields.GorkovPotential(array) != levitate.fields.GorkovPotential(array_b)
+    assert levitate.fields.GorkovPotential(array) != levitate.fields.GorkovGradient(array)
+    assert levitate.fields.GorkovPotential(array) != levitate.fields.GorkovPotential(array) * 1
+    assert levitate.fields.GorkovPotential(array) != levitate.fields.GorkovPotential(array) @ pos
+    assert levitate.fields.GorkovPotential(array) != levitate.fields.GorkovPotential(array) * 1 @ pos
 
     # UnboundCostFunction, should also diff if weight is different
-    assert levitate.algorithms.GorkovPotential(array) * 1 == levitate.algorithms.GorkovPotential(array) * 1
-    assert levitate.algorithms.GorkovPotential(array) * 1 == pickle.loads(pickle.dumps(levitate.algorithms.GorkovPotential(array) * 1))
-    assert levitate.algorithms.GorkovPotential(array) * 1 != levitate.algorithms.GorkovPotential(array) * 2
-    assert levitate.algorithms.GorkovPotential(array) * 1 != levitate.algorithms.GorkovPotential(array)
-    assert levitate.algorithms.GorkovPotential(array) * 1 != levitate.algorithms.GorkovPotential(array) @ pos
-    assert levitate.algorithms.GorkovPotential(array) * 1 != levitate.algorithms.GorkovPotential(array) * 1 @ pos
+    assert levitate.fields.GorkovPotential(array) * 1 == levitate.fields.GorkovPotential(array) * 1
+    assert levitate.fields.GorkovPotential(array) * 1 == pickle.loads(pickle.dumps(levitate.fields.GorkovPotential(array) * 1))
+    assert levitate.fields.GorkovPotential(array) * 1 != levitate.fields.GorkovPotential(array) * 2
+    assert levitate.fields.GorkovPotential(array) * 1 != levitate.fields.GorkovPotential(array)
+    assert levitate.fields.GorkovPotential(array) * 1 != levitate.fields.GorkovPotential(array) @ pos
+    assert levitate.fields.GorkovPotential(array) * 1 != levitate.fields.GorkovPotential(array) * 1 @ pos
 
     # BoundAlgorithm, should also diff if position is different
-    assert levitate.algorithms.GorkovPotential(array) @ pos == levitate.algorithms.GorkovPotential(array) @ pos
-    assert levitate.algorithms.GorkovPotential(array) @ pos == pickle.loads(pickle.dumps(levitate.algorithms.GorkovPotential(array) @ pos))
-    assert levitate.algorithms.GorkovPotential(array) @ pos != levitate.algorithms.GorkovPotential(array) * 4
-    assert levitate.algorithms.GorkovPotential(array) @ pos != levitate.algorithms.GorkovPotential(array)
-    assert levitate.algorithms.GorkovPotential(array) @ pos != levitate.algorithms.GorkovPotential(array) * 1
-    assert levitate.algorithms.GorkovPotential(array) @ pos != levitate.algorithms.GorkovPotential(array) @ pos * 1
+    assert levitate.fields.GorkovPotential(array) @ pos == levitate.fields.GorkovPotential(array) @ pos
+    assert levitate.fields.GorkovPotential(array) @ pos == pickle.loads(pickle.dumps(levitate.fields.GorkovPotential(array) @ pos))
+    assert levitate.fields.GorkovPotential(array) @ pos != levitate.fields.GorkovPotential(array) * 4
+    assert levitate.fields.GorkovPotential(array) @ pos != levitate.fields.GorkovPotential(array)
+    assert levitate.fields.GorkovPotential(array) @ pos != levitate.fields.GorkovPotential(array) * 1
+    assert levitate.fields.GorkovPotential(array) @ pos != levitate.fields.GorkovPotential(array) @ pos * 1
 
     # CostFunction, should diff if position or weight is different
-    assert levitate.algorithms.GorkovPotential(array) * 1 @ pos == levitate.algorithms.GorkovPotential(array) * 1 @ pos
-    assert levitate.algorithms.GorkovPotential(array) * 1 @ pos == pickle.loads(pickle.dumps(levitate.algorithms.GorkovPotential(array) * 1 @ pos))
-    assert levitate.algorithms.GorkovPotential(array) * 1 @ pos != levitate.algorithms.GorkovPotential(array) * 1 @ pos_b
-    assert levitate.algorithms.GorkovPotential(array) * 1 @ pos != levitate.algorithms.GorkovPotential(array) * 2 @ pos
-    assert levitate.algorithms.GorkovPotential(array) * 1 @ pos != levitate.algorithms.GorkovPotential(array) * 2 @ pos_b
-    assert levitate.algorithms.GorkovPotential(array) * 1 @ pos != levitate.algorithms.GorkovPotential(array)
-    assert levitate.algorithms.GorkovPotential(array) * 1 @ pos != levitate.algorithms.GorkovPotential(array) * 1
-    assert levitate.algorithms.GorkovPotential(array) * 1 @ pos != levitate.algorithms.GorkovPotential(array) @ pos
+    assert levitate.fields.GorkovPotential(array) * 1 @ pos == levitate.fields.GorkovPotential(array) * 1 @ pos
+    assert levitate.fields.GorkovPotential(array) * 1 @ pos == pickle.loads(pickle.dumps(levitate.fields.GorkovPotential(array) * 1 @ pos))
+    assert levitate.fields.GorkovPotential(array) * 1 @ pos != levitate.fields.GorkovPotential(array) * 1 @ pos_b
+    assert levitate.fields.GorkovPotential(array) * 1 @ pos != levitate.fields.GorkovPotential(array) * 2 @ pos
+    assert levitate.fields.GorkovPotential(array) * 1 @ pos != levitate.fields.GorkovPotential(array) * 2 @ pos_b
+    assert levitate.fields.GorkovPotential(array) * 1 @ pos != levitate.fields.GorkovPotential(array)
+    assert levitate.fields.GorkovPotential(array) * 1 @ pos != levitate.fields.GorkovPotential(array) * 1
+    assert levitate.fields.GorkovPotential(array) * 1 @ pos != levitate.fields.GorkovPotential(array) @ pos
 
 
 def test_magnitude_squared_types():
     # These should diff if the algorithm is different, or if the target "vector" is different.
     # MagnitudeSquaredAlgorithm
-    assert levitate.algorithms.GorkovPotential(array) - 0 == levitate.algorithms.GorkovPotential(array) - 0
-    assert levitate.algorithms.GorkovPotential(array) - 0 == pickle.loads(pickle.dumps(levitate.algorithms.GorkovPotential(array) - 0))
-    assert levitate.algorithms.GorkovPotential(array) - 0 != levitate.algorithms.GorkovGradient(array) - 0
-    assert levitate.algorithms.GorkovPotential(array) - 0 != levitate.algorithms.GorkovPotential(array) - 1
+    assert levitate.fields.GorkovPotential(array) - 0 == levitate.fields.GorkovPotential(array) - 0
+    assert levitate.fields.GorkovPotential(array) - 0 == pickle.loads(pickle.dumps(levitate.fields.GorkovPotential(array) - 0))
+    assert levitate.fields.GorkovPotential(array) - 0 != levitate.fields.GorkovGradient(array) - 0
+    assert levitate.fields.GorkovPotential(array) - 0 != levitate.fields.GorkovPotential(array) - 1
 
     # MagnitudeSquaredUnboundCostFunction
-    assert levitate.algorithms.GorkovPotential(array) * 1 - 0 == levitate.algorithms.GorkovPotential(array) * 1 - 0
-    assert levitate.algorithms.GorkovPotential(array) * 1 - 0 == pickle.loads(pickle.dumps(levitate.algorithms.GorkovPotential(array) * 1 - 0))
-    assert levitate.algorithms.GorkovPotential(array) * 1 - 0 != levitate.algorithms.GorkovPotential(array) * 1 - 1
+    assert levitate.fields.GorkovPotential(array) * 1 - 0 == levitate.fields.GorkovPotential(array) * 1 - 0
+    assert levitate.fields.GorkovPotential(array) * 1 - 0 == pickle.loads(pickle.dumps(levitate.fields.GorkovPotential(array) * 1 - 0))
+    assert levitate.fields.GorkovPotential(array) * 1 - 0 != levitate.fields.GorkovPotential(array) * 1 - 1
 
     # MagnitudeSquaredBoundAlgorithm
-    assert levitate.algorithms.GorkovPotential(array) @ pos - 0 == levitate.algorithms.GorkovPotential(array) @ pos - 0
-    assert levitate.algorithms.GorkovPotential(array) @ pos - 0 == pickle.loads(pickle.dumps(levitate.algorithms.GorkovPotential(array) @ pos - 0))
-    assert levitate.algorithms.GorkovPotential(array) @ pos - 0 != levitate.algorithms.GorkovPotential(array) @ pos - 1
+    assert levitate.fields.GorkovPotential(array) @ pos - 0 == levitate.fields.GorkovPotential(array) @ pos - 0
+    assert levitate.fields.GorkovPotential(array) @ pos - 0 == pickle.loads(pickle.dumps(levitate.fields.GorkovPotential(array) @ pos - 0))
+    assert levitate.fields.GorkovPotential(array) @ pos - 0 != levitate.fields.GorkovPotential(array) @ pos - 1
 
     # MagnitudeSquaredCostFunction
-    assert levitate.algorithms.GorkovPotential(array) * 1 @ pos - 0 == levitate.algorithms.GorkovPotential(array) * 1 @ pos - 0
-    assert levitate.algorithms.GorkovPotential(array) * 1 @ pos - 0 == pickle.loads(pickle.dumps(levitate.algorithms.GorkovPotential(array) * 1 @ pos - 0))
-    assert levitate.algorithms.GorkovPotential(array) * 1 @ pos - 0 != levitate.algorithms.GorkovPotential(array) * 1 @ pos - 1
+    assert levitate.fields.GorkovPotential(array) * 1 @ pos - 0 == levitate.fields.GorkovPotential(array) * 1 @ pos - 0
+    assert levitate.fields.GorkovPotential(array) * 1 @ pos - 0 == pickle.loads(pickle.dumps(levitate.fields.GorkovPotential(array) * 1 @ pos - 0))
+    assert levitate.fields.GorkovPotential(array) * 1 @ pos - 0 != levitate.fields.GorkovPotential(array) * 1 @ pos - 1
 
 
 def test_points_collections():
     # Should diff if any one algorithm is different, or if they have a different order, or if the type is different.
-    alg_a = levitate.algorithms.GorkovPotential(array)
-    alg_b = levitate.algorithms.GorkovGradient(array)
+    alg_a = levitate.fields.GorkovPotential(array)
+    alg_b = levitate.fields.GorkovGradient(array)
 
     # AlgorithmPoint
     assert alg_a + alg_a == alg_a + alg_a

@@ -7,14 +7,14 @@ from levitate.materials import air
 air.c = 343
 air.rho = 1.2
 
-classes = levitate._algorithm
+classes = levitate._field_wrappers
 
 pos = np.array([0.1, 0.2, 0.3])
 pos_b = np.array([-0.15, 1.27, 0.001])
 
 array = levitate.arrays.RectangularArray(shape=(4, 5))
 
-algorithm = levitate.algorithms.GorkovPotential(array)
+algorithm = levitate.fields.GorkovPotential(array)
 bound_algorithm = algorithm @ pos
 bound_algorithm_b = algorithm @ pos_b
 unbound_cost_function = algorithm * 1

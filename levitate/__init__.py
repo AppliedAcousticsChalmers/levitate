@@ -15,7 +15,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-__all__ = ['transducers', 'arrays', 'hardware', 'materials', 'optimization', 'algorithms', 'utils']
+__all__ = ['transducers', 'arrays', 'hardware', 'materials', 'optimization', 'fields', 'utils']
 
 from . import _version
 __version__ = _version.__version__
