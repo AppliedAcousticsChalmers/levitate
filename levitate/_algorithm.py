@@ -126,35 +126,35 @@ calculation functions with the magnitude and square.
 import numpy as np
 
 
-class AlgorithmImplementationMeta(type):
-    """Metaclass to wrap `AlgorithmImplementation` objects in `Algorithm` objects.
+class FieldImplementationMeta(type):
+    """Metaclass to wrap `FieldImplementation` objects in `Field` objects.
 
-    API-wise it is nice to call the implementation classes when requesting an algorithm.
+    API-wise it is nice to call the implementation classes when requesting a field.
     Since the behavior of the objects should change depending on if they are added etc,
-    it would be very difficult to keep track of both the current state and the actual algorithm
+    it would be very difficult to keep track of both the current state and the actual field
     in the same top level object. This class will upon object creation instantiate the called class,
-    but also instantiate and return an `Algorithm`-type object.
+    but also instantiate and return a `Field`-type object.
     """
 
     def __call__(cls, *cls_args, weight=None, position=None, **cls_kwargs):
-        """Instantiate an `Algorithm`-type object, using the `cls` as the base algorithm implementation.
+        """Instantiate an `Field`-type object, using the `cls` as the base field implementation.
 
-        The actual `Algorithm`-type will be chosen based on which optional parameters are passed.
-        If no parameters are passed (default) an `Algorithm` object is returned.
-        If `weight` is passed an `UnboundCostFunction` object is returned.
-        If `position` is passed a `BoundAlgorithm` object is returned.
-        If both `weight` and `position` is passed a `CostFunction` object is returned.
+        The actual `Field`-type will be chosen based on which optional parameters are passed.
+        If no parameters are passed (default) a `Field` object is returned.
+        If `weight` is passed a `CostField` object is returned.
+        If `position` is passed a `FieldPoint` object is returned.
+        If both `weight` and `position` is passed a `CostFieldPoint` object is returned.
 
         Parameters
         ----------
         cls : class
-            The `AlgorithmImplementation` class to use for calculations.
+            The `FieldImplementation` class to use for calculations.
         *cls_args :
             Args passed to the `cls`.
         weight : numeric
             Optional weight.
         position : numpy.ndarray
-            Optional array to bind the algorithm to, shape (3,...).
+            Optional array to bind the field to, shape (3,...).
         **cls_kwargs :
             Keyword arguments passed to `cls`.
 
@@ -172,8 +172,8 @@ class AlgorithmImplementationMeta(type):
         return alg
 
 
-class AlgorithmImplementation(metaclass=AlgorithmImplementationMeta):
-    """Base class for AlgorithmImplementations.
+class FieldImplementation(metaclass=FieldImplementationMeta):
+    """Base class for FieldImplementations.
 
     The attributes listed below are part of the API and should be
     implemented in subclasses.
@@ -197,9 +197,9 @@ class AlgorithmImplementation(metaclass=AlgorithmImplementationMeta):
     Methods
     -------
     values
-        Method to calculate the value(s) for the algorithm.
+        Method to calculate the value(s) for the field.
     jacobians
-        Method to calculate the jacobians for the algorithm.
+        Method to calculate the jacobians for the field.
         This method is optional if the implementation is not used
         as a cost function in optimizations.
 
@@ -228,7 +228,7 @@ class AlgorithmImplementation(metaclass=AlgorithmImplementationMeta):
     def requirement(**requirements):
         """Parse a set of requirements.
 
-        `AlgorithmImplementation` objects should define requirements for values and jacobians.
+        `FieldImplementation` objects should define requirements for values and jacobians.
         This function parses the requirements and checks that the request can be met upon call.
         Currently the inputs are converted to a dict and returned as is, but this might change
         without warning in the future.
@@ -236,8 +236,8 @@ class AlgorithmImplementation(metaclass=AlgorithmImplementationMeta):
         Keyword arguments
         ---------------------
         complex_transducer_amplitudes
-            The algorithm requires the actual complex transducer amplitudes directly.
-            This is a fallback requirement when it is not possible to implement and algorithm
+            The field requires the actual complex transducer amplitudes directly.
+            This is a fallback requirement when it is not possible to implement the field
             with the other requirements, and no performance optimization is possible.
         pressure_derivs_summed
             The number of orders of Cartesian spatial derivatives of the total sound pressure field.
@@ -265,13 +265,13 @@ class AlgorithmImplementation(metaclass=AlgorithmImplementationMeta):
 
         """
         for requirement in requirements:
-            if requirement not in AlgorithmImplementation.possible_requirements:
-                raise NotImplementedError("Requirement '{}' is not implemented for an algorithm. The possible requests are: {}".format(requirement, AlgorithmImplementation.possible_requirements))
+            if requirement not in FieldImplementation.possible_requirements:
+                raise NotImplementedError("Requirement '{}' is not implemented for a field. The possible requests are: {}".format(requirement, FieldImplementation.possible_requirements))
         return requirements
 
 
-class AlgorithmMeta(type):
-    """Metaclass for `Algorithm`-type objects.
+class FieldMeta(type):
+    """Metaclass for `Field`-type objects.
 
     This metaclass is only needed to make the `_type` property available
     at both class and instance level.
@@ -279,22 +279,22 @@ class AlgorithmMeta(type):
 
     @property
     def _type(cls):  # noqa: D401
-        """The type of the algorithm.
+        """The type of the field.
 
         In this context `type` refers for the combination of `bound` and `cost`.
         """
         return cls._is_bound, cls._is_cost
 
 
-class AlgorithmBase(metaclass=AlgorithmMeta):
-    """Base class for all algorithm type objects.
+class FieldBase(metaclass=FieldMeta):
+    """Base class for all field type objects.
 
-    This wraps a few common procedures for algorithms,
+    This wraps a few common procedures for fields,
     primarily dealing with preparation and evaluation of requirements
-    for algorithm implementations.
-    The algorithms support some numeric manipulations to simplify
+    for fields implementations.
+    The fields support some numeric manipulations to simplify
     the creation of variants of the basic types.
-    Not all types of algorithm support all operations, and the order of
+    Not all types of fields support all operations, and the order of
     operation can matter in some cases.
     If unsure if the arithmetics return the desired outcome, print the
     resulting object to inspect the new structure.
@@ -306,7 +306,7 @@ class AlgorithmBase(metaclass=AlgorithmMeta):
 
     @property
     def _type(self):  # noqa: D401
-        """The type of the algorithm.
+        """The type of the field.
 
         In this context `type` refers for the combination of `bound` and `cost`.
         """
@@ -322,9 +322,9 @@ class AlgorithmBase(metaclass=AlgorithmMeta):
         ----------
         complex_transducer_amplitudes: complex ndarray
             The transducer phase and amplitude on complex form,
-            must correspond to the same array used to create the algorithm.
+            must correspond to the same array used to create the field.
         spatial_structures: dict
-            Dictionary with the calculated spatial structures required by the algorithm(s).
+            Dictionary with the calculated spatial structures required by the field(s).
 
         Returns
         -------
@@ -349,7 +349,7 @@ class AlgorithmBase(metaclass=AlgorithmMeta):
         """Calculate spatial structures.
 
         Uses `self.requires` to fill a dictionary of calculated required
-        spatial structures at a give position to satisfy the algorithm(s) used
+        spatial structures at a give position to satisfy the fields(s) used
         for calculations.
 
         Parameters
@@ -357,22 +357,22 @@ class AlgorithmBase(metaclass=AlgorithmMeta):
         position: ndarray
             The position where to calculate the spatial structures needed.
             Shape (3,...). If position is `None` or not passed, it is assumed
-            that the algorithm is bound to a position and `self.position` will be used.
+            that the field is bound to a position and `self.position` will be used.
 
         Returns
         -------
         sptaial_structures : dict
             Dictionary with the spatial structures required to fulfill the evaluation
-            of the algorithm(s).
+            of the field(s).
 
         Note
         ----
-        Algorithm which are bound to a position will cache the spatial structures. It is
+        Fields which are bound to a position will cache the spatial structures. It is
         therefore important to not manually change the position, since that will not clear the cache
         and the new position is not actually used.
 
         """
-        # If called without a position we are using a bound algorithm, check the cache and calculate it if needed
+        # If called without a position we are using a field point, check the cache and calculate it if needed
         if position is None:
             try:
                 return self._cached_spatial_structures
@@ -419,7 +419,7 @@ class AlgorithmBase(metaclass=AlgorithmMeta):
         p.text(str(self))
 
 
-class Algorithm(AlgorithmBase):
+class Algorithm(FieldBase):
     """Primary class for single point, single algorithms.
 
     This is a wrapper class for `AlgorithmImplementation` to simplify the manipulation
@@ -1183,7 +1183,7 @@ class MagnitudeSquaredCostFunction(MagnitudeSquaredBase, CostFunction):
         return MagnitudeSquaredCostFunction(algorithm=algorithm, target=self.target, weight=algorithm.weight, position=algorithm.position)
 
 
-class AlgorithmPoint(AlgorithmBase):
+class AlgorithmPoint(FieldBase):
     """Class for multiple algorithm, single position calculations.
 
     This class collects multiple `Algorithm` objects for simultaneous evaluation at
@@ -1597,7 +1597,7 @@ class CostFunctionPoint(UnboundCostFunctionPoint, BoundAlgorithmPoint):
             return NotImplemented
 
 
-class AlgorithmCollection(AlgorithmBase):
+class AlgorithmCollection(FieldBase):
     """Collects algorithms bound to different positions.
 
     Convenience class to evaluate and manipulate algorithms bound to
