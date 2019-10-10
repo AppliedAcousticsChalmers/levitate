@@ -530,7 +530,7 @@ class Field(FieldBase):
         if other == 0:
             return self
         if type(self) == type(other):
-            return AlgorithmPoint(self, other)
+            return MultiField(self, other)
         else:
             return NotImplemented
 
@@ -629,9 +629,9 @@ class FieldPoint(Field):
             return self
         if type(self) == type(other):
             if np.allclose(self.position, other.position):
-                return BoundAlgorithmPoint(self, other)
+                return MultiFieldPoint(self, other)
             else:
-                return AlgorithmCollection(self, other)
+                return MultiFieldMultiPoint(self, other)
         else:
             return NotImplemented
 
@@ -731,7 +731,7 @@ class CostField(Field):
         if other == 0:
             return self
         if type(self) == type(other):
-            return UnboundCostFunctionPoint(self, other)
+            return MultiCostField(self, other)
         else:
             return NotImplemented
 
@@ -830,9 +830,9 @@ class CostFieldPoint(CostField, FieldPoint):
             return self
         if type(self) == type(other):
             if np.allclose(self.position, other.position):
-                return CostFunctionPoint(self, other)
+                return MultiCostFieldPoint(self, other)
             else:
-                return CostFunctionCollection(self, other)
+                return MultiCostFieldMultiPoint(self, other)
         else:
             return NotImplemented
 
@@ -991,7 +991,7 @@ class SquaredField(SquaredFieldBase, Field):
         if SquaredFieldBase in other_type.__bases__:
             other_type = other_type.__bases__[1]
         if other_type == type(self).__bases__[1]:
-            return AlgorithmPoint(self, other)
+            return MultiField(self, other)
         else:
             return NotImplemented
 
@@ -1050,9 +1050,9 @@ class SquaredFieldPoint(SquaredFieldBase, FieldPoint):
             other_type = other_type.__bases__[1]
         if other_type == type(self).__bases__[1]:
             if np.allclose(self.position, other.position):
-                return BoundAlgorithmPoint(self, other)
+                return MultiFieldPoint(self, other)
             else:
-                return AlgorithmCollection(self, other)
+                return MultiFieldMultiPoint(self, other)
         else:
             return NotImplemented
 
@@ -1109,7 +1109,7 @@ class SquaredCostField(SquaredFieldBase, CostField):
         if SquaredFieldBase in other_type.__bases__:
             other_type = other_type.__bases__[1]
         if other_type == type(self).__bases__[1]:
-            return UnboundCostFunctionPoint(self, other)
+            return MultiCostField(self, other)
         else:
             return NotImplemented
 
@@ -1168,9 +1168,9 @@ class SquaredCostFieldPoint(SquaredFieldBase, CostFieldPoint):
             other_type = other_type.__bases__[1]
         if other_type == type(self).__bases__[1]:
             if np.allclose(self.position, other.position):
-                return CostFunctionPoint(self, other)
+                return MultiCostFieldPoint(self, other)
             else:
-                return CostFunctionCollection(self, other)
+                return MultiCostFieldMultiPoint(self, other)
         else:
             return NotImplemented
 
@@ -1183,76 +1183,76 @@ class SquaredCostFieldPoint(SquaredFieldBase, CostFieldPoint):
         return SquaredCostFieldPoint(field=field, target=self.target, weight=field.weight, position=field.position)
 
 
-class AlgorithmPoint(FieldBase):
-    """Class for multiple algorithm, single position calculations.
+class MultiField(FieldBase):
+    """Class for multiple fields, single position calculations.
 
-    This class collects multiple `Algorithm` objects for simultaneous evaluation at
-    the same position(s). Since the algorithms can use the same spatial structures
-    this is more efficient than to evaluate all the algorithms one by one.
+    This class collects multiple `Field` objects for simultaneous evaluation at
+    the same position(s). Since the fields can use the same spatial structures
+    this is more efficient than to evaluate all the fields one by one.
 
     Parameters
     ----------
-    *algorithms : Algorithm
-        Any number of `Algorithm` objects.
+    *fields : Field
+        Any number of `Field` objects.
 
     Methods
     -------
     +
-        Adds an `Algorithm` or `AlgorithmPoint` to the current set
-        of algorithms.
+        Adds an `Field` or `MultiField` to the current set
+        of fields.
 
-        :return: `AlgorithmPoint`
+        :return: `FieldPoint`
     *
-        Weights all algorithms with the same weight. This requires
-        that all the algorithms can actually use the same weight.
+        Weights all fields with the same weight. This requires
+        that all the fields can actually use the same weight.
 
-        :return: `UnboundCostFunctionPoint`
+        :return: `MultiCostField`
     @
-        Binds all the algorithms to the same position.
+        Binds all the fields to the same position.
 
-        :return: `BoundAlgorithmPoint`
+        :return: `MultiFieldPoint`
     -
-        Converts all the algorithms to magnitude target algorithms.
-        This requires that all the algorithms can use the same target.
+        Converts all the fields to squared target field.
+        This requires that all the fields can use the same target.
 
-        :return: `AlgorithmPoint`
+        :return: `MultiField`
 
     """
 
-    _str_format_spec = '{:%cls%algorithms%position}'
+    _str_format_spec = '{:%cls%fields%position}'
     _is_bound = False
     _is_cost = False
 
-    def __init__(self, *algorithms):
-        self.algorithms = []
+    def __init__(self, *fields):
+        self.fields = []
         self.requires = {}
-        for algorithm in algorithms:
-            self += algorithm
+        for field in fields:
+            self += field
 
     def __eq__(self, other):
-        return super().__eq__(other) and self.algorithms == other.algorithms
+        return super().__eq__(other) and self.fields == other.fields
 
     @property
     def array(self):
-        return self.algorithms[0].array
+        return self.fields[0].array
 
     def __call__(self, complex_transducer_amplitudes, position):
-        """Evaluate all algorithms.
+        """Evaluate all fields.
 
         Parameters
         ----------
-        compelx_transducer_amplitudes : complex numpy.ndarray
+        complex_transducer_amplitudes : complex numpy.ndarray
             Complex representation of the transducer phases and amplitudes of the
-            array used to create the algorithm.
+            array used to create the field.
         position : array-like
-            The position(s) where to evaluate the algorithms.
+            The position(s) where to evaluate the fields.
             The first dimension needs to have 3 elements.
 
         Returns
         -------
         values: list
-            A list of the return values from the individual algorithms.
-            Depending on the number of dimensions of the algorithms, the
+            A list of the return values from the individual fields.
+            Depending on the number of dimensions of the fields, the
             arrays in the list might not have compatible shapes.
 
         """
@@ -1260,15 +1260,15 @@ class AlgorithmPoint(FieldBase):
         spatial_structures = self._spatial_structures(position)
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
         # Call the function with the correct arguments
-        return [algorithm.values(**{key: requirements[key] for key in algorithm.values_require}) for algorithm in self.algorithms]
+        return [field.values(**{key: requirements[key] for key in field.values_require}) for field in self.fields]
 
     def __add__(self, other):
         if other == 0:
             return self
         if type(self) == type(other):
-            return AlgorithmPoint(*self.algorithms, *other.algorithms)
+            return MultiField(*self.fields, *other.fields)
         elif self._type == other._type:
-            return AlgorithmPoint(*self.algorithms, other)
+            return MultiField(*self.fields, other)
         else:
             return NotImplemented
 
@@ -1283,10 +1283,10 @@ class AlgorithmPoint(FieldBase):
         if add_element:
             for key, value in other.requires.items():
                 self.requires[key] = max(value, self.requires.get(key, -1))
-            self.algorithms.append(other)
+            self.fields.append(other)
         elif add_point:
-            for algorithm in other.algorithms:
-                self += algorithm
+            for field in other.fields:
+                self += field
         else:
             return NotImplemented
         if self.requires != old_requires:
@@ -1299,161 +1299,161 @@ class AlgorithmPoint(FieldBase):
         return self
 
     def __sub__(self, other):
-        return type(self)(*[algorithm - other for algorithm in self.algorithms])
+        return type(self)(*[field - other for field in self.fields])
 
     def __mul__(self, weight):
-        return UnboundCostFunctionPoint(*[algorithm * weight for algorithm in self.algorithms])
+        return MultiCostField(*[field * weight for field in self.fields])
 
     def __matmul__(self, position):
-        return BoundAlgorithmPoint(*[algorithm @ position for algorithm in self.algorithms])
+        return MultiFieldPoint(*[field @ position for field in self.fields])
 
     def __format__(self, format_spec):
-        if '%algorithms' in format_spec:
-            alg_start = format_spec.find('%algorithms')
-            if len(format_spec) > alg_start + 11 and format_spec[alg_start + 11] == ':':
-                alg_spec_len = format_spec[alg_start + 12].find(':')
-                alg_spec = format_spec[alg_start + 12:alg_start + 12 + alg_spec_len]
-                pre = format_spec[:alg_start + 10]
-                post = format_spec[alg_start + 13 + alg_spec_len:]
+        if '%fields' in format_spec:
+            field_start = format_spec.find('%fields')
+            if len(format_spec) > field_start + 11 and format_spec[field_start + 11] == ':':
+                field_spec_len = format_spec[field_start + 12].find(':')
+                field_spec = format_spec[field_start + 12:field_start + 12 + field_spec_len]
+                pre = format_spec[:field_start + 10]
+                post = format_spec[field_start + 13 + field_spec_len:]
                 format_spec = pre + post
             else:
-                alg_spec = '{:%name%weight}'
-            alg_str = '('
-            for algorithm in self.algorithms:
-                alg_str += alg_spec.format(algorithm) + ' + '
-            format_spec = format_spec.replace('%algorithms', alg_str.rstrip(' + ') + ')')
+                field_spec = '{:%name%weight}'
+            field_str = '('
+            for field in self.fields:
+                field_str += field_spec.format(field) + ' + '
+            format_spec = format_spec.replace('%fields', field_str.rstrip(' + ') + ')')
         return super().__format__(format_spec.replace('%name', ''))
 
 
-class BoundAlgorithmPoint(AlgorithmPoint):
-    """Class for multiple algorithm, single fixed position calculations.
+class MultiFieldPoint(MultiField):
+    """Class for multiple field, single fixed position calculations.
 
-    This class collects multiple `BoundAlgorithm` bound to the same position(s)
-    for simultaneous evaluation. Since the algorithms can use the same spatial
-    structures this is more efficient than to evaluate all the algorithms one by one.
+    This class collects multiple `FieldPoint` bound to the same position(s)
+    for simultaneous evaluation. Since the fields can use the same spatial
+    structures this is more efficient than to evaluate all the fields one by one.
 
     Parameters
     ----------
-    *algorithms : BoundAlgorithm
-        Any number of `BoundAlgorithm` objects.
+    *fields : FieldPoint
+        Any number of `FieldPoint` objects.
 
     Warning
     --------
-    If the class is initialized with algorithms bound to different points,
-    some of the algorithms are simply discarded.
+    If the class is initialized with fields bound to different points,
+    some of the fields are simply discarded.
 
     Methods
     -------
     +
-        Adds an `BoundAlgorithm` or `BoundAlgorithmPoint` to the current set
-        of algorithms. If the newly added algorithm is not bound to the same position,
-        an `AlgorithmCollection` will be created and returned.
+        Adds an `FieldPoint` or `MultiFieldPoint` to the current set
+        of fields. If the newly added field is not bound to the same position,
+        an `MultiFIeldMultiPoint` will be created and returned.
 
-        :return: `BoundAlgorithmPoint` or `AlgorithmCollection`
+        :return: `MultiFieldPoint` or `MultiFieldMultiPoint`
     *
-        Weights all algorithms with the same weight. This requires
-        that all the algorithms can actually use the same weight.
+        Weights all fields with the same weight. This requires
+        that all the fields can actually use the same weight.
 
-        :return: `CostFunctionPoint`
+        :return: `MultiCostFieldMultiPoint`
     @
-        Re-binds all the algorithms to a new position.
+        Re-binds all the fields to a new position.
 
-        :return: `BoundAlgorithmPoint`
+        :return: `MultiFieldPoint`
     -
-        Converts all the algorithms to magnitude target algorithms.
-        This requires that all the algorithms can use the same target.
+        Converts all the fields to magnitude target fields.
+        This requires that all the fields can use the same target.
 
-        :return: `BoundAlgorithmPoint`
+        :return: `MultiFieldPoint`
 
     """
 
     _is_bound = True
     _is_cost = False
 
-    def __init__(self, *algorithms):
-        self.position = algorithms[0].position
-        super().__init__(*algorithms)
+    def __init__(self, *fields):
+        self.position = fields[0].position
+        super().__init__(*fields)
 
     def __call__(self, complex_transducer_amplitudes):
-        """Evaluate all algorithms.
+        """Evaluate all fields.
 
         Parameters
         ----------
         compelx_transducer_amplitudes : complex numpy.ndarray
             Complex representation of the transducer phases and amplitudes of the
-            array used to create the algorithm.
+            array used to create the field.
 
         Returns
         -------
         values: list
-            A list of the return values from the individual algorithms.
-            Depending on the number of dimensions of the algorithms, the
+            A list of the return values from the individual fields.
+            Depending on the number of dimensions of the fields, the
             arrays in the list might not have compatible shapes.
 
         """
         spatial_structures = self._spatial_structures()
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
-        return [algorithm.values(**{key: requirements[key] for key in algorithm.values_require}) for algorithm in self.algorithms]
+        return [field.values(**{key: requirements[key] for key in field.values_require}) for field in self.fields]
 
     def __add__(self, other):
         if other == 0:
             return self
         if self._type != other._type:
             return NotImplemented
-        if type(other) == BoundAlgorithmPoint and np.allclose(self.position, other.position):
-            return BoundAlgorithmPoint(*self.algorithms, *other.algorithms)
+        if type(other) == MultiFieldPoint and np.allclose(self.position, other.position):
+            return MultiFieldPoint(*self.fields, *other.fields)
         elif isinstance(other, FieldPoint) and np.allclose(self.position, other.position):
-            return BoundAlgorithmPoint(*self.algorithms, other)
+            return MultiFieldPoint(*self.fields, other)
         else:
-            return AlgorithmCollection(self, other)
+            return MultiFieldMultiPoint(self, other)
 
     def __iadd__(self, other):
         try:
             if np.allclose(other.position, self.position):
                 return super().__iadd__(other)
             else:
-                return AlgorithmCollection(self, other)
+                return MultiFieldMultiPoint(self, other)
         except AttributeError:
             return NotImplemented
 
     def __mul__(self, weight):
-        return CostFunctionPoint(*[algorithm * weight for algorithm in self.algorithms])
+        return MultiCostFieldPoint(*[field * weight for field in self.fields])
 
 
-class UnboundCostFunctionPoint(AlgorithmPoint):
+class MultiCostField(MultiField):
     """Class for multiple cost function, single position calculations.
 
-    This class collects multiple `UnboundCostFunction` objects for simultaneous evaluation at
-    the same position(s). Since the algorithms can use the same spatial structures
-    this is more efficient than to evaluate all the algorithms one by one.
+    This class collects multiple `CostField` objects for simultaneous evaluation at
+    the same position(s). Since the fields can use the same spatial structures
+    this is more efficient than to evaluate all the fields one by one.
 
     Parameters
     ----------
-    *algorithms : UnboundCostFunction
-        Any number of `UnboundCostFunction` objects.
+    *fields : CostField
+        Any number of `CostField` objects.
 
     Methods
     -------
     +
-        Adds an `UnboundCostFunction` or `UnboundCostFunctionPoint` to the
-        current set of algorithms.
+        Adds an `CostField` or `MultiCostField` to the
+        current set of fields.
 
-        :return: `UnboundCostFunctionPoint`
+        :return: `MultiCostField`
     *
-        Rescale the weights of all algorithms, i.e. multiplies the current set of
+        Rescale the weights of all fields, i.e. multiplies the current set of
         weight with the new value. The weight needs to have the correct number of
         dimensions, but will otherwise broadcast properly.
 
-        :return: `UnboundCostFunctionPoint`
+        :return: `MultiCostField`
     @
-        Binds all the algorithms to the same position.
+        Binds all the fields to the same position.
 
-        :return: `CostFunctionPoint`
+        :return: `MultiCostFieldPoint`
     -
-        Converts all the algorithms to magnitude target algorithms.
-        This requires that all the algorithms can use the same target.
+        Converts all the fields to magnitude target fields.
+        This requires that all the fields can use the same target.
 
-        :return: `UnboundCostFunctionPoint`
+        :return: `MultiCostField`
 
     """
 
@@ -1461,88 +1461,88 @@ class UnboundCostFunctionPoint(AlgorithmPoint):
     _is_cost = True
 
     def __call__(self, complex_transducer_amplitudes, position):
-        """Evaluate the all cost functions.
+        """Evaluate and sum the all fields.
 
         Parameters
         ----------
         compelx_transducer_amplitudes : complex numpy.ndarray
             Complex representation of the transducer phases and amplitudes of the
-            array used to create the algorithm.
+            array used to create the field.
         position : array-like
-            The position(s) where to evaluate the algorithm.
+            The position(s) where to evaluate the fields.
             The first dimension needs to have 3 elements.
 
         Returns
         -------
         values: ndarray
-            The summed values of all cost functions.
+            The summed values of all fields.
         jacobians : ndarray
-            The the summed jacobians of all cost functions.
+            The the summed jacobians of all fields.
 
         """
         spatial_structures = self._spatial_structures(position)
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
         value = 0
         jacobians = 0
-        for algorithm in self.algorithms:
-            value += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.values(**{key: requirements[key] for key in algorithm.values_require}))
-            jacobians += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.jacobians(**{key: requirements[key] for key in algorithm.jacobians_require}))
+        for field in self.fields:
+            value += np.einsum(field._sum_str, field.weight, field.values(**{key: requirements[key] for key in field.values_require}))
+            jacobians += np.einsum(field._sum_str, field.weight, field.jacobians(**{key: requirements[key] for key in field.jacobians_require}))
         return value, jacobians
 
     def __add__(self, other):
         if other == 0:
             return self
         if type(self) == type(other):
-            return UnboundCostFunctionPoint(*self.algorithms, *other.algorithms)
+            return MultiCostField(*self.fields, *other.fields)
         elif self._type == other._type:
-            return UnboundCostFunctionPoint(*self.algorithms, other)
+            return MultiCostField(*self.fields, other)
         else:
             return NotImplemented
 
     def __matmul__(self, position):
-        return CostFunctionPoint(*[algorithm @ position for algorithm in self.algorithms])
+        return MultiCostFieldPoint(*[field @ position for field in self.fields])
 
 
-class CostFunctionPoint(UnboundCostFunctionPoint, BoundAlgorithmPoint):
+class MultiCostFieldPoint(MultiCostField, MultiFieldPoint):
     """Class for multiple cost function, single fixed position calculations.
 
-    This class collects multiple `CostFunction` bound to the same position(s)
-    for simultaneous evaluation. Since the algorithms can use the same spatial
-    structures this is more efficient than to evaluate all the algorithms one by one.
+    This class collects multiple `CostFieldPoint` bound to the same position(s)
+    for simultaneous evaluation. Since the fields can use the same spatial
+    structures this is more efficient than to evaluate all the fields one by one.
 
     Parameters
     ----------
-    *algorithms : CostFunction
-        Any number of `CostFunction` objects.
+    *fields : CostFieldPoint
+        Any number of `CostFieldPoint` objects.
 
     Warning
     --------
-    If the class is initialized with algorithms bound to different points,
-    some of the algorithms are simply discarded.
+    If the class is initialized with fields bound to different points,
+    some of the fields are simply discarded.
 
     Methods
     -------
     +
-        Adds an `CostFunction` or `CostFunctionPoint` to the  current set of algorithms.
+        Adds an `CostFieldPoint` or `MultiCostFieldPoint` to the  current set of fields.
         If the newly added algorithm is not bound to the same position,
-        a `CostFunctionCollection` will be created and returned.
+        a `MultiCostFieldMultiPoint` will be created and returned.
 
-        :return: `CostFunctionPoint` or `CostFunctionCollection`
+        :return: `MultiCostFieldPoint` or `MultiCostFieldMultiPoint`
     *
-        Rescale the weights of all algorithms, i.e. multiplies the current set of
+        Rescale the weights of all fields, i.e. multiplies the current set of
         weight with the new value. The weight needs to have the correct number of
         dimensions, but will otherwise broadcast properly.
 
-        :return: `CostFunctionPoint`
+        :return: `MultiCostFieldPoint`
     @
-        Re-binds all the algorithms to a new position.
+        Re-binds all the fields to a new position.
 
-        :return: `CostFunctionPoint`
+        :return: `MultiCostFieldPoint`
     -
-        Converts all the algorithms to magnitude target algorithms.
-        This requires that all the algorithms can use the same target.
+        Converts all the fields to magnitude target fields.
+        This requires that all the fields can use the same target.
 
-        :return: `CostFunctionPoint`
+        :return: `MultiCostFieldPoint`
 
     """
 
@@ -1550,13 +1550,13 @@ class CostFunctionPoint(UnboundCostFunctionPoint, BoundAlgorithmPoint):
     _is_cost = True
 
     def __call__(self, complex_transducer_amplitudes):
-        """Evaluate the all cost functions.
+        """Evaluate and sum the all fields.
 
         Parameters
         ----------
         compelx_transducer_amplitudes : complex numpy.ndarray
             Complex representation of the transducer phases and amplitudes of the
-            array used to create the algorithm.
+            array used to create the field.
 
         Returns
         -------
@@ -1570,9 +1570,9 @@ class CostFunctionPoint(UnboundCostFunctionPoint, BoundAlgorithmPoint):
         requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
         value = 0
         jacobians = 0
-        for algorithm in self.algorithms:
-            value += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.values(**{key: requirements[key] for key in algorithm.values_require}))
-            jacobians += np.einsum(algorithm._sum_str, algorithm.weight, algorithm.jacobians(**{key: requirements[key] for key in algorithm.jacobians_require}))
+        for field in self.fields:
+            value += np.einsum(field._sum_str, field.weight, field.values(**{key: requirements[key] for key in field.values_require}))
+            jacobians += np.einsum(field._sum_str, field.weight, field.jacobians(**{key: requirements[key] for key in field.jacobians_require}))
         return value, jacobians
 
     def __add__(self, other):
@@ -1580,49 +1580,49 @@ class CostFunctionPoint(UnboundCostFunctionPoint, BoundAlgorithmPoint):
             return self
         if self._type != other._type:
             return NotImplemented
-        if type(other) == CostFunctionPoint and np.allclose(self.position, other.position):
-            return CostFunctionPoint(*self.algorithms, *other.algorithms)
+        if type(other) == MultiCostFieldPoint and np.allclose(self.position, other.position):
+            return MultiCostFieldPoint(*self.fields, *other.fields)
         elif isinstance(other, CostFieldPoint) and np.allclose(self.position, other.position):
-            return CostFunctionPoint(*self.algorithms, other)
+            return MultiCostFieldPoint(*self.fields, other)
         else:
-            return CostFunctionCollection(self, other)
+            return MultiCostFieldMultiPoint(self, other)
 
     def __iadd__(self, other):
         try:
             if np.allclose(other.position, self.position):
                 return super().__iadd__(other)
             else:
-                return CostFunctionCollection(self, other)
+                return MultiCostFieldMultiPoint(self, other)
         except AttributeError:
             return NotImplemented
 
 
-class AlgorithmCollection(FieldBase):
-    """Collects algorithms bound to different positions.
+class MultiFieldMultiPoint(FieldBase):
+    """Collects fields bound to different positions.
 
-    Convenience class to evaluate and manipulate algorithms bound to
+    Convenience class to evaluate and manipulate fields bound to
     different positions in space. Will not improve the computational
-    efficiency beyond the gains from merging the algorithms bound
+    efficiency beyond the gains from merging the fields bound
     to the same positions.
 
     Parameters
     ----------
-    *algorithms: BoundAlgorithm or BoundAlgorithmPoint
-        Any number of algorithms bound to any number of points.
+    *fields: FieldPoint or MultiFieldPoint
+        Any number of fields bound to any number of points.
 
     Methods
     -------
     +
-        Adds an additional `BoundAlgorithm`, `BoundAlgorithmPoint`
-        or `AlgorithmCollection` to the set.
+        Adds an additional `FieldPoint`, `MultiFieldPoint`
+        or `MultiFieldMultiPoint` to the set.
 
-        :return: `AlgorithmCollection`
+        :return: `MultiFieldMultiPoint`
     *
-        Weights all algorithms in the set with the same weight.
+        Weights all fields in the set with the same weight.
         Requires that they can actually be weighted with the same
         weight.
 
-        :return: `CostFuncitonCollection`
+        :return: `MultiCostFieldMultiPoint`
 
     """
 
@@ -1630,34 +1630,34 @@ class AlgorithmCollection(FieldBase):
     _is_bound = True
     _is_cost = False
 
-    def __init__(self, *algorithms):
-        self.algorithms = []
-        for algorithm in algorithms:
-            self += algorithm
+    def __init__(self, *fields):
+        self.fields = []
+        for field in fields:
+            self += field
 
     def __eq__(self, other):
-        return super().__eq__(other) and self.algorithms == other.algorithms
+        return super().__eq__(other) and self.fields == other.fields
 
     def __call__(self, complex_transducer_amplitudes):
-        """Evaluate all algorithms.
+        """Evaluate all fields.
 
         Parameters
         ----------
         compelx_transducer_amplitudes : complex numpy.ndarray
             Complex representation of the transducer phases and amplitudes of the
-            array used to create the algorithm.
+            array used to create the field.
 
         Returns
         -------
         values: list
-            A list of the return values from the individual algorithms.
-            Depending on the number of dimensions of the algorithms, the
+            A list of the return values from the individual fields.
+            Depending on the number of dimensions of the fields, the
             arrays in the list might not have compatible shapes, and some
             might be lists with values corresponding to the same point in space.
 
         """
         values = []
-        for point in self.algorithms:
+        for point in self.fields:
             values.append(point(complex_transducer_amplitudes))
         return values
 
@@ -1667,27 +1667,27 @@ class AlgorithmCollection(FieldBase):
         elif self._type != other._type:
             return NotImplemented
         else:
-            return type(self)(*self.algorithms, other)
+            return type(self)(*self.fields, other)
 
     def __iadd__(self, other):
         if type(other) == type(self):
-            for algorithm in other.algorithms:
-                self += algorithm
+            for field in other.fields:
+                self += field
             return self
         elif self._type != other._type:
             return NotImplemented
         else:
-            for idx, point in enumerate(self.algorithms):
+            for idx, point in enumerate(self.fields):
                 if np.allclose(point.position, other.position):
                     # Mutating `point` will not update the contents in the list!
-                    self.algorithms[idx] += other
+                    self.fields[idx] += other
                     break
             else:
-                self.algorithms.append(other)
+                self.fields.append(other)
             return self
 
     def __mul__(self, weight):
-        return CostFunctionCollection(*[algorithm * weight for algorithm in self.algorithms])
+        return MultiCostFieldMultiPoint(*[field * weight for field in self.fields])
 
     def __format__(self, format_spec):
         if '%points' in format_spec:
@@ -1699,40 +1699,40 @@ class AlgorithmCollection(FieldBase):
                 post = format_spec[points_start + 9 + points_spec_len:]
                 format_spec = pre + post
             else:
-                points_spec = '\t{:%cls%name%algorithms%weight%position}\n'
+                points_spec = '\t{:%cls%name%fields%weight%position}\n'
             points_str = '[\n'
-            for algorithm in self.algorithms:
-                points_str += points_spec.format(algorithm).replace('%algorithms', '')
+            for field in self.fields:
+                points_str += points_spec.format(field).replace('%fields', '')
             format_spec = format_spec.replace('%points', points_str + ']')
         return super().__format__(format_spec)
 
 
-class CostFunctionCollection(AlgorithmCollection, CostFunctionPoint):
-    """Collects cost functions bound to different positions.
+class MultiCostFieldMultiPoint(MultiFieldMultiPoint, MultiCostFieldPoint):
+    """Collects cost fields bound to different positions.
 
-    Convenience class to evaluate and manipulate cost functions bound to
+    Convenience class to evaluate and manipulate cost fields bound to
     different positions in space. Will not improve the computational
-    efficiency beyond the gains from merging the algorithms bound
+    efficiency beyond the gains from merging the fields bound
     to the same positions.
 
     Parameters
     ----------
-    *algorithms: CostFunction or CostFunctionPoint
-        Any number of cost functions bound to any number of points.
+    *fields: CostFieldPoint or MultiCostFieldPoint
+        Any number of cost fields bound to any number of points.
 
     Methods
     -------
     +
-        Adds an additional `CostFunction`, `CostFunctionPoint`
-        or `CostFunctionCollection` to the set.
+        Adds an additional `CostFieldPoint`, `MultiFieldPoint`
+        or `MultiCostFieldMultiPoint` to the set.
 
-        :return: `CostFunctionCollection`
+        :return: `MultiCostFieldMultiPoint`
     *
         Rescale the weights, i.e. multiplies the current weights with the new value.
         The weight needs to have the correct number of dimensions, but will
         otherwise broadcast properly.
 
-        :return: `CostFuncitonCollection`
+        :return: `MultiCostFieldMultiPoint`
 
     """
 
@@ -1740,13 +1740,13 @@ class CostFunctionCollection(AlgorithmCollection, CostFunctionPoint):
     _is_cost = True
 
     def __call__(self, complex_transducer_amplitudes):
-        """Evaluate the all cost functions.
+        """Evaluate and sum the all fields.
 
         Parameters
         ----------
         compelx_transducer_amplitudes : complex numpy.ndarray
             Complex representation of the transducer phases and amplitudes of the
-            array used to create the algorithm.
+            array used to create the field.
 
         Returns
         -------
@@ -1758,8 +1758,8 @@ class CostFunctionCollection(AlgorithmCollection, CostFunctionPoint):
         """
         values = 0
         jacobians = 0
-        for algorithm in self.algorithms:
-            val, jac = algorithm(complex_transducer_amplitudes)
+        for field in self.fields:
+            val, jac = field(complex_transducer_amplitudes)
             values += val
             jacobians += jac
         return values, jacobians

@@ -56,13 +56,13 @@ def test_basics():
     assert type(magnitude_squared_unbound_cost_function) == classes.SquaredCostField
     assert type(magnitude_squared_cost_function) == classes.SquaredCostFieldPoint
 
-    assert type(algorithm_point) == classes.AlgorithmPoint
-    assert type(bound_algorithm_point) == classes.BoundAlgorithmPoint
-    assert type(unbound_cost_function_point) == classes.UnboundCostFunctionPoint
-    assert type(cost_function_point) == classes.CostFunctionPoint
+    assert type(algorithm_point) == classes.MultiField
+    assert type(bound_algorithm_point) == classes.MultiFieldPoint
+    assert type(unbound_cost_function_point) == classes.MultiCostField
+    assert type(cost_function_point) == classes.MultiCostFieldPoint
 
-    assert type(algorithm_collection) == classes.AlgorithmCollection
-    assert type(cost_function_collection) == classes.CostFunctionCollection
+    assert type(algorithm_collection) == classes.MultiFieldMultiPoint
+    assert type(cost_function_collection) == classes.MultiCostFieldMultiPoint
 
 
 def addable(a, b, result_cls):
@@ -134,9 +134,9 @@ def sub(obj, result_cls):
 
 def test_algorithm():
     # Test for addition
-    addable(algorithm, algorithm, classes.AlgorithmPoint)
-    addable(algorithm, magnitude_squared_algorithm, classes.AlgorithmPoint)
-    addable(algorithm, algorithm_point, classes.AlgorithmPoint)
+    addable(algorithm, algorithm, classes.MultiField)
+    addable(algorithm, magnitude_squared_algorithm, classes.MultiField)
+    addable(algorithm, algorithm_point, classes.MultiField)
     not_addable(algorithm, bound_algorithms)
     not_addable(algorithm, unbound_cost_functions)
     not_addable(algorithm, cost_functions)
@@ -152,13 +152,13 @@ def test_algorithm():
 
 def test_bound_algorithm():
     # Test for addition
-    addable(bound_algorithm, bound_algorithm, classes.BoundAlgorithmPoint)
-    addable(bound_algorithm, bound_algorithm_b, classes.AlgorithmCollection)
-    addable(bound_algorithm, magnitude_squared_bound_algorithm, classes.BoundAlgorithmPoint)
-    addable(bound_algorithm, magnitude_squared_bound_algorithm_b, classes.AlgorithmCollection)
-    addable(bound_algorithm, bound_algorithm_point, classes.BoundAlgorithmPoint)
-    addable(bound_algorithm, bound_algorithm_point_b, classes.AlgorithmCollection)
-    addable(bound_algorithm, algorithm_collection, classes.AlgorithmCollection)
+    addable(bound_algorithm, bound_algorithm, classes.MultiFieldPoint)
+    addable(bound_algorithm, bound_algorithm_b, classes.MultiFieldMultiPoint)
+    addable(bound_algorithm, magnitude_squared_bound_algorithm, classes.MultiFieldPoint)
+    addable(bound_algorithm, magnitude_squared_bound_algorithm_b, classes.MultiFieldMultiPoint)
+    addable(bound_algorithm, bound_algorithm_point, classes.MultiFieldPoint)
+    addable(bound_algorithm, bound_algorithm_point_b, classes.MultiFieldMultiPoint)
+    addable(bound_algorithm, algorithm_collection, classes.MultiFieldMultiPoint)
     not_addable(bound_algorithm, algorithms)
     not_addable(bound_algorithm, unbound_cost_functions)
     not_addable(bound_algorithm, cost_functions)
@@ -174,9 +174,9 @@ def test_bound_algorithm():
 
 def test_unbound_cost_function():
     # Test for addition
-    addable(unbound_cost_function, unbound_cost_function, classes.UnboundCostFunctionPoint)
-    addable(unbound_cost_function, magnitude_squared_unbound_cost_function, classes.UnboundCostFunctionPoint)
-    addable(unbound_cost_function, unbound_cost_function_point, classes.UnboundCostFunctionPoint)
+    addable(unbound_cost_function, unbound_cost_function, classes.MultiCostField)
+    addable(unbound_cost_function, magnitude_squared_unbound_cost_function, classes.MultiCostField)
+    addable(unbound_cost_function, unbound_cost_function_point, classes.MultiCostField)
     not_addable(unbound_cost_function, algorithms)
     not_addable(unbound_cost_function, bound_algorithms)
     not_addable(unbound_cost_function, cost_functions)
@@ -192,13 +192,13 @@ def test_unbound_cost_function():
 
 def test_cost_function():
     # Test for addition
-    addable(cost_function, cost_function, classes.CostFunctionPoint)
-    addable(cost_function, cost_function_b, classes.CostFunctionCollection)
-    addable(cost_function, magnitude_squared_cost_function, classes.CostFunctionPoint)
-    addable(cost_function, magnitude_squared_cost_function_b, classes.CostFunctionCollection)
-    addable(cost_function, cost_function_point, classes.CostFunctionPoint)
-    addable(cost_function, cost_function_point_b, classes.CostFunctionCollection)
-    addable(cost_function, cost_function_collection, classes.CostFunctionCollection)
+    addable(cost_function, cost_function, classes.MultiCostFieldPoint)
+    addable(cost_function, cost_function_b, classes.MultiCostFieldMultiPoint)
+    addable(cost_function, magnitude_squared_cost_function, classes.MultiCostFieldPoint)
+    addable(cost_function, magnitude_squared_cost_function_b, classes.MultiCostFieldMultiPoint)
+    addable(cost_function, cost_function_point, classes.MultiCostFieldPoint)
+    addable(cost_function, cost_function_point_b, classes.MultiCostFieldMultiPoint)
+    addable(cost_function, cost_function_collection, classes.MultiCostFieldMultiPoint)
     not_addable(cost_function, algorithms)
     not_addable(cost_function, unbound_cost_functions)
     not_addable(cost_function, bound_algorithms)
@@ -214,9 +214,9 @@ def test_cost_function():
 
 def test_magnitude_squared_algorithm():
     # Test for addition
-    addable(magnitude_squared_algorithm, algorithm, classes.AlgorithmPoint)
-    addable(magnitude_squared_algorithm, magnitude_squared_algorithm, classes.AlgorithmPoint)
-    addable(magnitude_squared_algorithm, algorithm_point, classes.AlgorithmPoint)
+    addable(magnitude_squared_algorithm, algorithm, classes.MultiField)
+    addable(magnitude_squared_algorithm, magnitude_squared_algorithm, classes.MultiField)
+    addable(magnitude_squared_algorithm, algorithm_point, classes.MultiField)
     not_addable(magnitude_squared_algorithm, bound_algorithms)
     not_addable(magnitude_squared_algorithm, unbound_cost_functions)
     not_addable(magnitude_squared_algorithm, cost_functions)
@@ -232,13 +232,13 @@ def test_magnitude_squared_algorithm():
 
 def test_magnitude_squared_bound_algorithm():
     # Test for addition
-    addable(magnitude_squared_bound_algorithm, bound_algorithm, classes.BoundAlgorithmPoint)
-    addable(magnitude_squared_bound_algorithm, bound_algorithm_b, classes.AlgorithmCollection)
-    addable(magnitude_squared_bound_algorithm, magnitude_squared_bound_algorithm, classes.BoundAlgorithmPoint)
-    addable(magnitude_squared_bound_algorithm, magnitude_squared_bound_algorithm_b, classes.AlgorithmCollection)
-    addable(magnitude_squared_bound_algorithm, bound_algorithm_point, classes.BoundAlgorithmPoint)
-    addable(magnitude_squared_bound_algorithm, bound_algorithm_point_b, classes.AlgorithmCollection)
-    addable(magnitude_squared_bound_algorithm, algorithm_collection, classes.AlgorithmCollection)
+    addable(magnitude_squared_bound_algorithm, bound_algorithm, classes.MultiFieldPoint)
+    addable(magnitude_squared_bound_algorithm, bound_algorithm_b, classes.MultiFieldMultiPoint)
+    addable(magnitude_squared_bound_algorithm, magnitude_squared_bound_algorithm, classes.MultiFieldPoint)
+    addable(magnitude_squared_bound_algorithm, magnitude_squared_bound_algorithm_b, classes.MultiFieldMultiPoint)
+    addable(magnitude_squared_bound_algorithm, bound_algorithm_point, classes.MultiFieldPoint)
+    addable(magnitude_squared_bound_algorithm, bound_algorithm_point_b, classes.MultiFieldMultiPoint)
+    addable(magnitude_squared_bound_algorithm, algorithm_collection, classes.MultiFieldMultiPoint)
     not_addable(magnitude_squared_bound_algorithm, algorithms)
     not_addable(magnitude_squared_bound_algorithm, unbound_cost_functions)
     not_addable(magnitude_squared_bound_algorithm, cost_functions)
@@ -254,9 +254,9 @@ def test_magnitude_squared_bound_algorithm():
 
 def test_magnitude_squared_unbound_cost_function():
     # Test for addition
-    addable(magnitude_squared_unbound_cost_function, unbound_cost_function, classes.UnboundCostFunctionPoint)
-    addable(magnitude_squared_unbound_cost_function, magnitude_squared_unbound_cost_function, classes.UnboundCostFunctionPoint)
-    addable(magnitude_squared_unbound_cost_function, unbound_cost_function_point, classes.UnboundCostFunctionPoint)
+    addable(magnitude_squared_unbound_cost_function, unbound_cost_function, classes.MultiCostField)
+    addable(magnitude_squared_unbound_cost_function, magnitude_squared_unbound_cost_function, classes.MultiCostField)
+    addable(magnitude_squared_unbound_cost_function, unbound_cost_function_point, classes.MultiCostField)
     not_addable(magnitude_squared_unbound_cost_function, algorithms)
     not_addable(magnitude_squared_unbound_cost_function, bound_algorithms)
     not_addable(magnitude_squared_unbound_cost_function, cost_functions)
@@ -272,13 +272,13 @@ def test_magnitude_squared_unbound_cost_function():
 
 def test_magnitude_squared_cost_function():
     # Test for addition
-    addable(magnitude_squared_cost_function, cost_function, classes.CostFunctionPoint)
-    addable(magnitude_squared_cost_function, cost_function_b, classes.CostFunctionCollection)
-    addable(magnitude_squared_cost_function, magnitude_squared_cost_function, classes.CostFunctionPoint)
-    addable(magnitude_squared_cost_function, magnitude_squared_cost_function_b, classes.CostFunctionCollection)
-    addable(magnitude_squared_cost_function, cost_function_point, classes.CostFunctionPoint)
-    addable(magnitude_squared_cost_function, cost_function_point_b, classes.CostFunctionCollection)
-    addable(magnitude_squared_cost_function, cost_function_collection, classes.CostFunctionCollection)
+    addable(magnitude_squared_cost_function, cost_function, classes.MultiCostFieldPoint)
+    addable(magnitude_squared_cost_function, cost_function_b, classes.MultiCostFieldMultiPoint)
+    addable(magnitude_squared_cost_function, magnitude_squared_cost_function, classes.MultiCostFieldPoint)
+    addable(magnitude_squared_cost_function, magnitude_squared_cost_function_b, classes.MultiCostFieldMultiPoint)
+    addable(magnitude_squared_cost_function, cost_function_point, classes.MultiCostFieldPoint)
+    addable(magnitude_squared_cost_function, cost_function_point_b, classes.MultiCostFieldMultiPoint)
+    addable(magnitude_squared_cost_function, cost_function_collection, classes.MultiCostFieldMultiPoint)
     not_addable(magnitude_squared_cost_function, algorithms)
     not_addable(magnitude_squared_cost_function, unbound_cost_functions)
     not_addable(magnitude_squared_cost_function, bound_algorithms)
@@ -294,17 +294,17 @@ def test_magnitude_squared_cost_function():
 
 def test_algorithm_point():
     # Test for addition
-    addable(algorithm_point, algorithm, classes.AlgorithmPoint)
-    addable(algorithm_point, magnitude_squared_algorithm, classes.AlgorithmPoint)
-    addable(algorithm_point, algorithm_point, classes.AlgorithmPoint)
+    addable(algorithm_point, algorithm, classes.MultiField)
+    addable(algorithm_point, magnitude_squared_algorithm, classes.MultiField)
+    addable(algorithm_point, algorithm_point, classes.MultiField)
     not_addable(algorithm_point, bound_algorithms)
     not_addable(algorithm_point, unbound_cost_functions)
     not_addable(algorithm_point, cost_functions)
 
     # Test of other morphing
-    mult(algorithm_point, classes.UnboundCostFunctionPoint)
-    bind(algorithm_point, classes.BoundAlgorithmPoint)
-    sub(algorithm_point, classes.AlgorithmPoint)
+    mult(algorithm_point, classes.MultiCostField)
+    bind(algorithm_point, classes.MultiFieldPoint)
+    sub(algorithm_point, classes.MultiField)
 
     # Test misc
     str(algorithm_point)
@@ -312,21 +312,21 @@ def test_algorithm_point():
 
 def test_bound_algorithm_point():
     # Test for addition
-    addable(bound_algorithm_point, bound_algorithm, classes.BoundAlgorithmPoint)
-    addable(bound_algorithm_point, bound_algorithm_b, classes.AlgorithmCollection)
-    addable(bound_algorithm_point, magnitude_squared_bound_algorithm, classes.BoundAlgorithmPoint)
-    addable(bound_algorithm_point, magnitude_squared_bound_algorithm_b, classes.AlgorithmCollection)
-    addable(bound_algorithm_point, bound_algorithm_point, classes.BoundAlgorithmPoint)
-    addable(bound_algorithm_point, bound_algorithm_point_b, classes.AlgorithmCollection)
-    addable(bound_algorithm_point, algorithm_collection, classes.AlgorithmCollection)
+    addable(bound_algorithm_point, bound_algorithm, classes.MultiFieldPoint)
+    addable(bound_algorithm_point, bound_algorithm_b, classes.MultiFieldMultiPoint)
+    addable(bound_algorithm_point, magnitude_squared_bound_algorithm, classes.MultiFieldPoint)
+    addable(bound_algorithm_point, magnitude_squared_bound_algorithm_b, classes.MultiFieldMultiPoint)
+    addable(bound_algorithm_point, bound_algorithm_point, classes.MultiFieldPoint)
+    addable(bound_algorithm_point, bound_algorithm_point_b, classes.MultiFieldMultiPoint)
+    addable(bound_algorithm_point, algorithm_collection, classes.MultiFieldMultiPoint)
     not_addable(bound_algorithm_point, algorithms)
     not_addable(bound_algorithm_point, unbound_cost_functions)
     not_addable(bound_algorithm_point, cost_functions)
 
     # Test of other morphing
-    mult(bound_algorithm_point, classes.CostFunctionPoint)
-    bind(bound_algorithm_point, classes.BoundAlgorithmPoint)
-    sub(bound_algorithm_point, classes.BoundAlgorithmPoint)
+    mult(bound_algorithm_point, classes.MultiCostFieldPoint)
+    bind(bound_algorithm_point, classes.MultiFieldPoint)
+    sub(bound_algorithm_point, classes.MultiFieldPoint)
 
     # Test misc
     str(bound_algorithm_point)
@@ -334,17 +334,17 @@ def test_bound_algorithm_point():
 
 def test_unbound_cost_function_point():
     # Test for addition
-    addable(unbound_cost_function_point, unbound_cost_function, classes.UnboundCostFunctionPoint)
-    addable(unbound_cost_function_point, magnitude_squared_unbound_cost_function, classes.UnboundCostFunctionPoint)
-    addable(unbound_cost_function_point, unbound_cost_function_point, classes.UnboundCostFunctionPoint)
+    addable(unbound_cost_function_point, unbound_cost_function, classes.MultiCostField)
+    addable(unbound_cost_function_point, magnitude_squared_unbound_cost_function, classes.MultiCostField)
+    addable(unbound_cost_function_point, unbound_cost_function_point, classes.MultiCostField)
     not_addable(unbound_cost_function_point, algorithms)
     not_addable(unbound_cost_function_point, bound_algorithms)
     not_addable(unbound_cost_function_point, cost_functions)
 
     # Test of other morphing
-    mult(unbound_cost_function_point, classes.UnboundCostFunctionPoint)
-    bind(unbound_cost_function_point, classes.CostFunctionPoint)
-    sub(unbound_cost_function_point, classes.UnboundCostFunctionPoint)
+    mult(unbound_cost_function_point, classes.MultiCostField)
+    bind(unbound_cost_function_point, classes.MultiCostFieldPoint)
+    sub(unbound_cost_function_point, classes.MultiCostField)
 
     # Test misc
     str(unbound_cost_function_point)
@@ -352,21 +352,21 @@ def test_unbound_cost_function_point():
 
 def test_cost_function_point():
     # Test for addition
-    addable(cost_function_point, cost_function, classes.CostFunctionPoint)
-    addable(cost_function_point, cost_function_b, classes.CostFunctionCollection)
-    addable(cost_function_point, magnitude_squared_cost_function, classes.CostFunctionPoint)
-    addable(cost_function_point, magnitude_squared_cost_function_b, classes.CostFunctionCollection)
-    addable(cost_function_point, cost_function_point, classes.CostFunctionPoint)
-    addable(cost_function_point, cost_function_point_b, classes.CostFunctionCollection)
-    addable(cost_function_point, cost_function_collection, classes.CostFunctionCollection)
+    addable(cost_function_point, cost_function, classes.MultiCostFieldPoint)
+    addable(cost_function_point, cost_function_b, classes.MultiCostFieldMultiPoint)
+    addable(cost_function_point, magnitude_squared_cost_function, classes.MultiCostFieldPoint)
+    addable(cost_function_point, magnitude_squared_cost_function_b, classes.MultiCostFieldMultiPoint)
+    addable(cost_function_point, cost_function_point, classes.MultiCostFieldPoint)
+    addable(cost_function_point, cost_function_point_b, classes.MultiCostFieldMultiPoint)
+    addable(cost_function_point, cost_function_collection, classes.MultiCostFieldMultiPoint)
     not_addable(cost_function_point, algorithms)
     not_addable(cost_function_point, unbound_cost_functions)
     not_addable(cost_function_point, bound_algorithms)
 
     # Test of other morphing
-    mult(cost_function_point, classes.CostFunctionPoint)
-    bind(cost_function_point, classes.CostFunctionPoint)
-    sub(cost_function_point, classes.CostFunctionPoint)
+    mult(cost_function_point, classes.MultiCostFieldPoint)
+    bind(cost_function_point, classes.MultiCostFieldPoint)
+    sub(cost_function_point, classes.MultiCostFieldPoint)
 
     # Test misc
     str(cost_function_point)
@@ -374,18 +374,18 @@ def test_cost_function_point():
 
 def test_algorithm_collection():
     # Test for addition
-    addable(algorithm_collection, bound_algorithm, classes.AlgorithmCollection)
-    addable(algorithm_collection, bound_algorithm_b, classes.AlgorithmCollection)
-    addable(algorithm_collection, magnitude_squared_bound_algorithm, classes.AlgorithmCollection)
-    addable(algorithm_collection, magnitude_squared_bound_algorithm_b, classes.AlgorithmCollection)
-    addable(algorithm_collection, bound_algorithm_point, classes.AlgorithmCollection)
-    addable(algorithm_collection, bound_algorithm_point_b, classes.AlgorithmCollection)
-    addable(algorithm_collection, algorithm_collection, classes.AlgorithmCollection)
+    addable(algorithm_collection, bound_algorithm, classes.MultiFieldMultiPoint)
+    addable(algorithm_collection, bound_algorithm_b, classes.MultiFieldMultiPoint)
+    addable(algorithm_collection, magnitude_squared_bound_algorithm, classes.MultiFieldMultiPoint)
+    addable(algorithm_collection, magnitude_squared_bound_algorithm_b, classes.MultiFieldMultiPoint)
+    addable(algorithm_collection, bound_algorithm_point, classes.MultiFieldMultiPoint)
+    addable(algorithm_collection, bound_algorithm_point_b, classes.MultiFieldMultiPoint)
+    addable(algorithm_collection, algorithm_collection, classes.MultiFieldMultiPoint)
     not_addable(algorithm_collection, algorithms)
     not_addable(algorithm_collection, unbound_cost_functions)
     not_addable(algorithm_collection, cost_functions)
 
-    mult(algorithm_collection, classes.CostFunctionCollection)
+    mult(algorithm_collection, classes.MultiCostFieldMultiPoint)
 
     # Test misc
     str(algorithm_collection)
@@ -393,18 +393,18 @@ def test_algorithm_collection():
 
 def test_cost_function_collection():
     # Test for addition
-    addable(cost_function_collection, cost_function, classes.CostFunctionCollection)
-    addable(cost_function_collection, cost_function_b, classes.CostFunctionCollection)
-    addable(cost_function_collection, magnitude_squared_cost_function, classes.CostFunctionCollection)
-    addable(cost_function_collection, magnitude_squared_cost_function_b, classes.CostFunctionCollection)
-    addable(cost_function_collection, cost_function_point, classes.CostFunctionCollection)
-    addable(cost_function_collection, cost_function_point_b, classes.CostFunctionCollection)
-    addable(cost_function_collection, cost_function_collection, classes.CostFunctionCollection)
+    addable(cost_function_collection, cost_function, classes.MultiCostFieldMultiPoint)
+    addable(cost_function_collection, cost_function_b, classes.MultiCostFieldMultiPoint)
+    addable(cost_function_collection, magnitude_squared_cost_function, classes.MultiCostFieldMultiPoint)
+    addable(cost_function_collection, magnitude_squared_cost_function_b, classes.MultiCostFieldMultiPoint)
+    addable(cost_function_collection, cost_function_point, classes.MultiCostFieldMultiPoint)
+    addable(cost_function_collection, cost_function_point_b, classes.MultiCostFieldMultiPoint)
+    addable(cost_function_collection, cost_function_collection, classes.MultiCostFieldMultiPoint)
     not_addable(cost_function_collection, algorithms)
     not_addable(cost_function_collection, unbound_cost_functions)
     not_addable(cost_function_collection, bound_algorithms)
 
-    mult(cost_function_collection, classes.CostFunctionCollection)
+    mult(cost_function_collection, classes.MultiCostFieldMultiPoint)
 
     # Test misc
     str(cost_function_collection)
