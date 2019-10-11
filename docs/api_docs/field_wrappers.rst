@@ -49,8 +49,8 @@ Magnitude Squared Types
 .. autoclass:: levitate._field_wrappers.SquaredCostFieldPoint
     :members:
 
-Points
-------
+MultiFields
+-----------
 .. autoclass:: levitate._field_wrappers.MultiField
     :members:
 
@@ -63,7 +63,7 @@ Points
 .. autoclass:: levitate._field_wrappers.MultiCostFieldPoint
     :members:
 
-Collections
+MultiPoints
 -----------
 .. autoclass:: levitate._field_wrappers.MultiFieldMultiPoint
     :members:
