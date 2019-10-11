@@ -1,4 +1,4 @@
-"""Visualization methods based on the plotly graphing library, and some connivance functions."""
+"""Visualization methods based on the plotly graphing library, and some convenience functions."""
 import numpy as np
 from .utils import SPL, SVL
 
@@ -32,7 +32,7 @@ class Visualizer:
 
     """
 
-    def __init__(self, array, xlimits=None, ylimits=None, zlimits=None, resolution=10, constant_axis=('y', 0)):
+    def __init__(self, array, xlimits=None, ylimits=None, zlimits=None, resolution=10, display_scale='mm'):
         self.array = array
         xlimits = xlimits or (np.min(array.transducer_positions[0]), np.max(array.transducer_positions[0]))
         ylimits = ylimits or (np.min(array.transducer_positions[1]), np.max(array.transducer_positions[1]))
@@ -43,12 +43,18 @@ class Visualizer:
         else:
             zlimits = zlimits or (np.min(array.transducer_positions[2]), np.max(array.transducer_positions[2]))
 
+        if max(xlimits) > min(xlimits):
+            ylimits = (max(ylimits) + min(ylimits)) / 2
+        else:
+            xlimits = (max(xlimits) + min(xlimits)) / 2
+
         self._xlimits = xlimits
         self._ylimits = ylimits
         self._zlimits = zlimits
-        self._constant_axis = constant_axis
         self.resolution = resolution
         self.calculate = array.PersistentFieldEvaluator(array)
+
+        self.display_scale = display_scale
 
     @property
     def xlimits(self):
@@ -78,23 +84,45 @@ class Visualizer:
         self._update_mesh()
 
     @property
-    def constant_axis(self):
-        try:
-            axis, value = self._constant_axis
-        except ValueError:
-            axis, value = self._constant_axis, 0
-        return axis, value
+    def display_scale(self):
+        if self._display_scale == 1e3:
+            return 'km'
+        if self._display_scale == 1:
+            return 'm'
+        if self._display_scale == 1e-1:
+            return 'dm'
+        if self._display_scale == 1e-2:
+            return 'cm'
+        if self._display_scale == 1e-3:
+            return 'mm'
+        if self._display_scale == 1e-6:
+            return 'µm'
+        if self._display_scale == 1e-9:
+            return 'nm'
+        if self._display_scale == self.array.wavelength:
+            return 'λ'
+        return '{:.2e} m'.format(self._display_scale)
 
-    @constant_axis.setter
-    def constant_axis(self, val):
-        try:
-            axis = val[0]
-            value = val[1]
-        except TypeError:
-            axis = val
-            value = 0
-        self._constant_axis = (axis, value)
-        self._update_mesh()
+    @display_scale.setter
+    def display_scale(self, val):
+        if val == 'km':
+            self._display_scale = 1e3
+        elif val == 'm':
+            self._display_scale = 1
+        elif val == 'dm':
+            self._display_scale = 1e-1
+        elif val == 'cm':
+            self._display_scale = 1e-2
+        elif val == 'mm':
+            self._display_scale = 1e-3
+        elif val == 'µm':
+            self._display_scale = 1e-6
+        elif val == 'nm':
+            self._display_scale = 1e-9
+        elif val == 'wavelengths' or val == 'λ':
+            self._display_scale = self.array.wavelength
+        else:
+            self._display_scale = val
 
     @property
     def resolution(self):
@@ -106,19 +134,20 @@ class Visualizer:
         self._update_mesh()
 
     def _update_mesh(self):
-        axis, value = self.constant_axis
-        if axis is 'x':
-            self._x, self._y, self._z = np.mgrid[value:value:1j, self.ylimits[0]:self.ylimits[1]:self._resolution, self.zlimits[0]:self.zlimits[1]:self._resolution]
-        if axis is 'y':
-            self._x, self._y, self._z = np.mgrid[self.xlimits[0]:self.xlimits[1]:self._resolution, value:value:1j, self.zlimits[0]:self.zlimits[1]:self._resolution]
-        if axis is 'z':
-            self._x, self._y, self._z = np.mgrid[self.xlimits[0]:self.xlimits[1]:self._resolution, self.ylimits[0]:self.ylimits[1]:self._resolution, value:value:1j]
+        xmin, xmax = np.min(self._xlimits), np.max(self._xlimits)
+        ymin, ymax = np.min(self._ylimits), np.max(self._ylimits)
+        zmin, zmax = np.min(self._zlimits), np.max(self._zlimits)
+        nx = int((xmax - xmin) / self._resolution) + 1
+        ny = int((ymax - ymin) / self._resolution) + 1
+        nz = int((zmax - zmin) / self._resolution) + 1
 
-    @property
-    def _mesh(self):
-        return np.stack([self._x, self._y, self._z])
+        x = np.linspace(xmin, xmax, nx)
+        y = np.linspace(ymin, ymax, ny)
+        z = np.linspace(zmin, zmax, nz)
 
-    def scalar_field(self, calculator, **kwargs):
+        self.mesh = np.stack(np.meshgrid(x, y, z, indexing='ij'))
+
+    def field_slice(self, calculator, min=None, max=None, trace_type='surface', **kwargs):
         """Evaluate and prepare a scalar field visualization.
 
         Parameters
@@ -136,32 +165,56 @@ class Visualizer:
             A plotly style dictionary with the trace for the field.
 
         """
-        data = self._mesh
+        data = self.mesh
         try:
             for f in calculator:
                 data = f(data)
         except TypeError:
             data = calculator(data)
-        trace = dict(
-            type='surface', surfacecolor=np.squeeze(data),
-            x=np.squeeze(self._x),
-            y=np.squeeze(self._y),
-            z=np.squeeze(self._z),
-        )
+
+        if trace_type == 'surface':
+            trace = dict(
+                type='surface', surfacecolor=np.squeeze(data),
+                cmin=min, cmax=max,
+                x=np.squeeze(self.mesh[0]) / self._display_scale,
+                y=np.squeeze(self.mesh[1]) / self._display_scale,
+                z=np.squeeze(self.mesh[2]) / self._display_scale,
+            )
+        if trace_type == 'heatmap':
+            # We need to figure out which axis is constant.
+            ax = [0, 1, 2]
+            try:
+                ax.remove(self.mesh.shape.index(1) - 1)
+            except ValueError:
+                raise ValueError('Cannot generate heatmap from 3d data')
+            trace = dict(
+                type='heatmap', z=np.squeeze(data),
+                zmin=min, zmax=max, transpose=True,
+                x=np.squeeze(self.mesh[ax[0]])[:, 0] / self._display_scale,
+                y=np.squeeze(self.mesh[ax[1]])[0, :] / self._display_scale,
+            )
         trace.update(kwargs)
         return trace
 
-    def pressure(self, min=130, max=170):
+    def pressure(self, min=130, max=170, **kwargs):
         """Visualize pressure field."""
-        return self.scalar_field(calculator=[self.calculate.pressure, SPL],
-                                 cmin=min, cmax=max, colorscale='Viridis', colorbar={'title': 'Sound pressure in dB re. 20 µPa'})
+        return self.field_slice(
+            calculator=[self.calculate.pressure, SPL],
+            min=min, max=max, colorscale='Viridis',
+            colorbar={'title': 'Sound pressure in dB re. 20 µPa'},
+            **kwargs
+        )
 
-    def velocity(self, min=130, max=170):
+    def velocity(self, min=130, max=170, **kwargs):
         """Visualize velocity field."""
-        return self.scalar_field(calculator=[self.calculate.velocity, SVL],
-                                 cmin=min, cmax=max, colorscale='Viridis', colorbar={'title': 'Particle velocity in dB re. 50 nm/s'})
+        return self.field_slice(
+            calculator=[self.calculate.velocity, SVL],
+            min=min, max=max, colorscale='Viridis',
+            colorbar={'title': 'Particle velocity in dB re. 50 nm/s'},
+            **kwargs
+        )
 
-    def transducers(self, data=None, phases=None, amplitudes=None, signature_pos=None, trace_type='scatter3d'):
+    def transducers(self, data=None, phases=None, amplitudes=None, signature_pos=None, trace_type='mesh3d'):
         """Create transducer visualization.
 
         A 3d scatter trace of the transducer elements in an array.
@@ -219,9 +272,9 @@ class Visualizer:
             marker = dict(color=data, colorscale=colorscale, size=16, colorbar={'title': title, 'x': -0.02}, cmin=cmin, cmax=cmax)
             trace = dict(
                 type='scatter3d', mode='markers',
-                x=self.array.transducer_positions[0],
-                y=self.array.transducer_positions[1],
-                z=self.array.transducer_positions[2],
+                x=self.array.transducer_positions[0] / self._display_scale,
+                y=self.array.transducer_positions[1] / self._display_scale,
+                z=self.array.transducer_positions[2] / self._display_scale,
                 marker=marker
             )
 
@@ -292,7 +345,7 @@ class Visualizer:
                 indices.append(base_indices + t_idx * num_vertices)
                 vertex_color.append([data[t_idx]] * num_vertices)
 
-            points = np.concatenate(points, axis=1)
+            points = np.concatenate(points, axis=1) / self._display_scale
             indices = np.concatenate(indices, axis=1)
             vertex_color = np.concatenate(vertex_color)
             trace = dict(
@@ -302,7 +355,10 @@ class Visualizer:
                 intensity=vertex_color, colorscale=colorscale,
                 colorbar={'title': title, 'x': -0.02}, cmin=cmin, cmax=cmax,
             )
-        return trace
+        try:
+            return trace
+        except UnboundLocalError:
+            raise ValueError('Unknown trace type `{}` for transducer visualization'.format(trace_type))
 
     def find_trap(self, start_pos, tolerance=10e-6, time_interval=50, return_path=False, rho=25, radius=1e-3):
         r"""Find the approximate location of a levitation trap.
