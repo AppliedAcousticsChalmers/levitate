@@ -34,6 +34,8 @@ jobs:
         - mv two_fields.html build/examples/two_fields.html
         - python examples/complex_setup.py
         - mv complex_setup.html build/examples/complex_setup.html
+        - python examples/force_diagrams.py
+        - mv force_diagrams.html build/examples/force_diagrams.html
         - sphinx-build -M html docs .
         - echo '<html>\n<head>\n<meta http-equiv="refresh" content="0; url=html/index.html" />\n</head>\n<body></body>\n</html>' > index.html
         - touch .nojekyll

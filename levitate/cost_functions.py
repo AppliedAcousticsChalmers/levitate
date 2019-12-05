@@ -10,7 +10,7 @@ from .materials import air
 from .utils import num_pressure_derivs
 
 logger = logging.getLogger(__name__)
-warnings.warn("""The cost_functions module is deprecated and will be removed in a further release. Use the algorithms module or the optimization module instead.""")
+warnings.warn("""The cost_functions module is deprecated and will be removed in a further release. Use the fields module or the optimization module instead.""")
 
 def minimize(functions, array, variable_amplitudes=False,
              constrain_transducers=None, callback=None, precall=None,

@@ -27,6 +27,7 @@ protected:
     atomic<bool> emitting = {0}; // Holds the output bool
     atomic<float> amplitude_factor = {0};
     atomic<int> current_state = {0}; // Keeps track of the current state to output
+    float fs = 0;
 
     int num_transducers, state_delay;
     vector< vector< complex<float> > > states;
@@ -39,7 +40,7 @@ public:
     // 2: Flow info: To follow and know the current state
     // 3: Debugging: Show a lot of output, echo commands etc.
     static bool no_array;
-    CyclicUltrahapticsArray();
+    CyclicUltrahapticsArray(double fs=0);
     ~CyclicUltrahapticsArray();
     virtual bool interact(string line);
     inline bool interact() {return interact(input());}
@@ -69,7 +70,7 @@ class TCPArray : public CyclicUltrahapticsArray
     
 
 public:
-    TCPArray(const char ip_address[], const char port[]);
+    TCPArray(const char ip_address[], const char port[], double fs=0);
     bool interact(string line);
     inline bool interact() {return interact(input());}
     string input();

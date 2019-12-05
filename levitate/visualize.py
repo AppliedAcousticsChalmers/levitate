@@ -1,6 +1,10 @@
-"""Visualization methods based on the plotly graphing library, and some connivance functions."""
+"""Visualization methods based on the plotly graphing library, and some convenience functions."""
 import numpy as np
 from .utils import SPL, SVL
+try:
+    import plotly
+except ImportError:
+    pass
 
 
 class Visualizer:
@@ -32,7 +36,7 @@ class Visualizer:
 
     """
 
-    def __init__(self, array, xlimits=None, ylimits=None, zlimits=None, resolution=10, constant_axis=('y', 0)):
+    def __init__(self, array, xlimits=None, ylimits=None, zlimits=None, resolution=10, display_scale='mm'):
         self.array = array
         xlimits = xlimits or (np.min(array.transducer_positions[0]), np.max(array.transducer_positions[0]))
         ylimits = ylimits or (np.min(array.transducer_positions[1]), np.max(array.transducer_positions[1]))
@@ -43,12 +47,18 @@ class Visualizer:
         else:
             zlimits = zlimits or (np.min(array.transducer_positions[2]), np.max(array.transducer_positions[2]))
 
+        if max(xlimits) > min(xlimits):
+            ylimits = (max(ylimits) + min(ylimits)) / 2
+        else:
+            xlimits = (max(xlimits) + min(xlimits)) / 2
+
         self._xlimits = xlimits
         self._ylimits = ylimits
         self._zlimits = zlimits
-        self._constant_axis = constant_axis
         self.resolution = resolution
         self.calculate = array.PersistentFieldEvaluator(array)
+
+        self.display_scale = display_scale
 
     @property
     def xlimits(self):
@@ -78,23 +88,45 @@ class Visualizer:
         self._update_mesh()
 
     @property
-    def constant_axis(self):
-        try:
-            axis, value = self._constant_axis
-        except ValueError:
-            axis, value = self._constant_axis, 0
-        return axis, value
+    def display_scale(self):
+        if self._display_scale == 1e3:
+            return 'km'
+        if self._display_scale == 1:
+            return 'm'
+        if self._display_scale == 1e-1:
+            return 'dm'
+        if self._display_scale == 1e-2:
+            return 'cm'
+        if self._display_scale == 1e-3:
+            return 'mm'
+        if self._display_scale == 1e-6:
+            return 'µm'
+        if self._display_scale == 1e-9:
+            return 'nm'
+        if self._display_scale == self.array.wavelength:
+            return 'λ'
+        return '{:.2e} m'.format(self._display_scale)
 
-    @constant_axis.setter
-    def constant_axis(self, val):
-        try:
-            axis = val[0]
-            value = val[1]
-        except TypeError:
-            axis = val
-            value = 0
-        self._constant_axis = (axis, value)
-        self._update_mesh()
+    @display_scale.setter
+    def display_scale(self, val):
+        if val == 'km':
+            self._display_scale = 1e3
+        elif val == 'm':
+            self._display_scale = 1
+        elif val == 'dm':
+            self._display_scale = 1e-1
+        elif val == 'cm':
+            self._display_scale = 1e-2
+        elif val == 'mm':
+            self._display_scale = 1e-3
+        elif val == 'µm':
+            self._display_scale = 1e-6
+        elif val == 'nm':
+            self._display_scale = 1e-9
+        elif val == 'wavelengths' or val == 'λ':
+            self._display_scale = self.array.wavelength
+        else:
+            self._display_scale = val
 
     @property
     def resolution(self):
@@ -106,19 +138,20 @@ class Visualizer:
         self._update_mesh()
 
     def _update_mesh(self):
-        axis, value = self.constant_axis
-        if axis is 'x':
-            self._x, self._y, self._z = np.mgrid[value:value:1j, self.ylimits[0]:self.ylimits[1]:self._resolution, self.zlimits[0]:self.zlimits[1]:self._resolution]
-        if axis is 'y':
-            self._x, self._y, self._z = np.mgrid[self.xlimits[0]:self.xlimits[1]:self._resolution, value:value:1j, self.zlimits[0]:self.zlimits[1]:self._resolution]
-        if axis is 'z':
-            self._x, self._y, self._z = np.mgrid[self.xlimits[0]:self.xlimits[1]:self._resolution, self.ylimits[0]:self.ylimits[1]:self._resolution, value:value:1j]
+        xmin, xmax = np.min(self._xlimits), np.max(self._xlimits)
+        ymin, ymax = np.min(self._ylimits), np.max(self._ylimits)
+        zmin, zmax = np.min(self._zlimits), np.max(self._zlimits)
+        nx = int((xmax - xmin) / self._resolution) + 1
+        ny = int((ymax - ymin) / self._resolution) + 1
+        nz = int((zmax - zmin) / self._resolution) + 1
 
-    @property
-    def _mesh(self):
-        return np.stack([self._x, self._y, self._z])
+        x = np.linspace(xmin, xmax, nx)
+        y = np.linspace(ymin, ymax, ny)
+        z = np.linspace(zmin, zmax, nz)
 
-    def scalar_field(self, calculator, **kwargs):
+        self.mesh = np.stack(np.meshgrid(x, y, z, indexing='ij'))
+
+    def field_slice(self, calculator, min=None, max=None, trace_type='surface', **kwargs):
         """Evaluate and prepare a scalar field visualization.
 
         Parameters
@@ -136,32 +169,56 @@ class Visualizer:
             A plotly style dictionary with the trace for the field.
 
         """
-        data = self._mesh
+        data = self.mesh
         try:
             for f in calculator:
                 data = f(data)
         except TypeError:
             data = calculator(data)
-        trace = dict(
-            type='surface', surfacecolor=np.squeeze(data),
-            x=np.squeeze(self._x),
-            y=np.squeeze(self._y),
-            z=np.squeeze(self._z),
-        )
+
+        if trace_type == 'surface':
+            trace = dict(
+                type='surface', surfacecolor=np.squeeze(data),
+                cmin=min, cmax=max,
+                x=np.squeeze(self.mesh[0]) / self._display_scale,
+                y=np.squeeze(self.mesh[1]) / self._display_scale,
+                z=np.squeeze(self.mesh[2]) / self._display_scale,
+            )
+        if trace_type == 'heatmap':
+            # We need to figure out which axis is constant.
+            ax = [0, 1, 2]
+            try:
+                ax.remove(self.mesh.shape.index(1) - 1)
+            except ValueError:
+                raise ValueError('Cannot generate heatmap from 3d data')
+            trace = dict(
+                type='heatmap', z=np.squeeze(data),
+                zmin=min, zmax=max, transpose=True,
+                x=np.squeeze(self.mesh[ax[0]])[:, 0] / self._display_scale,
+                y=np.squeeze(self.mesh[ax[1]])[0, :] / self._display_scale,
+            )
         trace.update(kwargs)
         return trace
 
-    def pressure(self, min=130, max=170):
+    def pressure(self, min=130, max=170, **kwargs):
         """Visualize pressure field."""
-        return self.scalar_field(calculator=[self.calculate.pressure, SPL],
-                                 cmin=min, cmax=max, colorscale='Viridis', colorbar={'title': 'Sound pressure in dB re. 20 µPa'})
+        return self.field_slice(
+            calculator=[self.calculate.pressure, SPL],
+            min=min, max=max, colorscale='Viridis',
+            colorbar={'title': 'Sound pressure in dB re. 20 µPa'},
+            **kwargs
+        )
 
-    def velocity(self, min=130, max=170):
+    def velocity(self, min=130, max=170, **kwargs):
         """Visualize velocity field."""
-        return self.scalar_field(calculator=[self.calculate.velocity, SVL],
-                                 cmin=min, cmax=max, colorscale='Viridis', colorbar={'title': 'Particle velocity in dB re. 50 nm/s'})
+        return self.field_slice(
+            calculator=[self.calculate.velocity, SVL],
+            min=min, max=max, colorscale='Viridis',
+            colorbar={'title': 'Particle velocity in dB re. 50 nm/s'},
+            **kwargs
+        )
 
-    def transducers(self, data=None, phases=None, amplitudes=None, signature_pos=None):
+    def transducers(self, data=None, phases=None, amplitudes=None, signature_pos=None, trace_type='mesh3d'):
         """Create transducer visualization.
 
         A 3d scatter trace of the transducer elements in an array.
@@ -208,21 +265,104 @@ class Visualizer:
             cmax = 1
             colorscale = [[0.0, 'hsv(0,255,255)'], [0.25, 'hsv(90,255,255)'], [0.5, 'hsv(180,255,255)'], [0.75, 'hsv(270,255,255)'], [1.0, 'hsv(360,255,255)']]
         elif data is None:
-            return self.transducers(data='phases')
+            return self.transducers(data='phases', trace_type=trace_type)
         else:
             title = 'Transducer data'
             cmin = np.min(data)
             cmax = np.max(data)
             colorscale = 'Viridis'
 
-        marker = dict(color=data, colorscale=colorscale, size=16, colorbar={'title': title, 'x': -0.02}, cmin=cmin, cmax=cmax)
-        return dict(
-            type='scatter3d', mode='markers',
-            x=self.array.transducer_positions[0],
-            y=self.array.transducer_positions[1],
-            z=self.array.transducer_positions[2],
-            marker=marker
-        )
+        if trace_type == 'scatter3d':
+            marker = dict(color=data, colorscale=colorscale, size=16, colorbar={'title': title, 'x': -0.02}, cmin=cmin, cmax=cmax)
+            trace = dict(
+                type='scatter3d', mode='markers',
+                x=self.array.transducer_positions[0] / self._display_scale,
+                y=self.array.transducer_positions[1] / self._display_scale,
+                z=self.array.transducer_positions[2] / self._display_scale,
+                marker=marker
+            )
+
+        if trace_type == 'mesh3d':
+            # Get parameters for the shape
+            upper_radius = self.array.transducer_size / 2
+            lower_radius = upper_radius * 2 / 3
+            height = upper_radius
+            num_points = 50  # Points in each circle
+            num_vertices = 2 * num_points + 2  # Vertices per transducer
+            theta = np.arange(num_points) / num_points * 2 * np.pi
+            cos = np.cos(theta)
+            sin = np.sin(theta)
+
+            # Create base index arrays
+            up_center = [0] * num_points
+            up_first = list(range(1, num_points + 1))
+            up_second = list(range(2, num_points + 1)) + [1]
+            down_center = [num_points + 1] * num_points
+            down_first = list(range(num_points + 2, 2 * num_points + 2))
+            down_second = list(range(num_points + 3, 2 * num_points + 2)) + [num_points + 2]
+            # Lists for base index arrays
+            i = []
+            j = []
+            k = []
+            # Upper disk base indices
+            i += up_center
+            j += up_first
+            k += up_second
+            # Lower disk base indices
+            i += down_center
+            j += down_second
+            k += down_first
+            # Half side base indices
+            i += up_first
+            j += down_first
+            k += up_second
+            # Other half side indices
+            i += up_second
+            j += down_first
+            k += down_second
+            # Base indices as array
+            base_indices = np.stack([i, j, k], axis=0)
+
+            # Lists for storing the transducer meshes
+            points = []
+            indices = []
+            vertex_color = []
+
+            for t_idx in range(self.array.num_transducers):
+                position = self.array.transducer_positions[:, t_idx]
+                normal = self.array.transducer_normals[:, t_idx]
+
+                # Find two vectors that sweep the circle
+                if normal[2] != 0:
+                    v1 = np.array([1., 1., 1.])
+                    v1[2] = -(v1[0] * normal[0] + v1[1] * normal[1]) / normal[2]
+                else:
+                    v1 = np.array([0., 0., 1.])
+
+                v1 /= np.sum(v1**2)**0.5
+                v2 = np.cross(v1, normal)
+                circle = cos * v1[:, None] + sin * v2[:, None]
+
+                upper_circle = circle * upper_radius + position[:, None]
+                lower_circle = circle * lower_radius + position[:, None] - height * normal[:, None]
+                points.append(np.concatenate([position[:, None], upper_circle, position[:, None] - height * normal[:, None], lower_circle], axis=1))
+                indices.append(base_indices + t_idx * num_vertices)
+                vertex_color.append([data[t_idx]] * num_vertices)
+
+            points = np.concatenate(points, axis=1) / self._display_scale
+            indices = np.concatenate(indices, axis=1)
+            vertex_color = np.concatenate(vertex_color)
+            trace = dict(
+                type='mesh3d',
+                x=points[0], y=points[1], z=points[2],
+                i=indices[0], j=indices[1], k=indices[2],
+                intensity=vertex_color, colorscale=colorscale,
+                colorbar={'title': title, 'x': -0.02}, cmin=cmin, cmax=cmax,
+            )
+        try:
+            return trace
+        except UnboundLocalError:
+            raise ValueError('Unknown trace type `{}` for transducer visualization'.format(trace_type))
 
     def find_trap(self, start_pos, tolerance=10e-6, time_interval=50, return_path=False, rho=25, radius=1e-3):
         r"""Find the approximate location of a levitation trap.
@@ -287,6 +427,163 @@ class Visualizer:
             return outs.sol(np.linspace(0, outs.sol.t_max, return_path))
         else:
             return outs.y[:, -1]
+
+    def force_diagram_traces(self, position, range=None, label=None, color=None,
+                             radius_sphere=1e-3, force_calculator=None, scale_to_gravity=True, sphere_material=None,
+                             _trace_id=[0], **kwargs):
+        r"""Show the force spatial dependency.
+
+        Calculates the radiation force on a bead along the three Cartesian axes centered at a position.
+        This is visualized as a 3x3 matrix style plot, with the columns corresponding to movement along
+        one of the Cartesian axes, and each row corresponds to a component of the force vector.
+
+        This function only creates the definition of the traces, without any layout.
+        Use the `force_diagram_layout` to generate a suitable layout. If needed, it is possible to add
+        multiple traces at different points or different array settings etc., by calling this function
+        multiple times and concatenating the lists.
+
+        Parameters
+        ----------
+        position : array_like, 3 elements
+            The center position around which to evaluate.
+        range : numeric, optional
+            Specifies how far away the force should be calculated along each axis.
+            Defaults to one wavelength.
+        label : str, optional
+            The label of the traces in the plots.
+        color: str, optional
+            Manually specifying the color of the traces lines.
+        radius_sphere : numeric, optional
+            Specifies the radius of the spherical bead for force calculations.
+            Default 1 mm.
+        force_calculator : callable, optional
+            The force calculator to use to calculate the force. If none is specified,
+            a default calculator will be created using `SphericalHarmonicsForce` of order :math:`ka+3`.
+        scale_to_gravity : bool, default True
+            Toggles if the force is scaled to gravitational force or not.
+        sphere_material : Material
+            Specification of the sphere material. Used for the force calculator and gravitational force.
+
+        Returns
+        -------
+        traces : list
+            A list of dictionaries specifying the traces in a format compatible with plotly.
+
+        """
+        position = np.asarray(position)
+        if sphere_material is None:
+            from .materials import styrofoam as sphere_material
+        if force_calculator is None:
+            from .fields import SphericalHarmonicsForce
+            ka = self.array.k * radius_sphere
+            orders = int(ka) + 3  # Gives N>ka+2, i.e. two more orders than what we should need
+            force_calculator = SphericalHarmonicsForce(array=self.array, radius_sphere=radius_sphere, orders=orders, sphere_material=sphere_material)
+
+        range = range or self.array.wavelength
+        n_pos = int(2 * range / self._resolution) + 1
+        position_delta = np.linspace(-range, range, n_pos)
+        calc_pos = np.tile(position[:, None, None], (1, 3, len(position_delta)))
+        calc_pos[0, 0] += position_delta
+        calc_pos[1, 1] += position_delta
+        calc_pos[2, 2] += position_delta
+
+        force = force_calculator(self.array.complex_amplitudes, calc_pos)
+        if scale_to_gravity:
+            mg = 9.82 * radius_sphere**3 * np.pi * 4 / 3 * sphere_material.rho
+            force /= mg
+
+        if color is None:
+            cm = plotly.colors.qualitative.Plotly
+            color = cm[_trace_id[0] % len(cm)]
+
+        position_delta /= self._display_scale
+
+        traces = []
+        # Fx over x
+        traces.append(dict(
+            type='scatter', xaxis='x', yaxis='y',
+            x=position_delta, y=force[0, 0],
+            legendgroup=_trace_id[0], line={'color': color}, name=label,
+        ))
+        # Fy over x
+        traces.append(dict(
+            type='scatter', xaxis='x', yaxis='y2',
+            x=position_delta, y=force[1, 0],
+            legendgroup=_trace_id[0], showlegend=False, line={'color': color}, name=label,
+        ))
+        # Fz over x
+        traces.append(dict(
+            type='scatter', xaxis='x', yaxis='y3',
+            x=position_delta, y=force[2, 0],
+            legendgroup=_trace_id[0], showlegend=False, line={'color': color}, name=label,
+        ))
+        # Fx over y
+        traces.append(dict(
+            type='scatter', xaxis='x2', yaxis='y',
+            x=position_delta, y=force[0, 1],
+            legendgroup=_trace_id[0], showlegend=False, line={'color': color}, name=label,
+        ))
+        # Fy over y
+        traces.append(dict(
+            type='scatter', xaxis='x2', yaxis='y2',
+            x=position_delta, y=force[1, 1],
+            legendgroup=_trace_id[0], showlegend=False, line={'color': color}, name=label,
+        ))
+        # Fz over y
+        traces.append(dict(
+            type='scatter', xaxis='x2', yaxis='y3',
+            x=position_delta, y=force[2, 1],
+            legendgroup=_trace_id[0], showlegend=False, line={'color': color}, name=label,
+        ))
+        # Fx over z
+        traces.append(dict(
+            type='scatter', xaxis='x3', yaxis='y',
+            x=position_delta, y=force[0, 2],
+            legendgroup=_trace_id[0], showlegend=False, line={'color': color}, name=label,
+        ))
+        # Fy over z
+        traces.append(dict(
+            type='scatter', xaxis='x3', yaxis='y2',
+            x=position_delta, y=force[1, 2],
+            legendgroup=_trace_id[0], showlegend=False, line={'color': color}, name=label,
+        ))
+        # Fz over z
+        traces.append(dict(
+            type='scatter', xaxis='x3', yaxis='y3',
+            x=position_delta, y=force[2, 2],
+            legendgroup=_trace_id[0], showlegend=False, line={'color': color}, name=label,
+        ))
+
+        _trace_id[0] += 1
+        return traces
+
+    def force_diagram_layout(self):
+        r"""Create a dictionary specifying a layout suitable for force diagrams.
+
+        Specification of a layout used in combination with `force_diagram_traces`
+        to visualize the radiation force on a bead around a central point.
+
+        Returns
+        -------
+        layout : dict
+            A dictionary with specifications for the 3x3 matrix of axes
+             to show forces around a central point.
+
+        """
+        layout_gap_ratio = 12
+        total_pieces = layout_gap_ratio * 3 + 2
+        width = layout_gap_ratio / total_pieces
+        gap = 1 / total_pieces
+        length_unit = self.display_scale
+        layout = dict(
+            xaxis=dict(title=r'$x\text{ in ' + length_unit + '}$', domain=[0, width], anchor='y3'),
+            xaxis2=dict(title=r'$y\text{ in ' + length_unit + '}$', domain=[width + gap, 2 * width + gap], anchor='y3'),
+            xaxis3=dict(title=r'$z\text{ in ' + length_unit + '}$', domain=[2 * width + 2 * gap, 1], anchor='y3'),
+            yaxis=dict(title='$F_x$', domain=[2 * width + 2 * gap, 1]),
+            yaxis2=dict(title='$F_y$', domain=[width + gap, 2 * width + gap]),
+            yaxis3=dict(title='$F_z$', domain=[0, width]),
+        )
+        return layout
 
 
 def selection_figure(*traces, additional_traces=None):

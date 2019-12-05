@@ -8,6 +8,7 @@ CyclicUltrahapticsArray* parse_args(int argc, char *argv[]) {
     string filename;
     string ip;
     string port;
+    double fs = 0;
     for (int idx=1; idx<argc; idx++)
     {
         if (string(argv[idx]).rfind("-noarr") == 0) 
@@ -31,11 +32,15 @@ CyclicUltrahapticsArray* parse_args(int argc, char *argv[]) {
         {
             filename = argv[++idx];
         }
+        else if (string(argv[idx]).rfind("--fs") == 0)
+        {
+            fs = stof(argv[++idx]);
+        }
     }
 
     if (ip.size() > 0) 
     {
-        CyclicUltrahapticsArray* device = new TCPArray(ip.c_str(), port.c_str());
+        CyclicUltrahapticsArray* device = new TCPArray(ip.c_str(), port.c_str(), fs);
         if (filename.size() > 0) 
         {
             device->interact("filename " + filename);
@@ -44,7 +49,7 @@ CyclicUltrahapticsArray* parse_args(int argc, char *argv[]) {
     }
     else
     {
-        CyclicUltrahapticsArray* device = new CyclicUltrahapticsArray;
+        CyclicUltrahapticsArray* device = new CyclicUltrahapticsArray(fs);
         if (filename.size() > 0) 
         {
             device->interact("filename " + filename);

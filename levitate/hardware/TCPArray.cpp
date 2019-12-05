@@ -18,7 +18,8 @@
 using namespace std;
 
 
-TCPArray::TCPArray(const char ip_address[], const char port[])
+TCPArray::TCPArray(const char ip_address[], const char port[], double fs)
+: CyclicUltrahapticsArray(fs)
 {
     verbose_output(1, "Attempting TCP connection...");
 

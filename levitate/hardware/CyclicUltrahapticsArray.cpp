@@ -12,7 +12,8 @@ using namespace std;
 int CyclicUltrahapticsArray::verbose = 0;
 bool CyclicUltrahapticsArray::no_array = false;
 
-CyclicUltrahapticsArray::CyclicUltrahapticsArray()
+CyclicUltrahapticsArray::CyclicUltrahapticsArray(double fs)
+: fs(fs)
 {
     verbose_output(1, stringer("Verbosity level is: ", verbose));
     if (ultrahapticsConnect() != 0) {cerr << "Could not connect to ultrahaptics array!\n";}
@@ -54,6 +55,9 @@ int CyclicUltrahapticsArray::ultrahapticsStart()
     current_state = 0;
     amplitude_factor = 0;
     emitter = new SEmitter(device);
+    if (this->fs > 0){
+        emitter->setUpdateRate(this->fs);
+    }
     emitter->setEmissionCallback(emissionCallback, this);
     emitter->start();
     verbose_output(1, stringer("Current update rate is: ", emitter->getUpdateRate()));

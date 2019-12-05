@@ -10,9 +10,9 @@ In this example no optimization is done, but all optimization functions
 support complex arrangements like this one.
 """
 
-import levitate
-from plotly.offline import plot
 import numpy as np
+import levitate
+import plotly.graph_objects as go
 
 transducer = levitate.transducers.TransducerReflector(
     levitate.transducers.CircularPiston, effective_radius=3e-3,
@@ -25,8 +25,8 @@ array = levitate.arrays.DoublesidedArray(
 
 array.phases = array.focus_phases(np.array([25e-3, 0, 40e-3]))
 array.visualize.zlimits = (0, 0.1)
-plot(levitate.visualize.selection_figure(
+go.Figure(levitate.visualize.selection_figure(
     (array.visualize.pressure(), 'Pressure'),
     (array.visualize.velocity(), 'Velocity'),
-    additional_traces=[array.visualize.transducers()]),
-    filename='complex_setup.html', auto_open=False)
+    additional_traces=[array.visualize.transducers()])
+).write_html(file='complex_setup.html', include_mathjax='cdn')

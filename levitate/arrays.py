@@ -296,7 +296,7 @@ class TransducerArray:
 
         """
 
-        from .algorithms import RadiationForce as _force, RadiationForceStiffness as _stiffness
+        from .fields import RadiationForce as _force, RadiationForceStiffness as _stiffness
 
         def __init__(self, array):
             self.array = array
@@ -336,7 +336,6 @@ class TransducerArray:
             """
             complex_amplitudes = complex_amplitudes if complex_amplitudes is not None else self.array.complex_amplitudes
             return np.einsum('i..., i', self.pressure_derivs(positions, orders=0)[0], complex_amplitudes)
-            # return self._cost_functions.pressure(self.array, pressure_derivs=self.pressure_derivs(positions, orders=0))(self.array.phases, self.array.amplitudes)
 
         def velocity(self, positions, complex_amplitudes=None):
             """Calculate the velocity field.
@@ -355,7 +354,6 @@ class TransducerArray:
             """
             complex_amplitudes = complex_amplitudes if complex_amplitudes is not None else self.array.complex_amplitudes
             return np.einsum('ji..., i->j...', self.pressure_derivs(positions, orders=1)[1:4], complex_amplitudes) / (1j * self.array.omega * self.array.medium.rho)
-            # return self._cost_functions.velocity(self.array, pressure_derivs=self.pressure_derivs(positions, orders=1))(self.array.phases, self.array.amplitudes)
 
         def force(self, positions, complex_amplitudes=None, **kwargs):
             """Calculate the force field.

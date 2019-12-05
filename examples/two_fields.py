@@ -6,7 +6,7 @@ and a haptics focus point.
 
 import numpy as np
 import levitate
-from plotly.offline import plot
+import plotly.graph_objects as go
 
 array = levitate.arrays.RectangularArray((21, 12))
 trap_pos = np.array([-20e-3, 0, 60e-3])
@@ -15,11 +15,11 @@ array.phases = array.focus_phases(trap_pos) + array.signature(trap_pos, stype='t
 
 # The fields are superposed using mutual quiet zones, created by minimizing the
 # pressure and velocity at the secondary point in each field.
-# We will need three algorithms, calculating the pressure magnitude,
+# We will need three fields, calculating the pressure magnitude,
 # the velocity magnitude, and the stiffenss of the trap.
-p = abs(levitate.algorithms.Pressure(array))
-v = abs(levitate.algorithms.Velocity(array))
-s = levitate.algorithms.RadiationForceStiffness(array)
+p = abs(levitate.fields.Pressure(array))
+v = abs(levitate.fields.Velocity(array))
+s = levitate.fields.RadiationForceStiffness(array)
 
 # The levitation trap is found using a minimization sequence.
 # First the phases are optimized for just a trap,
@@ -54,4 +54,4 @@ fig = levitate.visualize.selection_figure(
     additional_traces=[array.visualize.transducers(signature_pos=trap_pos)]
 )
 
-plot(fig, filename='two_fields.html', auto_open=False)
+go.Figure(fig).write_html(file='two_fields.html', include_mathjax='cdn')

@@ -2,7 +2,7 @@
 
 The API consists of four main modules, and a few supporting modules.
 The main modules contain models to handle transducers and transducer arrays, in the `~levitate.transducers` and `~levitate.arrays` modules respectively,
-algorithms to calculate physical properties in the `~levitate.algorithms` module, and some numerical optimization functions in the `~levitate.optimization` module.
+algorithms to calculate physical properties in the `~levitate.fields` module, and some numerical optimization functions in the `~levitate.optimization` module.
 There is also a `~levitate.visualize` module with some convenience function to show various fields, a few utilities in `~levitate.utils`.
 It is possible to use different materials or material properties from the `~levitate.materials` module.
 
@@ -15,7 +15,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-__all__ = ['transducers', 'arrays', 'hardware', 'materials', 'optimization', 'algorithms', 'utils']
+__all__ = ['transducers', 'arrays', 'hardware', 'materials', 'optimization', 'fields', 'utils']
 
 from . import _version
 __version__ = _version.__version__
