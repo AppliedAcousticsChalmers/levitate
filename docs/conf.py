@@ -156,7 +156,7 @@ latex_elements = {
     'extraclassoptions': 'openany,oneside',
     # 'fncychap': '',
     'maketitle': r'''
-        \maketitle
+        \sphinxmaketitle
         \vspace{3cm}
         {\Large\textbf{\textsf{''' + subtitle + r'''}}}
         \vfill
