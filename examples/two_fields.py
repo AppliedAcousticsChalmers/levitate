@@ -6,7 +6,7 @@ and a haptics focus point.
 
 import numpy as np
 import levitate
-from plotly.offline import plot
+import plotly.graph_objects as go
 
 array = levitate.arrays.RectangularArray((21, 12))
 trap_pos = np.array([-20e-3, 0, 60e-3])
@@ -54,4 +54,4 @@ fig = levitate.visualize.selection_figure(
     additional_traces=[array.visualize.transducers(signature_pos=trap_pos)]
 )
 
-plot(fig, filename='two_fields.html', auto_open=False)
+go.Figure(fig).write_html(file='two_fields.html', include_mathjax='cdn')
