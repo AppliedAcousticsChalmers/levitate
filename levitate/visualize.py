@@ -3,7 +3,7 @@ import numpy as np
 from .utils import SPL, SVL
 try:
     import plotly
-except ModuleNotFoundError:
+except ImportError:
     pass
 
 
