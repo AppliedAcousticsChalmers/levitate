@@ -431,13 +431,52 @@ class Visualizer:
     def force_diagram_traces(self, position, range=None, label=None, color=None,
                              radius_sphere=1e-3, force_calculator=None, scale_to_gravity=True, sphere_material=None,
                              _trace_id=[0], **kwargs):
+        r"""Show the force spatial dependency.
+
+        Calculates the radiation force on a bead along the three Cartesian axes centered at a position.
+        This is visualized as a 3x3 matrix style plot, with the columns corresponding to movement along
+        one of the Cartesian axes, and each row corresponds to a component of the force vector.
+
+        This function only creates the definition of the traces, without any layout.
+        Use the `force_diagram_layout` to generate a suitable layout. If needed, it is possible to add
+        multiple traces at different points or different array settings etc., by calling this function
+        multiple times and concatenating the lists.
+
+        Parameters
+        ----------
+        position : array_like, 3 elements
+            The center position around which to evaluate.
+        range : numeric, optional
+            Specifies how far away the force should be calculated along each axis.
+            Defaults to one wavelength.
+        label : str, optional
+            The label of the traces in the plots.
+        color: str, optional
+            Manually specifying the color of the traces lines.
+        radius_sphere : numeric, optional
+            Specifies the radius of the spherical bead for force calculations.
+            Default 1 mm.
+        force_calculator : callable, optional
+            The force calculator to use to calculate the force. If none is specified,
+            a default calculator will be created using `SphericalHarmonicsForce` of order :math:`ka+3`.
+        scale_to_gravity : bool, default True
+            Toggles if the force is scaled to gravitational force or not.
+        sphere_material : Material
+            Specification of the sphere material. Used for the force calculator and gravitational force.
+
+        Returns
+        -------
+        traces : list
+            A list of dictionaries specifying the traces in a format compatible with plotly.
+
+        """
         position = np.asarray(position)
         if sphere_material is None:
             from .materials import styrofoam as sphere_material
         if force_calculator is None:
             from .fields import SphericalHarmonicsForce
             ka = self.array.k * radius_sphere
-            orders = int(ka) + 3  # Gives N>ka+2, i.e. two more orders than what we shoould need
+            orders = int(ka) + 3  # Gives N>ka+2, i.e. two more orders than what we should need
             force_calculator = SphericalHarmonicsForce(array=self.array, radius_sphere=radius_sphere, orders=orders, sphere_material=sphere_material)
 
         range = range or self.array.wavelength
@@ -519,6 +558,18 @@ class Visualizer:
         return traces
 
     def force_diagram_layout(self):
+        r"""Create a dictionary specifying a layout suitable for force diagrams.
+
+        Specification of a layout used in combination with `force_diagram_traces`
+        to visualize the radiation force on a bead around a central point.
+
+        Returns
+        -------
+        layout : dict
+            A dictionary with specifications for the 3x3 matrix of axes
+             to show forces around a central point.
+
+        """
         layout_gap_ratio = 12
         total_pieces = layout_gap_ratio * 3 + 2
         width = layout_gap_ratio / total_pieces
