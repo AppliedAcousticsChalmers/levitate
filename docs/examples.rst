@@ -26,3 +26,11 @@ Complex Setups
 
 .. raw:: html
     :file: ../build/examples/complex_setup.html
+
+Force Diagrams
+--------------
+.. literalinclude:: ../examples/force_diagrams.py
+    :language: python
+
+.. raw:: html
+    :file: ../build/examples/force_diagrams.html
