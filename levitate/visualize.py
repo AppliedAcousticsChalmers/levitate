@@ -1,6 +1,10 @@
 """Visualization methods based on the plotly graphing library, and some convenience functions."""
 import numpy as np
 from .utils import SPL, SVL
+try:
+    import plotly
+except ModuleNotFoundError:
+    pass
 
 
 class Visualizer:
@@ -423,6 +427,112 @@ class Visualizer:
             return outs.sol(np.linspace(0, outs.sol.t_max, return_path))
         else:
             return outs.y[:, -1]
+
+    def force_diagram_traces(self, position, range=None, label=None, color=None,
+                             radius_sphere=1e-3, force_calculator=None, scale_to_gravity=True, sphere_material=None,
+                             _trace_id=[0], **kwargs):
+        position = np.asarray(position)
+        if sphere_material is None:
+            from .materials import styrofoam as sphere_material
+        if force_calculator is None:
+            from .fields import SphericalHarmonicsForce
+            ka = self.array.k * radius_sphere
+            orders = int(ka) + 3  # Gives N>ka+2, i.e. two more orders than what we shoould need
+            force_calculator = SphericalHarmonicsForce(array=self.array, radius_sphere=radius_sphere, orders=orders, sphere_material=sphere_material)
+
+        range = range or self.array.wavelength
+        n_pos = int(2 * range / self._resolution) + 1
+        position_delta = np.linspace(-range, range, n_pos)
+        calc_pos = np.tile(position[:, None, None], (1, 3, len(position_delta)))
+        calc_pos[0, 0] += position_delta
+        calc_pos[1, 1] += position_delta
+        calc_pos[2, 2] += position_delta
+
+        force = force_calculator(self.array.complex_amplitudes, calc_pos)
+        if scale_to_gravity:
+            mg = 9.82 * radius_sphere**3 * np.pi * 4 / 3 * sphere_material.rho
+            force /= mg
+
+        if color is None:
+            cm = plotly.colors.qualitative.Plotly
+            color = cm[_trace_id[0] % len(cm)]
+
+        position_delta /= self._display_scale
+
+        traces = []
+        # Fx over x
+        traces.append(dict(
+            type='scatter', xaxis='x', yaxis='y',
+            x=position_delta, y=force[0, 0],
+            legendgroup=_trace_id[0], line={'color': color}, name=label,
+        ))
+        # Fy over x
+        traces.append(dict(
+            type='scatter', xaxis='x', yaxis='y2',
+            x=position_delta, y=force[1, 0],
+            legendgroup=_trace_id[0], showlegend=False, line={'color': color}, name=label,
+        ))
+        # Fz over x
+        traces.append(dict(
+            type='scatter', xaxis='x', yaxis='y3',
+            x=position_delta, y=force[2, 0],
+            legendgroup=_trace_id[0], showlegend=False, line={'color': color}, name=label,
+        ))
+        # Fx over y
+        traces.append(dict(
+            type='scatter', xaxis='x2', yaxis='y',
+            x=position_delta, y=force[0, 1],
+            legendgroup=_trace_id[0], showlegend=False, line={'color': color}, name=label,
+        ))
+        # Fy over y
+        traces.append(dict(
+            type='scatter', xaxis='x2', yaxis='y2',
+            x=position_delta, y=force[1, 1],
+            legendgroup=_trace_id[0], showlegend=False, line={'color': color}, name=label,
+        ))
+        # Fz over y
+        traces.append(dict(
+            type='scatter', xaxis='x2', yaxis='y3',
+            x=position_delta, y=force[2, 1],
+            legendgroup=_trace_id[0], showlegend=False, line={'color': color}, name=label,
+        ))
+        # Fx over z
+        traces.append(dict(
+            type='scatter', xaxis='x3', yaxis='y',
+            x=position_delta, y=force[0, 2],
+            legendgroup=_trace_id[0], showlegend=False, line={'color': color}, name=label,
+        ))
+        # Fy over z
+        traces.append(dict(
+            type='scatter', xaxis='x3', yaxis='y2',
+            x=position_delta, y=force[1, 2],
+            legendgroup=_trace_id[0], showlegend=False, line={'color': color}, name=label,
+        ))
+        # Fz over z
+        traces.append(dict(
+            type='scatter', xaxis='x3', yaxis='y3',
+            x=position_delta, y=force[2, 2],
+            legendgroup=_trace_id[0], showlegend=False, line={'color': color}, name=label,
+        ))
+
+        _trace_id[0] += 1
+        return traces
+
+    def force_diagram_layout(self):
+        layout_gap_ratio = 12
+        total_pieces = layout_gap_ratio * 3 + 2
+        width = layout_gap_ratio / total_pieces
+        gap = 1 / total_pieces
+        length_unit = self.display_scale
+        layout = dict(
+            xaxis=dict(title=r'$x\text{ in ' + length_unit + '}$', domain=[0, width], anchor='y3'),
+            xaxis2=dict(title=r'$y\text{ in ' + length_unit + '}$', domain=[width + gap, 2 * width + gap], anchor='y3'),
+            xaxis3=dict(title=r'$z\text{ in ' + length_unit + '}$', domain=[2 * width + 2 * gap, 1], anchor='y3'),
+            yaxis=dict(title='$F_x$', domain=[2 * width + 2 * gap, 1]),
+            yaxis2=dict(title='$F_y$', domain=[width + gap, 2 * width + gap]),
+            yaxis3=dict(title='$F_z$', domain=[0, width]),
+        )
+        return layout
 
 
 def selection_figure(*traces, additional_traces=None):
