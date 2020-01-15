@@ -559,8 +559,9 @@ class SphericalHarmonicsForce(FieldImplementation):
         Nr_mMr = spherical_harmonics_summed[self.Nr_mMr]
         Nr_M = spherical_harmonics_summed[self.Nr_M]
 
-        Fx = np.sum(np.real(xy_coefs * (N_M * np.conj(Nr_Mr) - N_mM * np.conj(Nr_mMr))), axis=0)
-        Fy = np.sum(np.imag(xy_coefs * (N_M * np.conj(Nr_Mr) + N_mM * np.conj(Nr_mMr))), axis=0)
+        Fxy = np.sum(xy_coefs * N_M * np.conj(Nr_Mr) - np.conj(xy_coefs) * np.conj(N_mM) * Nr_mMr, axis=0)
+        Fx = np.real(Fxy)
+        Fy = np.imag(Fxy)
         Fz = np.sum(np.real(z_coefs * N_M * np.conj(Nr_M)), axis=0)
 
         return np.stack([Fx, Fy, Fz])
@@ -587,7 +588,8 @@ class SphericalHarmonicsForceDecomposition(SphericalHarmonicsForce):
         Nr_mMr = spherical_harmonics_summed[self.Nr_mMr]
         Nr_M = spherical_harmonics_summed[self.Nr_M]
 
-        Fx = np.real(xy_coefs * (N_M * np.conj(Nr_Mr) - N_mM * np.conj(Nr_mMr)))
-        Fy = np.imag(xy_coefs * (N_M * np.conj(Nr_Mr) + N_mM * np.conj(Nr_mMr)))
+        Fxy = xy_coefs * N_M * np.conj(Nr_Mr) - np.conj(xy_coefs) * np.conj(N_mM) * Nr_mMr
+        Fx = np.real(Fxy)
+        Fy = np.imag(Fxy)
         Fz = np.real(z_coefs * N_M * np.conj(Nr_M))
         return np.stack([Fx, Fy, Fz])
