@@ -124,6 +124,7 @@ calculation functions with the magnitude and square.
 """
 
 import numpy as np
+import collections
 
 
 class FieldImplementationMeta(type):
@@ -218,21 +219,33 @@ class FieldImplementation(metaclass=FieldImplementationMeta):
     def __eq__(self, other):
         return type(self) == type(other) and self.array == other.array
 
+    @staticmethod
+    def requirement(*args, **kwargs):
+        return FieldRequirement(*args, **kwargs)
+
+
+class FieldRequirement(collections.UserDict):
+    """Parse a set of requirements.
+
+    `FieldImplementation` objects should define requirements for values and jacobians.
+    This class parses the requirements and checks that the request can be met upon call.
+    The requirements are stored as a non-mutable custom dictionary.
+    Requirements can be added to each other to find the combined requirements.
+    """
+
     possible_requirements = [
         'complex_transducer_amplitudes',
         'pressure_derivs_summed', 'pressure_derivs_individual',
         'spherical_harmonics_summed', 'spherical_harmonics_individual',
     ]
 
-    @staticmethod
-    def requirement(**requirements):
-        """Parse a set of requirements.
+    def __setitem__(self, key, value):
+        if self.locked:
+            raise KeyError("`requirements` should not be mutated!")
+        super().__setitem__(key, value)
 
-        `FieldImplementation` objects should define requirements for values and jacobians.
-        This function parses the requirements and checks that the request can be met upon call.
-        Currently the inputs are converted to a dict and returned as is, but this might change
-        without warning in the future.
-
+    def __init__(self, *args, **kwargs):  # noqa: D205, D400
+        """
         Keyword arguments
         ---------------------
         complex_transducer_amplitudes
@@ -253,21 +266,43 @@ class FieldImplementation(metaclass=FieldImplementationMeta):
         spherical_harmonics_individual
             Like spherical_harmonics_summed, but for individual transducers.
 
-        Returns
-        -------
-        requirements : dict
-            The parsed requirements.
-
         Raises
         ------
         NotImplementedError
             If one or more of the requested keys is not implemented.
-
         """
-        for requirement in requirements:
-            if requirement not in FieldImplementation.possible_requirements:
-                raise NotImplementedError("Requirement '{}' is not implemented for a field. The possible requests are: {}".format(requirement, FieldImplementation.possible_requirements))
-        return requirements
+        self.locked = False
+        super().__init__(*args, **kwargs)
+        self.locked = True
+        for requirement in self:
+            if requirement not in self.possible_requirements:
+                raise NotImplementedError("Requirement '{}' is not implemented for a field. The possible requests are: {}".format(requirement, self.possible_requirements))
+
+    def __add__(self, other):
+        if not isinstance(other, (dict, collections.UserDict)):
+            return NotImplemented
+        unique_self = {key: self[key] for key in self.keys() - other.keys()}
+        unique_other = {key: other[key] for key in other.keys() - self.keys()}
+        max_common = {key: max(self[key], other[key]) for key in self.keys() & other.keys()}
+        return type(self)(**unique_self, **unique_other, **max_common)
+
+    @property
+    def spatial_requirements(self):  # noqa: D401
+        """Required spatial calculations needed to fulfill the requirements.
+
+        This essentially parses the requirements and checks for shared calculations
+        needed from the array. Cf. `pressure_derives_individual` and `pressure_derivs_summed`
+        only require the knowlege of the `pressure_derivs` from the array.
+        """
+        spatial_reqs = {}
+        for key, value in self.items():
+            if key.find('pressure_derivs') > -1:
+                spatial_reqs['pressure_derivs'] = max(value, spatial_reqs.get('pressure_derivs', -1))
+            elif key.find('spherical_harmonics') > -1:
+                spatial_reqs['spherical_harmonics'] = max(value, spatial_reqs.get('spherical_harmonics', -1))
+            elif key != 'complex_transducer_amplitudes':
+                raise ValueError("Unknown requirement '{}'".format(key))
+        return spatial_reqs
 
 
 class FieldMeta(type):
@@ -379,20 +414,16 @@ class FieldBase(metaclass=FieldMeta):
             except AttributeError:
                 self._cached_spatial_structures = self._spatial_structures(self.position)
                 return self._cached_spatial_structures
-        # Check what spatial structures we need from the array to fulfill the requirements
-        spatial_structures = {}
-        for key, value in self.requires.items():
-            if key.find('pressure_derivs') > -1:
-                spatial_structures['pressure_derivs'] = max(value, spatial_structures.get('pressure_derivs', -1))
-            elif key.find('spherical_harmonics') > -1:
-                spatial_structures['spherical_harmonics'] = max(value, spatial_structures.get('spherical_harmonics', -1))
-            elif key != 'complex_transducer_amplitudes':
-                raise ValueError("Unknown requirement '{}'".format(key))
+
+        spatial_reqs = self.requires.spatial_requirements
         # Replace the requests with values calculated by the array
-        if 'pressure_derivs' in spatial_structures:
-            spatial_structures['pressure_derivs'] = self.array.pressure_derivs(position, orders=spatial_structures['pressure_derivs'])
-        if 'spherical_harmonics' in spatial_structures:
-            spatial_structures['spherical_harmonics'] = self.array.spherical_harmonics(position, orders=spatial_structures['spherical_harmonics'])
+        spatial_structures = {}
+        if 'pressure_derivs' in spatial_reqs:
+            spatial_structures['pressure_derivs'] = self.array.pressure_derivs(position, orders=spatial_reqs.pop('pressure_derivs'))
+        if 'spherical_harmonics' in spatial_reqs:
+            spatial_structures['spherical_harmonics'] = self.array.spherical_harmonics(position, orders=spatial_reqs.pop('spherical_harmonics'))
+        if len(spatial_reqs) > 0:
+            raise ValueError('Unevaluated spatial requirements: {}'.format(spatial_reqs))
         return spatial_structures
 
     def __abs__(self):
@@ -465,7 +496,7 @@ class Field(FieldBase):
         self.field = field
         value_indices = ''.join(chr(ord('i') + idx) for idx in range(self.ndim))
         self._sum_str = value_indices + ', ' + value_indices + '...'
-        self.requires = self.field.values_require.copy()
+        self.requires = self.values_require
 
     def __eq__(self, other):
         return (
@@ -692,8 +723,7 @@ class CostField(Field):
         if self.weight.ndim < self.ndim:
             extra_dims = self.ndim - self.weight.ndim
             self.weight.shape = (1,) * extra_dims + self.weight.shape
-        for key, value in self.jacobians_require.items():
-            self.requires[key] = max(value, self.requires.get(key, -1))
+        self.requires = self.values_require + self.jacobians_require
 
     def __eq__(self, other):
         return (
@@ -870,10 +900,10 @@ class SquaredFieldBase(Field):
     def __init__(self, field, target, **kwargs):
         if type(self) == SquaredFieldBase:
             raise AssertionError('`SquaredFieldBase` should never be directly instantiated!')
-        self.values_require = field.values_require.copy()
-        self.jacobians_require = field.jacobians_require.copy()
-        for key, value in field.values_require.items():
-            self.jacobians_require[key] = max(value, self.jacobians_require.get(key, -1))
+        self.values_require = field.values_require
+        if hasattr(field, 'jacobians_require'):
+            self.jacobians_require = field.jacobians_require + field.values_require
+
         super().__init__(field=field, **kwargs)
         target = np.asarray(target)
         self.target = target
@@ -1225,7 +1255,7 @@ class MultiField(FieldBase):
 
     def __init__(self, *fields):
         self.fields = []
-        self.requires = {}
+        self.requires = FieldImplementation.requirement()
         for field in fields:
             self += field
 
@@ -1279,10 +1309,9 @@ class MultiField(FieldBase):
             add_point = True
         elif self._type == other._type:
             add_element = True
-        old_requires = self.requires.copy()
+        old_requires = self.requires
         if add_element:
-            for key, value in other.requires.items():
-                self.requires[key] = max(value, self.requires.get(key, -1))
+            self.requires = self.requires + other.requires
             self.fields.append(other)
         elif add_point:
             for field in other.fields:
