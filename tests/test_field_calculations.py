@@ -16,20 +16,32 @@ array.phases = array.focus_phases((pos_0 + pos_1) / 2) + array.signature(stype='
 spat_ders = array.pressure_derivs(pos_both, orders=3)
 ind_ders = np.einsum('i, ji...->ji...', array.amplitudes * np.exp(1j * array.phases), spat_ders)
 sum_ders = np.sum(ind_ders, axis=1)
+sph_harm = array.spherical_harmonics(pos_both, orders=6)
+sph_harm_ind = np.einsum('i, ji...->ji...', array.complex_amplitudes, sph_harm)
+sph_harm_sum = np.sum(sph_harm_ind, axis=1)
 
-requirements = {'pressure_derivs_summed': sum_ders, 'pressure_derivs_individual': ind_ders}
+requirements = {
+    'pressure_derivs_summed': sum_ders, 'pressure_derivs_individual': ind_ders,
+    'spherical_harmonics_summed': sph_harm_sum, 'spherical_harmonics_individual': sph_harm_ind
+}
 
 
 # Defines the fields to use for testing.
 # Note that the field implementations themselves are tested elsewhere.
-pressure_derivs_fields = [
+has_jabobians_fields = [
     levitate.fields.GorkovPotential,
     levitate.fields.GorkovGradient,
     levitate.fields.GorkovLaplacian,
 ]
+no_jacobians_fields = [
+    levitate.fields.RadiationForceGradient,
+    lambda arr: levitate.fields.SphericalHarmonicsForce(arr, orders=5),
+]
+
+values_fields = has_jabobians_fields + no_jacobians_fields
 
 
-@pytest.mark.parametrize("func", pressure_derivs_fields)
+@pytest.mark.parametrize("func", values_fields)
 def test_Field(func):
     field = func(array)
     calc_values = field.values
@@ -44,14 +56,14 @@ def test_Field(func):
 
 
 @pytest.mark.parametrize("pos", [pos_0, pos_1, pos_both])
-@pytest.mark.parametrize("func", pressure_derivs_fields)
+@pytest.mark.parametrize("func", values_fields)
 def test_FieldPoint(func, pos):
     field = func(array)
     np.testing.assert_allclose((field@pos)(array.complex_amplitudes), field(array.complex_amplitudes, pos))
 
 
 @pytest.mark.parametrize("weight", [1, 1e-3, 1e3])
-@pytest.mark.parametrize("func", pressure_derivs_fields)
+@pytest.mark.parametrize("func", has_jabobians_fields)
 def test_CostField(func, weight):
     field = func(array)
     weight = np.random.uniform(-weight, weight, (1,) * field.ndim)
@@ -85,9 +97,9 @@ def test_CostField(func, weight):
     np.testing.assert_allclose(jac_both, field_jac_both)
 
 
-@pytest.mark.parametrize("weight", [1, 1e-3, 1e3])
+@pytest.mark.parametrize("weight", [1, 10])
 @pytest.mark.parametrize("pos", [pos_0, pos_1])
-@pytest.mark.parametrize("func", pressure_derivs_fields)
+@pytest.mark.parametrize("func", has_jabobians_fields)
 def test_CostFieldPoint(func, weight, pos):
     field = func(array)
     weight = np.random.uniform(-weight, weight, (1,) * field.ndim)
@@ -100,19 +112,19 @@ def test_CostFieldPoint(func, weight, pos):
 
 
 @pytest.mark.parametrize("pos", [pos_0, pos_both])
-@pytest.mark.parametrize("func", pressure_derivs_fields)
+@pytest.mark.parametrize("func", values_fields)
 @pytest.mark.parametrize("target_scale", [1, 1e-3, 1e3])
 def test_SquaredField(func, target_scale, pos):
     field = func(array)
     target = np.random.uniform(-target_scale, target_scale, (1,) * field.ndim)
-    value = np.abs(field(array.complex_amplitudes, pos) - np.asarray(target).reshape([-1] * field.ndim + (pos.ndim - 1) * [1]))**2
+    value = np.abs(field(array.complex_amplitudes, pos) - np.asarray(target).reshape(target.shape + (pos.ndim - 1) * (1,)))**2
 
     np.testing.assert_allclose((field - target)(array.complex_amplitudes, pos), value)
 
 
 @pytest.mark.parametrize("pos", [pos_0, pos_both])
-@pytest.mark.parametrize("func", pressure_derivs_fields)
-@pytest.mark.parametrize("target_scale", [1, 1e-3, 1e3])
+@pytest.mark.parametrize("func", values_fields)
+@pytest.mark.parametrize("target_scale", [1, 10])
 def test_SquaredFieldPoint(func, target_scale, pos):
     field = func(array)
     target = np.random.uniform(-target_scale, target_scale, (1,) * field.ndim)
@@ -120,9 +132,9 @@ def test_SquaredFieldPoint(func, target_scale, pos):
     np.testing.assert_allclose((field@pos)(array.complex_amplitudes), field(array.complex_amplitudes, pos))
 
 
-@pytest.mark.parametrize("func", pressure_derivs_fields)
-@pytest.mark.parametrize("weight", [1, 1e-3, 1e3])
-@pytest.mark.parametrize("target_scale", [1, 1e-3, 1e3])
+@pytest.mark.parametrize("func", has_jabobians_fields)
+@pytest.mark.parametrize("weight", [1, 6])
+@pytest.mark.parametrize("target_scale", [1, 1e-4])
 def test_SquaredCostField(func, target_scale, weight):
     field = func(array)
     target = np.random.uniform(-target_scale, target_scale, (1,) * field.ndim)
@@ -157,9 +169,9 @@ def test_SquaredCostField(func, target_scale, weight):
     np.testing.assert_allclose(jac_both, field_jac_both)
 
 
-@pytest.mark.parametrize("func", pressure_derivs_fields)
-@pytest.mark.parametrize("weight", [1, 1e-3, 1e3])
-@pytest.mark.parametrize("target_scale", [1, 1e-3, 1e3])
+@pytest.mark.parametrize("func", has_jabobians_fields)
+@pytest.mark.parametrize("weight", [1, 200])
+@pytest.mark.parametrize("target_scale", [1, 30])
 @pytest.mark.parametrize("pos", [pos_0, pos_both])
 def test_SquaredCostFieldPoint(func, weight, target_scale, pos):
     field = func(array)
@@ -173,8 +185,8 @@ def test_SquaredCostFieldPoint(func, weight, target_scale, pos):
     np.testing.assert_allclose(jac, jac_ub)
 
 
-@pytest.mark.parametrize("func0", pressure_derivs_fields)
-@pytest.mark.parametrize("func1", pressure_derivs_fields)
+@pytest.mark.parametrize("func0", values_fields)
+@pytest.mark.parametrize("func1", values_fields)
 def test_MultiField(func0, func1):
     field_0 = func0(array)
     field_1 = func1(array)
@@ -187,8 +199,8 @@ def test_MultiField(func0, func1):
     np.testing.assert_allclose(val1, val_both[1])
 
 
-@pytest.mark.parametrize("func0", pressure_derivs_fields)
-@pytest.mark.parametrize("func1", pressure_derivs_fields)
+@pytest.mark.parametrize("func0", values_fields)
+@pytest.mark.parametrize("func1", values_fields)
 def test_MultiFieldPoint(func0, func1):
     field = func0(array) + func1(array)
 
@@ -198,8 +210,8 @@ def test_MultiFieldPoint(func0, func1):
     np.testing.assert_allclose(val_field[1], val_bound[1])
 
 
-@pytest.mark.parametrize("func0", pressure_derivs_fields)
-@pytest.mark.parametrize("func1", pressure_derivs_fields)
+@pytest.mark.parametrize("func0", has_jabobians_fields)
+@pytest.mark.parametrize("func1", has_jabobians_fields)
 @pytest.mark.parametrize("pos", [pos_0])
 @pytest.mark.parametrize("weight0", [1, 1e-3, 1e3])
 @pytest.mark.parametrize("weight1", [1, 1e-3, 1e3])
@@ -219,11 +231,11 @@ def test_MultiCostField(func0, func1, pos, weight0, weight1):
     np.testing.assert_allclose(jac0 + jac1, jac_both)
 
 
-@pytest.mark.parametrize("func0", pressure_derivs_fields)
-@pytest.mark.parametrize("func1", pressure_derivs_fields)
+@pytest.mark.parametrize("func0", has_jabobians_fields)
+@pytest.mark.parametrize("func1", has_jabobians_fields)
 @pytest.mark.parametrize("pos", [pos_0, pos_1])
-@pytest.mark.parametrize("weight0", [1, 1e3, 1e-3])
-@pytest.mark.parametrize("weight1", [1, 1e3, 1e-3])
+@pytest.mark.parametrize("weight0", [1, 8])
+@pytest.mark.parametrize("weight1", [1, 1e-5])
 def test_MultiCostFieldPoint(func0, func1, pos, weight0, weight1):
     field_0 = func0(array)
     weight0 = np.random.uniform(-weight0, weight0, (1,) * field_0.ndim)
@@ -240,8 +252,8 @@ def test_MultiCostFieldPoint(func0, func1, pos, weight0, weight1):
     np.testing.assert_allclose(jac0 + jac1, jac_both)
 
 
-@pytest.mark.parametrize("func0", pressure_derivs_fields)
-@pytest.mark.parametrize("func1", pressure_derivs_fields)
+@pytest.mark.parametrize("func0", values_fields)
+@pytest.mark.parametrize("func1", values_fields)
 @pytest.mark.parametrize("pos0", [pos_0, pos_1])
 @pytest.mark.parametrize("pos1", [pos_0, pos_1])
 def test_MultiFieldMultiPoint(func0, func1, pos0, pos1):
@@ -257,12 +269,12 @@ def test_MultiFieldMultiPoint(func0, func1, pos0, pos1):
     np.testing.assert_allclose(val1, val_both[1])
 
 
-@pytest.mark.parametrize("func0", pressure_derivs_fields)
-@pytest.mark.parametrize("func1", pressure_derivs_fields)
+@pytest.mark.parametrize("func0", has_jabobians_fields)
+@pytest.mark.parametrize("func1", has_jabobians_fields)
 @pytest.mark.parametrize("pos0", [pos_0, pos_1])
 @pytest.mark.parametrize("pos1", [pos_0, pos_1])
-@pytest.mark.parametrize("weight0", [1, 1e-3, 1e3])
-@pytest.mark.parametrize("weight1", [1, 1e-3, 1e3])
+@pytest.mark.parametrize("weight0", [1, 1e-3])
+@pytest.mark.parametrize("weight1", [1, 1e3])
 def test_MultiCostFieldMultiPoint(func0, func1, pos0, pos1, weight0, weight1):
     field_0 = func0(array)
     weight0 = np.random.uniform(-weight0, weight0, (1,) * field_0.ndim)
