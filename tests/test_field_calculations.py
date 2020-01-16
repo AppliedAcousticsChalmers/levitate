@@ -17,10 +17,13 @@ spat_ders = array.pressure_derivs(pos_both, orders=3)
 ind_ders = np.einsum('i, ji...->ji...', array.amplitudes * np.exp(1j * array.phases), spat_ders)
 sum_ders = np.sum(ind_ders, axis=1)
 
+requirements = {'pressure_derivs_summed': sum_ders, 'pressure_derivs_individual': ind_ders}
+
 
 # Defines the fields to use for testing.
 # Note that the field implementations themselves are tested elsewhere.
 pressure_derivs_fields = [
+    levitate.fields.GorkovPotential,
     levitate.fields.GorkovGradient,
     levitate.fields.GorkovLaplacian,
 ]
@@ -35,9 +38,9 @@ def test_Field(func):
     val_1 = field(array.complex_amplitudes, pos_1)
     val_both = field(array.complex_amplitudes, pos_both)
 
-    np.testing.assert_allclose(val_0, calc_values(pressure_derivs_summed=sum_ders[..., 0]))
-    np.testing.assert_allclose(val_1, calc_values(pressure_derivs_summed=sum_ders[..., 1]))
-    np.testing.assert_allclose(val_both, np.stack([val_0, val_1], axis=1))
+    np.testing.assert_allclose(val_0, calc_values(**{key: requirements[key][..., 0] for key in field.values_require}))
+    np.testing.assert_allclose(val_1, calc_values(**{key: requirements[key][..., 1] for key in field.values_require}))
+    np.testing.assert_allclose(val_both, np.stack([val_0, val_1], axis=field.ndim))
 
 
 @pytest.mark.parametrize("pos", [pos_0, pos_1, pos_both])
@@ -47,19 +50,27 @@ def test_FieldPoint(func, pos):
     np.testing.assert_allclose((field@pos)(array.complex_amplitudes), field(array.complex_amplitudes, pos))
 
 
-@pytest.mark.parametrize("weight", [np.random.uniform(-10, 10, 1), (1, 0, 0), (0, 1, 0), (0, 0, 1), np.random.uniform(-10, 10, 3)])
+@pytest.mark.parametrize("weight", [1, 1e-3, 1e3])
 @pytest.mark.parametrize("func", pressure_derivs_fields)
 def test_CostField(func, weight):
-    field = func(array) * weight
+    field = func(array)
+    weight = np.random.uniform(-weight, weight, (1,) * field.ndim)
+    field = field * weight
     calc_values, calc_jacobians = field.values, field.jacobians
 
-    val_0 = np.einsum('i..., i', calc_values(pressure_derivs_summed=sum_ders[..., 0]), np.atleast_1d(weight))
-    val_1 = np.einsum('i..., i', calc_values(pressure_derivs_summed=sum_ders[..., 1]), np.atleast_1d(weight))
-    val_both = np.einsum('i..., i', calc_values(pressure_derivs_summed=sum_ders), np.atleast_1d(weight))
+    raw_0 = calc_values(**{key: requirements[key][..., 0] for key in field.values_require})
+    raw_1 = calc_values(**{key: requirements[key][..., 1] for key in field.values_require})
+    raw_both = calc_values(**{key: requirements[key] for key in field.values_require})
+    val_0 = np.einsum(field._sum_str, weight, raw_0)
+    val_1 = np.einsum(field._sum_str, weight, raw_1)
+    val_both = np.einsum(field._sum_str, weight, raw_both)
 
-    jac_0 = np.einsum('i..., i', calc_jacobians(pressure_derivs_summed=sum_ders[..., 0], pressure_derivs_individual=ind_ders[..., 0]), np.atleast_1d(weight))
-    jac_1 = np.einsum('i..., i', calc_jacobians(pressure_derivs_summed=sum_ders[..., 1], pressure_derivs_individual=ind_ders[..., 1]), np.atleast_1d(weight))
-    jac_both = np.einsum('i..., i', calc_jacobians(pressure_derivs_summed=sum_ders, pressure_derivs_individual=ind_ders), np.atleast_1d(weight))
+    raw_0 = calc_jacobians(**{key: requirements[key][..., 0] for key in field.jacobians_require})
+    raw_1 = calc_jacobians(**{key: requirements[key][..., 1] for key in field.jacobians_require})
+    raw_both = calc_jacobians(**{key: requirements[key] for key in field.jacobians_require})
+    jac_0 = np.einsum(field._sum_str, weight, raw_0)
+    jac_1 = np.einsum(field._sum_str, weight, raw_1)
+    jac_both = np.einsum(field._sum_str, weight, raw_both)
 
     field_val_0, field_jac_0 = field(array.complex_amplitudes, pos_0)
     field_val_1, field_jac_1 = field(array.complex_amplitudes, pos_1)
@@ -74,11 +85,13 @@ def test_CostField(func, weight):
     np.testing.assert_allclose(jac_both, field_jac_both)
 
 
-@pytest.mark.parametrize("weight", [np.random.uniform(-10, 10, 3)])
+@pytest.mark.parametrize("weight", [1, 1e-3, 1e3])
 @pytest.mark.parametrize("pos", [pos_0, pos_1])
 @pytest.mark.parametrize("func", pressure_derivs_fields)
 def test_CostFieldPoint(func, weight, pos):
-    field = func(array) * weight
+    field = func(array)
+    weight = np.random.uniform(-weight, weight, (1,) * field.ndim)
+    field = field * weight
 
     val, jac = (field@pos)(array.complex_amplitudes)
     val_ub, jac_ub = field(array.complex_amplitudes, pos)
@@ -88,34 +101,48 @@ def test_CostFieldPoint(func, weight, pos):
 
 @pytest.mark.parametrize("pos", [pos_0, pos_both])
 @pytest.mark.parametrize("func", pressure_derivs_fields)
-@pytest.mark.parametrize("target", [(1, 0, 0), (0, 1, 0), (0, 0, 1), np.random.uniform(-10, 10, 3)])
-def test_SquaredField(func, target, pos):
+@pytest.mark.parametrize("target_scale", [1, 1e-3, 1e3])
+def test_SquaredField(func, target_scale, pos):
     field = func(array)
-    np.testing.assert_allclose((field - target)(array.complex_amplitudes, pos), np.abs(field(array.complex_amplitudes, pos) - np.asarray(target).reshape([-1] + (pos.ndim - 1) * [1]))**2)
+    target = np.random.uniform(-target_scale, target_scale, (1,) * field.ndim)
+    value = np.abs(field(array.complex_amplitudes, pos) - np.asarray(target).reshape([-1] * field.ndim + (pos.ndim - 1) * [1]))**2
+
+    np.testing.assert_allclose((field - target)(array.complex_amplitudes, pos), value)
 
 
 @pytest.mark.parametrize("pos", [pos_0, pos_both])
 @pytest.mark.parametrize("func", pressure_derivs_fields)
-@pytest.mark.parametrize("target", [np.random.uniform(-10, 10, 3)])
-def test_SquaredFieldPoint(func, target, pos):
-    field = func(array) - target
+@pytest.mark.parametrize("target_scale", [1, 1e-3, 1e3])
+def test_SquaredFieldPoint(func, target_scale, pos):
+    field = func(array)
+    target = np.random.uniform(-target_scale, target_scale, (1,) * field.ndim)
+    field = field - target
     np.testing.assert_allclose((field@pos)(array.complex_amplitudes), field(array.complex_amplitudes, pos))
 
 
 @pytest.mark.parametrize("func", pressure_derivs_fields)
-@pytest.mark.parametrize("weight", [np.random.uniform(-10, 10, 3)])
-@pytest.mark.parametrize("target", [(1, 0, 0), (0, 1, 0), (0, 0, 1), np.random.uniform(-10, 10, 3)])
-def test_SquaredCostField(func, target, weight):
-    field = (func(array) - target) * weight
+@pytest.mark.parametrize("weight", [1, 1e-3, 1e3])
+@pytest.mark.parametrize("target_scale", [1, 1e-3, 1e3])
+def test_SquaredCostField(func, target_scale, weight):
+    field = func(array)
+    target = np.random.uniform(-target_scale, target_scale, (1,) * field.ndim)
+    weight = np.random.uniform(-weight, weight, (1,) * field.ndim)
+    field = (field - target) * weight
     calc_values, calc_jacobians = field.values, field.jacobians
 
-    val_0 = np.einsum('i..., i', calc_values(pressure_derivs_summed=sum_ders[..., 0]), np.atleast_1d(weight))
-    val_1 = np.einsum('i..., i', calc_values(pressure_derivs_summed=sum_ders[..., 1]), np.atleast_1d(weight))
-    val_both = np.einsum('i..., i', calc_values(pressure_derivs_summed=sum_ders), np.atleast_1d(weight))
+    raw_0 = calc_values(**{key: requirements[key][..., 0] for key in field.values_require})
+    raw_1 = calc_values(**{key: requirements[key][..., 1] for key in field.values_require})
+    raw_both = calc_values(**{key: requirements[key] for key in field.values_require})
+    val_0 = np.einsum(field._sum_str, weight, raw_0)
+    val_1 = np.einsum(field._sum_str, weight, raw_1)
+    val_both = np.einsum(field._sum_str, weight, raw_both)
 
-    jac_0 = np.einsum('i..., i', calc_jacobians(pressure_derivs_summed=sum_ders[..., 0], pressure_derivs_individual=ind_ders[..., 0]), np.atleast_1d(weight))
-    jac_1 = np.einsum('i..., i', calc_jacobians(pressure_derivs_summed=sum_ders[..., 1], pressure_derivs_individual=ind_ders[..., 1]), np.atleast_1d(weight))
-    jac_both = np.einsum('i..., i', calc_jacobians(pressure_derivs_summed=sum_ders, pressure_derivs_individual=ind_ders), np.atleast_1d(weight))
+    raw_0 = calc_jacobians(**{key: requirements[key][..., 0] for key in field.jacobians_require})
+    raw_1 = calc_jacobians(**{key: requirements[key][..., 1] for key in field.jacobians_require})
+    raw_both = calc_jacobians(**{key: requirements[key] for key in field.jacobians_require})
+    jac_0 = np.einsum(field._sum_str, weight, raw_0)
+    jac_1 = np.einsum(field._sum_str, weight, raw_1)
+    jac_both = np.einsum(field._sum_str, weight, raw_both)
 
     field_val_0, field_jac_0 = field(array.complex_amplitudes, pos_0)
     field_val_1, field_jac_1 = field(array.complex_amplitudes, pos_1)
@@ -131,11 +158,15 @@ def test_SquaredCostField(func, target, weight):
 
 
 @pytest.mark.parametrize("func", pressure_derivs_fields)
-@pytest.mark.parametrize("weight", [np.random.uniform(-10, 10, 1), np.random.uniform(-10, 10, 3)])
-@pytest.mark.parametrize("target", [np.random.uniform(-10, 10, 3)])
+@pytest.mark.parametrize("weight", [1, 1e-3, 1e3])
+@pytest.mark.parametrize("target_scale", [1, 1e-3, 1e3])
 @pytest.mark.parametrize("pos", [pos_0, pos_both])
-def test_SquaredCostFieldPoint(func, weight, target, pos):
-    field = (func(array) - target) * weight
+def test_SquaredCostFieldPoint(func, weight, target_scale, pos):
+    field = func(array)
+    target = np.random.uniform(-target_scale, target_scale, (1,) * field.ndim)
+    weight = np.random.uniform(-weight, weight, (1,) * field.ndim)
+    field = (field - target) * weight
+    # field = (func(array) - target) * weight
     val, jac = (field@pos)(array.complex_amplitudes)
     val_ub, jac_ub = field(array.complex_amplitudes, pos)
     np.testing.assert_allclose(val, val_ub)
@@ -170,11 +201,16 @@ def test_MultiFieldPoint(func0, func1):
 @pytest.mark.parametrize("func0", pressure_derivs_fields)
 @pytest.mark.parametrize("func1", pressure_derivs_fields)
 @pytest.mark.parametrize("pos", [pos_0])
-@pytest.mark.parametrize("weight0", [np.random.uniform(-10, 10, 3)])
-@pytest.mark.parametrize("weight1", [np.random.uniform(-10, 10, 3)])
+@pytest.mark.parametrize("weight0", [1, 1e-3, 1e3])
+@pytest.mark.parametrize("weight1", [1, 1e-3, 1e3])
 def test_MultiCostField(func0, func1, pos, weight0, weight1):
-    field_0 = func0(array) * weight0
-    field_1 = func1(array) * weight1
+    field_0 = func0(array)
+    weight0 = np.random.uniform(-weight0, weight0, (1,) * field_0.ndim)
+    field_0 = field_0 * weight0
+
+    field_1 = func1(array)
+    weight1 = np.random.uniform(-weight1, weight1, (1,) * field_1.ndim)
+    field_1 = field_1 * weight1
 
     val0, jac0 = field_0(array.complex_amplitudes, pos)
     val1, jac1 = field_1(array.complex_amplitudes, pos)
@@ -186,11 +222,16 @@ def test_MultiCostField(func0, func1, pos, weight0, weight1):
 @pytest.mark.parametrize("func0", pressure_derivs_fields)
 @pytest.mark.parametrize("func1", pressure_derivs_fields)
 @pytest.mark.parametrize("pos", [pos_0, pos_1])
-@pytest.mark.parametrize("weight0", [np.random.uniform(-10, 10, 3)])
-@pytest.mark.parametrize("weight1", [np.random.uniform(-10, 10, 3)])
+@pytest.mark.parametrize("weight0", [1, 1e3, 1e-3])
+@pytest.mark.parametrize("weight1", [1, 1e3, 1e-3])
 def test_MultiCostFieldPoint(func0, func1, pos, weight0, weight1):
-    field_0 = func0(array) * weight0 @ pos
-    field_1 = func1(array) * weight1 @ pos
+    field_0 = func0(array)
+    weight0 = np.random.uniform(-weight0, weight0, (1,) * field_0.ndim)
+    field_0 = field_0 * weight0 @ pos
+
+    field_1 = func1(array)
+    weight1 = np.random.uniform(-weight1, weight1, (1,) * field_1.ndim)
+    field_1 = field_1 * weight1 @ pos
 
     val0, jac0 = field_0(array.complex_amplitudes)
     val1, jac1 = field_1(array.complex_amplitudes)
@@ -203,7 +244,7 @@ def test_MultiCostFieldPoint(func0, func1, pos, weight0, weight1):
 @pytest.mark.parametrize("func1", pressure_derivs_fields)
 @pytest.mark.parametrize("pos0", [pos_0, pos_1])
 @pytest.mark.parametrize("pos1", [pos_0, pos_1])
-def test_MultiCostFieldMultiPoint(func0, func1, pos0, pos1):
+def test_MultiFieldMultiPoint(func0, func1, pos0, pos1):
     field_0 = func0(array)@pos0
     field_1 = func1(array)@pos1
     field_both = field_0 + field_1
@@ -220,11 +261,17 @@ def test_MultiCostFieldMultiPoint(func0, func1, pos0, pos1):
 @pytest.mark.parametrize("func1", pressure_derivs_fields)
 @pytest.mark.parametrize("pos0", [pos_0, pos_1])
 @pytest.mark.parametrize("pos1", [pos_0, pos_1])
-@pytest.mark.parametrize("weight0", [np.random.uniform(-10, 10, 3)])
-@pytest.mark.parametrize("weight1", [np.random.uniform(-10, 10, 3)])
+@pytest.mark.parametrize("weight0", [1, 1e-3, 1e3])
+@pytest.mark.parametrize("weight1", [1, 1e-3, 1e3])
 def test_MultiCostFieldMultiPoint(func0, func1, pos0, pos1, weight0, weight1):
-    field_0 = func0(array)@pos0*weight0
-    field_1 = func1(array)@pos1*weight1
+    field_0 = func0(array)
+    weight0 = np.random.uniform(-weight0, weight0, (1,) * field_0.ndim)
+    field_0 = field_0 * weight0 @ pos0
+
+    field_1 = func1(array)
+    weight1 = np.random.uniform(-weight1, weight1, (1,) * field_1.ndim)
+    field_1 = field_1 * weight1 @ pos1
+
     field_both = field_0 + field_1
 
     val0, jac0 = field_0(array.complex_amplitudes)
