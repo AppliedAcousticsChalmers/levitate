@@ -442,6 +442,9 @@ class RadiationForceGradient(RadiationForce):
         )
         return values
 
+    def jacobians(self, *args, **kwargs):
+        raise NotImplementedError('Jacobians are not implemented for `RadiationForceGradient`')
+
 
 class SphericalHarmonicsForce(FieldImplementation):
     r"""Spherical harmonics based radiation force.
