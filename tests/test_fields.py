@@ -135,6 +135,7 @@ requirements = dict(
         [+9.950696205718e-11, +2.697812005596e-10, +4.046718008394e-10],
         None,
      ),
+    (levitate.fields.SphericalHarmonicsExpansion, {'orders': 15}, sum_harms[..., 0], None),
 ])
 def test_field(field, kwargs, value_at_pos_1, jacobian_at_pos_1):
     field = field(array, **kwargs).field

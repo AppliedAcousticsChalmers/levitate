@@ -601,6 +601,12 @@ class SphericalHarmonicsForceDecomposition(SphericalHarmonicsForce):
 class SphericalHarmonicsExpansion(FieldImplementation):
     ndim = 1
 
+    def __eq__(self, other):
+        return(
+            super().__eq__(other)
+            and self.max_idx == other.max_idx
+        )
+
     def __init__(self, array, orders, *args, **kwargs):
         super().__init__(array, *args, **kwargs)
         self.max_idx = len(utils.SphericalHarmonicsIndexer(orders))
