@@ -596,3 +596,15 @@ class SphericalHarmonicsForceDecomposition(SphericalHarmonicsForce):
         Fy = np.imag(Fxy)
         Fz = np.real(z_coefs * N_M * np.conj(Nr_M))
         return np.stack([Fx, Fy, Fz])
+
+
+class SphericalHarmonicsExpansion(FieldImplementation):
+    ndim = 1
+
+    def __init__(self, array, orders, *args, **kwargs):
+        super().__init__(array, *args, **kwargs)
+        self.max_idx = len(utils.SphericalHarmonicsIndexer(orders))
+        self.values_require = FieldImplementation.requirement(spherical_harmonics_summed=orders)
+
+    def values(self, spherical_harmonics_summed):
+        return spherical_harmonics_summed[:self.max_idx]
