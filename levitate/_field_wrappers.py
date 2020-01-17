@@ -221,88 +221,7 @@ class FieldImplementation(metaclass=FieldImplementationMeta):
 
     @staticmethod
     def requirement(*args, **kwargs):
-        return FieldRequirement(*args, **kwargs)
-
-
-class FieldRequirement(collections.UserDict):
-    """Parse a set of requirements.
-
-    `FieldImplementation` objects should define requirements for values and jacobians.
-    This class parses the requirements and checks that the request can be met upon call.
-    The requirements are stored as a non-mutable custom dictionary.
-    Requirements can be added to each other to find the combined requirements.
-    """
-
-    possible_requirements = [
-        'complex_transducer_amplitudes',
-        'pressure_derivs_summed', 'pressure_derivs_individual',
-        'spherical_harmonics_summed', 'spherical_harmonics_individual',
-    ]
-
-    def __setitem__(self, key, value):
-        if self.locked:
-            raise KeyError("`requirements` should not be mutated!")
-        super().__setitem__(key, value)
-
-    def __init__(self, *args, **kwargs):  # noqa: D205, D400
-        """
-        Keyword arguments
-        ---------------------
-        complex_transducer_amplitudes
-            The field requires the actual complex transducer amplitudes directly.
-            This is a fallback requirement when it is not possible to implement the field
-            with the other requirements, and no performance optimization is possible.
-        pressure_derivs_summed
-            The number of orders of Cartesian spatial derivatives of the total sound pressure field.
-            Currently implemented to third order derivatives.
-            See `levitate.utils.pressure_derivs_order` and `levitate.utils.num_pressure_derivs`
-            for a description of the structure.
-        pressure_derivs_summed
-            Like pressure_derivs_summed, but for individual transducers.
-        spherical_harmonics_summed
-            A spherical harmonics decomposition of the total sound pressure field, up to and
-            including the order specified.
-            where remaining dimensions are determined by the positions.
-        spherical_harmonics_individual
-            Like spherical_harmonics_summed, but for individual transducers.
-
-        Raises
-        ------
-        NotImplementedError
-            If one or more of the requested keys is not implemented.
-        """
-        self.locked = False
-        super().__init__(*args, **kwargs)
-        self.locked = True
-        for requirement in self:
-            if requirement not in self.possible_requirements:
-                raise NotImplementedError("Requirement '{}' is not implemented for a field. The possible requests are: {}".format(requirement, self.possible_requirements))
-
-    def __add__(self, other):
-        if not isinstance(other, (dict, collections.UserDict)):
-            return NotImplemented
-        unique_self = {key: self[key] for key in self.keys() - other.keys()}
-        unique_other = {key: other[key] for key in other.keys() - self.keys()}
-        max_common = {key: max(self[key], other[key]) for key in self.keys() & other.keys()}
-        return type(self)(**unique_self, **unique_other, **max_common)
-
-    @property
-    def requests(self):  # noqa: D401
-        """Required spatial calculations needed to fulfill the requirements.
-
-        This essentially parses the requirements and checks for shared calculations
-        needed from the array. Cf. `pressure_derives_individual` and `pressure_derivs_summed`
-        only require the knowlege of the `pressure_derivs` from the array.
-        """
-        spatial_reqs = {}
-        for key, value in self.items():
-            if key.find('pressure_derivs') > -1:
-                spatial_reqs['pressure_derivs'] = max(value, spatial_reqs.get('pressure_derivs', -1))
-            elif key.find('spherical_harmonics') > -1:
-                spatial_reqs['spherical_harmonics'] = max(value, spatial_reqs.get('spherical_harmonics', -1))
-            elif key != 'complex_transducer_amplitudes':
-                raise ValueError("Unknown requirement '{}'".format(key))
-        return spatial_reqs
+        return FieldBase.Requirement(*args, **kwargs)
 
 
 class FieldMeta(type):
@@ -339,16 +258,67 @@ class FieldBase(metaclass=FieldMeta):
     This class should not be instantiated directly.
     """
 
-    @property
-    def _type(self):  # noqa: D401
-        """The type of the field.
+    class Requirement(collections.UserDict):
+        """Parse a set of requirements.
 
-        In this context `type` refers for the combination of `bound` and `cost`.
+        `FieldImplementation` objects should define requirements for values and jacobians.
+        This class parses the requirements and checks that the request can be met upon call.
+        The requirements are stored as a non-mutable custom dictionary.
+        Requirements can be added to each other to find the combined requirements.
         """
-        return type(self)._type
 
-    def __eq__(self, other):
-        return type(self) == type(other)
+        possible_requirements = [
+            'complex_transducer_amplitudes',
+            'pressure_derivs_summed', 'pressure_derivs_individual',
+            'spherical_harmonics_summed', 'spherical_harmonics_individual',
+        ]
+
+        def __setitem__(self, key, value):
+            if self.locked:
+                raise TypeError("`Requirement` instances should not be mutated!")
+            super().__setitem__(key, value)
+
+        def __init__(self, *args, **kwargs):  # noqa: D205, D400
+            """
+            Keyword arguments
+            ---------------------
+            complex_transducer_amplitudes
+                The field requires the actual complex transducer amplitudes directly.
+                This is a fallback requirement when it is not possible to implement the field
+                with the other requirements, and no performance optimization is possible.
+            pressure_derivs_summed
+                The number of orders of Cartesian spatial derivatives of the total sound pressure field.
+                Currently implemented to third order derivatives.
+                See `levitate.utils.pressure_derivs_order` and `levitate.utils.num_pressure_derivs`
+                for a description of the structure.
+            pressure_derivs_summed
+                Like pressure_derivs_summed, but for individual transducers.
+            spherical_harmonics_summed
+                A spherical harmonics decomposition of the total sound pressure field, up to and
+                including the order specified.
+                where remaining dimensions are determined by the positions.
+            spherical_harmonics_individual
+                Like spherical_harmonics_summed, but for individual transducers.
+
+            Raises
+            ------
+            NotImplementedError
+                If one or more of the requested keys is not implemented.
+            """
+            self.locked = False
+            super().__init__(*args, **kwargs)
+            self.locked = True
+            for requirement in self:
+                if requirement not in self.possible_requirements:
+                    raise NotImplementedError("Requirement '{}' is not implemented for a field. The possible requests are: {}".format(requirement, self.possible_requirements))
+
+        def __add__(self, other):
+            if not isinstance(other, (dict, collections.UserDict)):
+                return NotImplemented
+            unique_self = {key: self[key] for key in self.keys() - other.keys()}
+            unique_other = {key: other[key] for key in other.keys() - self.keys()}
+            max_common = {key: max(self[key], other[key]) for key in self.keys() & other.keys()}
+            return type(self)(**unique_self, **unique_other, **max_common)
 
     def _evaluate_requirements(self, complex_transducer_amplitudes, position=None):
         """Evaluate requirements for given complex transducer amplitudes.
@@ -372,12 +342,12 @@ class FieldBase(metaclass=FieldMeta):
 
         Note
         ----
-        Fields which are bound to a position will cache the raw arequirements, i.e. the requirements
-        without any transudcer amplitudes applied. It is therefore important to not manually change
+        Fields which are bound to a position will cache the array requests, i.e. the requirements
+        without any transducer amplitudes applied. It is therefore important to not manually change
         the position, since that will not clear the cache and the new position is not actually used.
 
         """
-        evaluated_requests = self._evaluate_requests(position)
+        evaluated_requests = self.__evaluate_requests(position)
 
         # Apply the input complex amplitudes
         evaluated_requrements = {}
@@ -391,15 +361,40 @@ class FieldBase(metaclass=FieldMeta):
             evaluated_requrements['spherical_harmonics_summed'] = np.sum(evaluated_requrements['spherical_harmonics_individual'], axis=1)
         return evaluated_requrements
 
-    def _evaluate_requests(self, position=None):
+    def __evaluate_requests(self, position=None):
+        """Evaluate the requests needed for the requirements.
+
+        This asks the array to calculate the requirements, using the minimum set necessary.
+        The output from this method is independent of the transducer state, but is otherwise
+        the entire requirements needed.
+
+        Parameters
+        ----------
+        position: ndarray
+            The position where to calculate the requirements needed.
+            Shape (3,...). If position is `None` or not passed, it is assumed
+            that the field is bound to a position and `self.position` will be used.
+
+        Returns
+        -------
+        evaluated_requests : dict
+            A dictionary of the set of calculated data needed to evaluate the requirements.
+
+        Note
+        ----
+        Fields which are bound to a position will cache the array requests, i.e. the requirements
+        without any transducer amplitudes applied. It is therefore important to not manually change
+        the position, since that will not clear the cache and the new position is not actually used.
+
+        """
         if position is None:
             try:
-                return self._cached_raw_requirements
+                return self._cached_requests
             except AttributeError:
-                self._cached_raw_requirements = self._evaluate_requests(self.position)
-                return self._cached_raw_requirements
+                self._cached_requests = self.__evaluate_requests(self.position)
+                return self._cached_requests
 
-        requests = self.requires.requests
+        requests = self.__requests_needed()
         evaluated_requests = {}
         if 'pressure_derivs' in requests:
             evaluated_requests['pressure_derivs'] = self.array.pressure_derivs(position, orders=requests.pop('pressure_derivs'))
@@ -409,11 +404,39 @@ class FieldBase(metaclass=FieldMeta):
             raise ValueError('Unevaluated spatial requirements: {}'.format(requests))
         return evaluated_requests
 
+    def __requests_needed(self):
+        """Find the required spatial calculations needed to fulfill the requirements.
+
+        This essentially parses the requirements and checks for shared calculations
+        needed from the array. Cf. `pressure_derives_individual` and `pressure_derivs_summed`
+        only require the knowledge of the `pressure_derivs` from the array.
+        """
+        requests = {}
+        for key, value in self.requires.items():
+            if key.find('pressure_derivs') > -1:
+                requests['pressure_derivs'] = max(value, requests.get('pressure_derivs', -1))
+            elif key.find('spherical_harmonics') > -1:
+                requests['spherical_harmonics'] = max(value, requests.get('spherical_harmonics', -1))
+            elif key != 'complex_transducer_amplitudes':
+                raise ValueError("Unknown requirement '{}'".format(key))
+        return requests
+
     def _clear_cache(self):
         try:
-            del self._cached_raw_requirements
+            del self._cached_requests
         except AttributeError:
             pass
+
+    @property
+    def _type(self):  # noqa: D401
+        """The type of the field.
+
+        In this context `type` refers for the combination of `bound` and `cost`.
+        """
+        return type(self)._type
+
+    def __eq__(self, other):
+        return type(self) == type(other)
 
     def __abs__(self):
         return self - 0
