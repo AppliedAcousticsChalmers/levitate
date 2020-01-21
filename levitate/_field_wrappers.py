@@ -347,7 +347,13 @@ class FieldBase(metaclass=FieldMeta):
         the position, since that will not clear the cache and the new position is not actually used.
 
         """
-        evaluated_requests = self.__evaluate_requests(position)
+        if position is None:
+            try:
+                evaluated_requests = self._cached_requests
+            except AttributeError:
+                evaluated_requests = self._cached_requests = self.array.request(self.requires, self.position)
+        else:
+            evaluated_requests = self.array.request(self.requires, position)
 
         # Apply the input complex amplitudes
         evaluated_requrements = {}

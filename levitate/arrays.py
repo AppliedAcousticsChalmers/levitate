@@ -286,6 +286,54 @@ class TransducerArray:
         """
         return self.transducer_model.spherical_harmonics(self.transducer_positions, self.transducer_normals, positions, orders)
 
+    def request(self, requests, position):
+        """Evaluate a set of requests.
+
+        This takes a mapping (e.g. dict) of requests, and evaluates them
+        at a given position. This is independent of the current transducer state.
+        If a certain quantity should be calculated with regards to the current
+        transducer state, use a `FieldImplementation` from the `fields` module.
+
+        Parameters
+        ----------
+        position: ndarray
+            The position where to calculate the requirements needed, shape (3,...).
+        requests : mapping, e.g. dict
+            A mapping of the desired requests. The keys in the mapping should
+            start with the desired output, and the value indicates some kind of
+            parameter set. Possible requests listed below:
+
+                pressure_derivs
+                    A number of spatial derivatives of the pressure. Should contain the
+                    maximum order of differentiation, see `pressure_derivs`.
+                spherical_harmonics
+                    Spherical harmonics coefficients for an expansion of the pressure.
+                    Should contain the maximum order of expansion, see `spherical_harmonics`.
+
+        Returns
+        -------
+        evaluated_requests : dict
+            A dictionary of the set of calculated data, according to the requests.
+
+        """
+        parsed_requests = {}
+        for key, value in requests.items():
+            if key.find('pressure_derivs') > -1:
+                parsed_requests['pressure_derivs'] = max(value, parsed_requests.get('pressure_derivs', -1))
+            elif key.find('spherical_harmonics') > -1:
+                parsed_requests['spherical_harmonics'] = max(value, parsed_requests.get('spherical_harmonics', -1))
+            elif key != 'complex_transducer_amplitudes':
+                raise ValueError("Unknown request from `TransducerArray`: '{}'".format(key))
+
+        evaluated_requests = {}
+        if 'pressure_derivs' in parsed_requests:
+            evaluated_requests['pressure_derivs'] = self.pressure_derivs(position, orders=parsed_requests.pop('pressure_derivs'))
+        if 'spherical_harmonics' in parsed_requests:
+            evaluated_requests['spherical_harmonics'] = self.spherical_harmonics(position, orders=parsed_requests.pop('spherical_harmonics'))
+        if len(parsed_requests) > 0:
+            raise ValueError('Unevaluated requests: {}'.format(parsed_requests))
+        return evaluated_requests
+
     class PersistentFieldEvaluator:
         """Implementation of cashed field calculations.
 
