@@ -219,46 +219,7 @@ class FieldImplementation(metaclass=FieldImplementationMeta):
     def __eq__(self, other):
         return type(self) == type(other) and self.array == other.array
 
-    @staticmethod
-    def requirement(*args, **kwargs):
-        return FieldBase.Requirement(*args, **kwargs)
-
-
-class FieldMeta(type):
-    """Metaclass for `Field`-type objects.
-
-    This metaclass is only needed to make the `_type` property available
-    at both class and instance level.
-    """
-
-    @property
-    def _type(cls):  # noqa: D401
-        """The type of the field.
-
-        In this context `type` refers for the combination of `bound` and `cost`.
-        """
-        return cls._is_bound, cls._is_cost
-
-
-class FieldBase(metaclass=FieldMeta):
-    """Base class for all field type objects.
-
-    This wraps a few common procedures for fields,
-    primarily dealing with preparation and evaluation of requirements
-    for fields implementations.
-    The fields support some numeric manipulations to simplify
-    the creation of variants of the basic types.
-    Not all types of fields support all operations, and the order of
-    operation can matter in some cases.
-    If unsure if the arithmetics return the desired outcome, print the
-    resulting object to inspect the new structure.
-
-    Note
-    ----
-    This class should not be instantiated directly.
-    """
-
-    class Requirement(collections.UserDict):
+    class requirement(collections.UserDict):
         """Parse a set of requirements.
 
         `FieldImplementation` objects should define requirements for values and jacobians.
@@ -319,6 +280,41 @@ class FieldBase(metaclass=FieldMeta):
             unique_other = {key: other[key] for key in other.keys() - self.keys()}
             max_common = {key: max(self[key], other[key]) for key in self.keys() & other.keys()}
             return type(self)(**unique_self, **unique_other, **max_common)
+
+
+class FieldMeta(type):
+    """Metaclass for `Field`-type objects.
+
+    This metaclass is only needed to make the `_type` property available
+    at both class and instance level.
+    """
+
+    @property
+    def _type(cls):  # noqa: D401
+        """The type of the field.
+
+        In this context `type` refers for the combination of `bound` and `cost`.
+        """
+        return cls._is_bound, cls._is_cost
+
+
+class FieldBase(metaclass=FieldMeta):
+    """Base class for all field type objects.
+
+    This wraps a few common procedures for fields,
+    primarily dealing with preparation and evaluation of requirements
+    for fields implementations.
+    The fields support some numeric manipulations to simplify
+    the creation of variants of the basic types.
+    Not all types of fields support all operations, and the order of
+    operation can matter in some cases.
+    If unsure if the arithmetics return the desired outcome, print the
+    resulting object to inspect the new structure.
+
+    Note
+    ----
+    This class should not be instantiated directly.
+    """
 
     def evaluate_requirements(self, complex_transducer_amplitudes, position=None):
         """Evaluate requirements for given complex transducer amplitudes.
