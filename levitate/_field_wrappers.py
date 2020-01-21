@@ -320,7 +320,7 @@ class FieldBase(metaclass=FieldMeta):
             max_common = {key: max(self[key], other[key]) for key in self.keys() & other.keys()}
             return type(self)(**unique_self, **unique_other, **max_common)
 
-    def _evaluate_requirements(self, complex_transducer_amplitudes, position=None):
+    def evaluate_requirements(self, complex_transducer_amplitudes, position=None):
         """Evaluate requirements for given complex transducer amplitudes.
 
         Parameters
@@ -366,66 +366,6 @@ class FieldBase(metaclass=FieldMeta):
             evaluated_requrements['spherical_harmonics_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, evaluated_requests['spherical_harmonics'])
             evaluated_requrements['spherical_harmonics_summed'] = np.sum(evaluated_requrements['spherical_harmonics_individual'], axis=1)
         return evaluated_requrements
-
-    def __evaluate_requests(self, position=None):
-        """Evaluate the requests needed for the requirements.
-
-        This asks the array to calculate the requirements, using the minimum set necessary.
-        The output from this method is independent of the transducer state, but is otherwise
-        the entire requirements needed.
-
-        Parameters
-        ----------
-        position: ndarray
-            The position where to calculate the requirements needed.
-            Shape (3,...). If position is `None` or not passed, it is assumed
-            that the field is bound to a position and `self.position` will be used.
-
-        Returns
-        -------
-        evaluated_requests : dict
-            A dictionary of the set of calculated data needed to evaluate the requirements.
-
-        Note
-        ----
-        Fields which are bound to a position will cache the array requests, i.e. the requirements
-        without any transducer amplitudes applied. It is therefore important to not manually change
-        the position, since that will not clear the cache and the new position is not actually used.
-
-        """
-        if position is None:
-            try:
-                return self._cached_requests
-            except AttributeError:
-                self._cached_requests = self.__evaluate_requests(self.position)
-                return self._cached_requests
-
-        requests = self.__requests_needed()
-        evaluated_requests = {}
-        if 'pressure_derivs' in requests:
-            evaluated_requests['pressure_derivs'] = self.array.pressure_derivs(position, orders=requests.pop('pressure_derivs'))
-        if 'spherical_harmonics' in requests:
-            evaluated_requests['spherical_harmonics'] = self.array.spherical_harmonics(position, orders=requests.pop('spherical_harmonics'))
-        if len(requests) > 0:
-            raise ValueError('Unevaluated spatial requirements: {}'.format(requests))
-        return evaluated_requests
-
-    def __requests_needed(self):
-        """Find the required spatial calculations needed to fulfill the requirements.
-
-        This essentially parses the requirements and checks for shared calculations
-        needed from the array. Cf. `pressure_derives_individual` and `pressure_derivs_summed`
-        only require the knowledge of the `pressure_derivs` from the array.
-        """
-        requests = {}
-        for key, value in self.requires.items():
-            if key.find('pressure_derivs') > -1:
-                requests['pressure_derivs'] = max(value, requests.get('pressure_derivs', -1))
-            elif key.find('spherical_harmonics') > -1:
-                requests['spherical_harmonics'] = max(value, requests.get('spherical_harmonics', -1))
-            elif key != 'complex_transducer_amplitudes':
-                raise ValueError("Unknown requirement '{}'".format(key))
-        return requests
 
     def _clear_cache(self):
         try:
@@ -570,7 +510,7 @@ class Field(FieldBase):
 
         """
         # Prepare the requirements dict
-        requirements = self._evaluate_requirements(complex_transducer_amplitudes, position)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes, position)
         # Call the function with the correct arguments
         return self.values(**{key: requirements[key] for key in self.values_require})
 
@@ -668,7 +608,7 @@ class FieldPoint(Field):
             The values of the implemented field used to create the wrapper.
 
         """
-        requirements = self._evaluate_requirements(complex_transducer_amplitudes)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes)
         return self.values(**{key: requirements[key] for key in self.values_require})
 
     def __add__(self, other):
@@ -767,7 +707,7 @@ class CostField(Field):
             The jacobians of the values with respect to the transducers.
 
         """
-        requirements = self._evaluate_requirements(complex_transducer_amplitudes, position)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes, position)
         values = self.values(**{key: requirements[key] for key in self.values_require})
         jacobians = self.jacobians(**{key: requirements[key] for key in self.jacobians_require})
         return np.einsum(self._sum_str, self.weight, values), np.einsum(self._sum_str, self.weight, jacobians)
@@ -864,7 +804,7 @@ class CostFieldPoint(CostField, FieldPoint):
             The jacobians of the values with respect to the transducers.
 
         """
-        requirements = self._evaluate_requirements(complex_transducer_amplitudes)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes)
         values = self.values(**{key: requirements[key] for key in self.values_require})
         jacobians = self.jacobians(**{key: requirements[key] for key in self.jacobians_require})
         return np.einsum(self._sum_str, self.weight, values), np.einsum(self._sum_str, self.weight, jacobians)
@@ -1301,7 +1241,7 @@ class MultiField(FieldBase):
 
         """
         # Prepare the requirements dict
-        requirements = self._evaluate_requirements(complex_transducer_amplitudes, position)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes, position)
         # Call the function with the correct arguments
         return [field.values(**{key: requirements[key] for key in field.values_require}) for field in self.fields]
 
@@ -1430,7 +1370,7 @@ class MultiFieldPoint(MultiField):
             arrays in the list might not have compatible shapes.
 
         """
-        requirements = self._evaluate_requirements(complex_transducer_amplitudes)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes)
         return [field.values(**{key: requirements[key] for key in field.values_require}) for field in self.fields]
 
     def __add__(self, other):
@@ -1518,7 +1458,7 @@ class MultiCostField(MultiField):
             The the summed jacobians of all fields.
 
         """
-        requirements = self._evaluate_requirements(complex_transducer_amplitudes, position)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes, position)
         value = 0
         jacobians = 0
         for field in self.fields:
@@ -1603,7 +1543,7 @@ class MultiCostFieldPoint(MultiCostField, MultiFieldPoint):
             The the summed jacobians of all cost functions.
 
         """
-        requirements = self._evaluate_requirements(complex_transducer_amplitudes)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes)
         value = 0
         jacobians = 0
         for field in self.fields:
