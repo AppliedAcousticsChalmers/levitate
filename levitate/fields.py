@@ -527,19 +527,17 @@ class SphericalHarmonicsForce(FieldImplementation):
         else:
             raise ValueError("Unknown scattering model '{}'".format(scattering_model))
 
-        psi = np.zeros(orders + 1, dtype=np.complex128)
-        for n in sph_idx.orders:
-            psi[n] = 1j * (1 + 2 * scattering_coefficient[n]) * (1 + 2 * np.conj(scattering_coefficient[n + 1])) - 1j
-
         scaling = array.medium.compressibility / (8 * array.k**2)
         self.xy_coefficients = np.zeros((orders + 1)**2, dtype=np.complex128)
         self.z_coefficients = np.zeros((orders + 1)**2, dtype=np.complex128)
         idx = 0
         for n in sph_idx.orders:
+            psi = 1j * (1 + 2 * scattering_coefficient[n]) * (1 + 2 * np.conj(scattering_coefficient[n + 1])) - 1j
             denom = 1 / ((2 * n + 1) * (2 * n + 3))**0.5
+            coeff = psi * scaling * denom
             for m in sph_idx.modes:
-                self.xy_coefficients[idx] = psi[n] * ((n + m + 1) * (n + m + 2))**0.5 * denom * scaling
-                self.z_coefficients[idx] = -2 * psi[n] * ((n + m + 1) * (n - m + 1))**0.5 * denom * scaling
+                self.xy_coefficients[idx] = ((n + m + 1) * (n + m + 2))**0.5 * coeff
+                self.z_coefficients[idx] = -2 * ((n + m + 1) * (n - m + 1))**0.5 * coeff
                 idx += 1
 
     def __eq__(self, other):
