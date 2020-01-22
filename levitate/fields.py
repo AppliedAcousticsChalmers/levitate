@@ -614,3 +614,14 @@ class SphericalHarmonicsExpansion(FieldImplementation):
 
     def values(self, spherical_harmonics_summed):
         return spherical_harmonics_summed[:self.max_idx]
+
+
+class SphericalHarmonicsExpansionGradient(SphericalHarmonicsExpansion):
+    ndim = 2
+
+    def __init__(self, array, orders, *args, **kwargs):
+        super().__init__(array, orders, *args, **kwargs)
+        self.values_require = FieldImplementation.requirement(spherical_harmonics_gradient_summed=orders)
+
+    def values(self, spherical_harmonics_gradient_summed):
+        return spherical_harmonics_gradient_summed[:, :self.max_idx]
