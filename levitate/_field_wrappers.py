@@ -232,6 +232,7 @@ class FieldImplementation(metaclass=FieldImplementationMeta):
             'complex_transducer_amplitudes',
             'pressure_derivs_summed', 'pressure_derivs_individual',
             'spherical_harmonics_summed', 'spherical_harmonics_individual',
+            'spherical_harmonics_gradient_summed', 'spherical_harmonics_gradient_individual',
         ]
 
         def __setitem__(self, key, value):
@@ -361,6 +362,9 @@ class FieldBase(metaclass=FieldMeta):
         if 'spherical_harmonics' in evaluated_requests:
             evaluated_requrements['spherical_harmonics_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, evaluated_requests['spherical_harmonics'])
             evaluated_requrements['spherical_harmonics_summed'] = np.sum(evaluated_requrements['spherical_harmonics_individual'], axis=1)
+        if 'spherical_harmonics_gradient' in evaluated_requests:
+            evaluated_requrements['spherical_harmonics_gradient_individual'] = np.einsum('i,jki...->jki...', complex_transducer_amplitudes, evaluated_requests['spherical_harmonics_gradient'])
+            evaluated_requrements['spherical_harmonics_gradient_summed'] = np.sum(evaluated_requrements['spherical_harmonics_gradient_individual'], axis=2)
         return evaluated_requrements
 
     def _clear_cache(self):
