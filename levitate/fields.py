@@ -596,6 +596,46 @@ class SphericalHarmonicsForceDecomposition(SphericalHarmonicsForce):
         return np.stack([Fx, Fy, Fz])
 
 
+class SphericalHarmonicsForceGradientDecomposition(SphericalHarmonicsForce):
+    ndim = 3
+
+    def __init__(self, array, orders, *args, **kwargs):
+        super().__init__(array, orders, *args, **kwargs)
+        self.values_require = FieldImplementation.requirement(spherical_harmonics_summed=orders + 1, spherical_harmonics_gradient_summed=orders + 1)
+
+    def values(self, spherical_harmonics_summed, spherical_harmonics_gradient_summed):  # noqa: D102
+        # Reshape coefficients to allow multiple receiver positions
+        xy_coefs = self.xy_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
+        z_coefs = self.z_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
+
+        # Index the arrays only once, faster.
+        N_M = spherical_harmonics_summed[self.N_M]
+        Nr_Mr = spherical_harmonics_summed[self.Nr_Mr]
+        N_mM = spherical_harmonics_summed[self.N_mM]
+        Nr_mMr = spherical_harmonics_summed[self.Nr_mMr]
+        Nr_M = spherical_harmonics_summed[self.Nr_M]
+
+        d_N_M = spherical_harmonics_gradient_summed[:, self.N_M]
+        d_Nr_Mr = spherical_harmonics_gradient_summed[:, self.Nr_Mr]
+        d_N_mM = spherical_harmonics_gradient_summed[:, self.N_mM]
+        d_Nr_mMr = spherical_harmonics_gradient_summed[:, self.Nr_mMr]
+        d_Nr_M = spherical_harmonics_gradient_summed[:, self.Nr_M]
+
+        dFxy = xy_coefs * (d_N_M * np.conj(Nr_Mr) + N_M * np.conj(d_Nr_Mr)) - np.conj(xy_coefs) * (np.conj(N_mM) * d_Nr_mMr + Nr_mMr * np.conj(d_N_mM))
+        dFx = np.real(dFxy)
+        dFy = np.imag(dFxy)
+        dFz = np.real(z_coefs * d_N_M * np.conj(Nr_M) + np.conj(z_coefs) * np.conj(N_M) * d_Nr_M)
+
+        return np.stack([dFx, dFy, dFz], axis=0)
+
+
+class SphericalHarmonicsForceGradient(SphericalHarmonicsForceGradientDecomposition):
+    ndim = 2
+
+    def values(self, *args, **kwargs):
+        return np.sum(super().values(*args, **kwargs), axis=2)
+
+
 class SphericalHarmonicsExpansion(FieldImplementation):
     ndim = 1
 
