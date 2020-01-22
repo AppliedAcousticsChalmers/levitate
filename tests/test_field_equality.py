@@ -18,6 +18,11 @@ def test_spheherical_harmonics_parameters():
     assert levitate.fields.SphericalHarmonicsExpansion(array, orders=3) == pickle.loads(pickle.dumps(levitate.fields.SphericalHarmonicsExpansion(array, orders=3)))
     assert levitate.fields.SphericalHarmonicsExpansion(array, orders=3) != levitate.fields.SphericalHarmonicsExpansion(array, orders=4)
 
+    assert levitate.fields.SphericalHarmonicsExpansion(array, orders=3) != levitate.fields.SphericalHarmonicsExpansionGradient(array, orders=3)
+    assert levitate.fields.SphericalHarmonicsExpansionGradient(array, orders=3) == levitate.fields.SphericalHarmonicsExpansionGradient(array, orders=3)
+    assert levitate.fields.SphericalHarmonicsExpansionGradient(array, orders=3) == pickle.loads(pickle.dumps(levitate.fields.SphericalHarmonicsExpansionGradient(array, orders=3)))
+    assert levitate.fields.SphericalHarmonicsExpansionGradient(array, orders=3) != levitate.fields.SphericalHarmonicsExpansionGradient(array, orders=4)
+
 
 def test_gorkov_parameters():
 

@@ -73,6 +73,27 @@ def test_RadiationForce_implementations():
     np.testing.assert_allclose(implemented_gradient, np.stack([dFdx, dFdy, dFdz], axis=1))
 
 
+def test_SphericalHarmonicsExpansions():
+    amps = large_array.complex_amplitudes
+    orders = 8
+    S = levitate.fields.SphericalHarmonicsExpansion(large_array, orders=orders)
+    dS = levitate.fields.SphericalHarmonicsExpansionGradient(large_array, orders=orders)
+
+    delta = 1e-8
+    xp = pos + [delta, 0, 0]
+    xm = pos - [delta, 0, 0]
+    yp = pos + [0, delta, 0]
+    ym = pos - [0, delta, 0]
+    zp = pos + [0, 0, delta]
+    zm = pos - [0, 0, delta]
+
+    dSdx = (S(amps, xp) - S(amps, xm)) / (2 * delta)
+    dSdy = (S(amps, yp) - S(amps, ym)) / (2 * delta)
+    dSdz = (S(amps, zp) - S(amps, zm)) / (2 * delta)
+
+    np.testing.assert_allclose(dS(amps, pos), [dSdx, dSdy, dSdz])
+
+
 array = levitate.arrays.RectangularArray(shape=(2, 1))
 pos_1 = np.array([0.1, 0.2, 0.3])
 pos_2 = np.array([-0.15, 1.27, 0.001])
