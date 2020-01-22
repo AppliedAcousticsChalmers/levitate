@@ -442,12 +442,12 @@ class RadiationForceGradient(RadiationForce):
         )
         return values
 
-    def jacobians(self, *args, **kwargs):
+    def jacobians(self, *args, **kwargs):  # noqa: D102
         raise NotImplementedError('Jacobians are not implemented for `RadiationForceGradient`')
 
 
 class SphericalHarmonicsForceDecomposition(FieldImplementation):
-    r"""Radiation force decomposed in spherical harmoncis.
+    r"""Radiation force decomposed in spherical harmonics.
 
     This is mostly intended for research purposes, when the radiation force
     decomposed in individual spherical harmonics bases is of interest.
@@ -579,11 +579,19 @@ class SphericalHarmonicsForce(SphericalHarmonicsForceDecomposition):
 
     ndim = 1
 
-    def values(self, *args, **kwargs):
+    def values(self, *args, **kwargs):  # noqa: D102
         return np.sum(super().values(*args, **kwargs), axis=1)
 
 
-class SphericalHarmonicsForceGradientDecomposition(SphericalHarmonicsForce):
+class SphericalHarmonicsForceGradientDecomposition(SphericalHarmonicsForceDecomposition):
+    """Spatial gradient of spherical harmonics force decomposition.
+
+    Takes the spatial gradient in Cartesian coordinates of each order and mode of
+    the radiation force calculated from a spherical harmonics expansion.
+    See `SphericalHarmonicsForce` for details on algorithms and parameters.
+
+    """
+
     ndim = 3
 
     def __init__(self, array, orders, *args, **kwargs):
@@ -617,13 +625,28 @@ class SphericalHarmonicsForceGradientDecomposition(SphericalHarmonicsForce):
 
 
 class SphericalHarmonicsForceGradient(SphericalHarmonicsForceGradientDecomposition):
+    """Spatial gradient of the total spherical radiation force.
+
+    The three Cartesian derivatives of the radiation force on a spherical object,
+    calculated using spherical harmonics expansion of the sound field.
+    See `SphericalHarmonicsForce` for details on the parameters.
+
+    """
+
     ndim = 2
 
-    def values(self, *args, **kwargs):
+    def values(self, *args, **kwargs):  # noqa: D102
         return np.sum(super().values(*args, **kwargs), axis=2)
 
 
 class SphericalHarmonicsExpansion(FieldImplementation):
+    """Spherical harmonics expansion coefficients of the sound pressure.
+
+    The expansion coefficients up to a certain order, where the complex
+    amplitudes of the transducers will be accounted for.
+
+    """
+
     ndim = 1
 
     def __eq__(self, other):
@@ -632,21 +655,37 @@ class SphericalHarmonicsExpansion(FieldImplementation):
             and self.max_idx == other.max_idx
         )
 
-    def __init__(self, array, orders, *args, **kwargs):
+    def __init__(self, array, orders, *args, **kwargs):  # noqa: D205, D400
+        """
+        Parameters
+        ----------
+        array : TransducerArray
+            The object modeling the array.
+        orders : int
+            The number of expansion orders to include.
+
+        """
         super().__init__(array, *args, **kwargs)
         self.max_idx = len(utils.SphericalHarmonicsIndexer(orders))
         self.values_require = FieldImplementation.requirement(spherical_harmonics_summed=orders)
 
-    def values(self, spherical_harmonics_summed):
+    def values(self, spherical_harmonics_summed):  # noqa: D102
         return spherical_harmonics_summed[:self.max_idx]
 
 
 class SphericalHarmonicsExpansionGradient(SphericalHarmonicsExpansion):
+    """Spatial gradient of spherical harmonics expansion coefficients.
+
+    Gives the Cartesian gradient of the expansion coefficient with respect
+    to the expansion center.
+    See `SphericalHarmonicsExpansion` for documentation of parameters.
+    """
+
     ndim = 2
 
     def __init__(self, array, orders, *args, **kwargs):
         super().__init__(array, orders, *args, **kwargs)
         self.values_require = FieldImplementation.requirement(spherical_harmonics_gradient_summed=orders)
 
-    def values(self, spherical_harmonics_gradient_summed):
+    def values(self, spherical_harmonics_gradient_summed):  # noqa: D102
         return spherical_harmonics_gradient_summed[:, :self.max_idx]

@@ -266,6 +266,7 @@ class FieldImplementation(metaclass=FieldImplementationMeta):
             ------
             NotImplementedError
                 If one or more of the requested keys is not implemented.
+
             """
             self.locked = False
             super().__init__(*args, **kwargs)
