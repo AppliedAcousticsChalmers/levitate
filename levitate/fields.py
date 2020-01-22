@@ -446,40 +446,33 @@ class RadiationForceGradient(RadiationForce):
         raise NotImplementedError('Jacobians are not implemented for `RadiationForceGradient`')
 
 
-class SphericalHarmonicsForce(FieldImplementation):
-    r"""Spherical harmonics based radiation force.
+class SphericalHarmonicsForceDecomposition(FieldImplementation):
+    r"""Radiation force decomposed in spherical harmoncis.
 
-    Expands the local sound field in spherical harmonics and calculates
-    the radiation force in the spherical harmonics domain.
-    The expansion coefficients are calculated using superposition
-    of the translated expansions of the transducer radiation patterns.
-    The radiation force is calculated using a similar derivation as [Sapozhnikov]_,
-    but without any plane wave decomposition.
-
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
-    orders : int
-        The number of force orders to include. Note that the sound field will
-        be expanded at one order higher that the force order.
-    radius_sphere : float, default 1e-3
-        Radius of the spherical beads.
-    sphere_material : Material
-        The material of the sphere, default styrofoam.
-    scattering_model:
-        Chooses which scattering model to use. Currently `Hard sphere`, `Soft sphere`, and `Compressible sphere`
-        are implemented.
-
-    Todo
-    ----
-    This function does not yet support jacobians, and cannot be used as a cost function.
-
+    This is mostly intended for research purposes, when the radiation force
+    decomposed in individual spherical harmonics bases is of interest.
     """
 
-    ndim = 1
+    ndim = 2
 
-    def __init__(self, array, orders, radius_sphere=1e-3, sphere_material=materials.styrofoam, scattering_model='Hard sphere', *args, **kwargs):
+    def __init__(self, array, orders, radius_sphere=1e-3, sphere_material=materials.styrofoam, scattering_model='Hard sphere', *args, **kwargs):  # noqa: D205, D400
+        """
+        Parameters
+        ----------
+        array : TransducerArray
+            The object modeling the array.
+        orders : int
+            The number of force orders to include. Note that the sound field will
+            be expanded at one order higher that the force order.
+        radius_sphere : float, default 1e-3
+            Radius of the spherical beads.
+        sphere_material : Material
+            The material of the sphere, default styrofoam.
+        scattering_model:
+            Chooses which scattering model to use. Currently `Hard sphere`, `Soft sphere`, and `Compressible sphere`
+            are implemented.
+
+        """
         super().__init__(array, *args, **kwargs)
         self.values_require = FieldImplementation.requirement(spherical_harmonics_summed=orders + 1)
 
@@ -560,40 +553,34 @@ class SphericalHarmonicsForce(FieldImplementation):
         Nr_mMr = spherical_harmonics_summed[self.Nr_mMr]
         Nr_M = spherical_harmonics_summed[self.Nr_M]
 
-        Fxy = np.sum(xy_coefs * N_M * np.conj(Nr_Mr) - np.conj(xy_coefs) * np.conj(N_mM) * Nr_mMr, axis=0)
-        Fx = np.real(Fxy)
-        Fy = np.imag(Fxy)
-        Fz = np.sum(np.real(z_coefs * N_M * np.conj(Nr_M)), axis=0)
-
-        return np.stack([Fx, Fy, Fz])
-
-
-class SphericalHarmonicsForceDecomposition(SphericalHarmonicsForce):
-    r"""Radiation force decomposed in spherical harmoncis.
-
-    This is mostly intended for research purposes, when the radiation force
-    decomposed in individual spherical harmonics bases is of interest.
-    """
-
-    ndim = 2
-
-    def values(self, spherical_harmonics_summed):  # noqa: D102
-        # Reshape coefficients to allow multiple receiver positions
-        xy_coefs = self.xy_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
-        z_coefs = self.z_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
-
-        # Index the arrays only once, faster.
-        N_M = spherical_harmonics_summed[self.N_M]
-        Nr_Mr = spherical_harmonics_summed[self.Nr_Mr]
-        N_mM = spherical_harmonics_summed[self.N_mM]
-        Nr_mMr = spherical_harmonics_summed[self.Nr_mMr]
-        Nr_M = spherical_harmonics_summed[self.Nr_M]
-
         Fxy = xy_coefs * N_M * np.conj(Nr_Mr) - np.conj(xy_coefs) * np.conj(N_mM) * Nr_mMr
         Fx = np.real(Fxy)
         Fy = np.imag(Fxy)
         Fz = np.real(z_coefs * N_M * np.conj(Nr_M))
+
         return np.stack([Fx, Fy, Fz])
+
+
+class SphericalHarmonicsForce(SphericalHarmonicsForceDecomposition):
+    r"""Spherical harmonics based radiation force.
+
+    Expands the local sound field in spherical harmonics and calculates
+    the radiation force in the spherical harmonics domain.
+    The expansion coefficients are calculated using superposition
+    of the translated expansions of the transducer radiation patterns.
+    The radiation force is calculated using a similar derivation as [Sapozhnikov]_,
+    but without any plane wave decomposition.
+
+    Todo
+    ----
+    This function does not yet support jacobians, and cannot be used as a cost function.
+
+    """
+
+    ndim = 1
+
+    def values(self, *args, **kwargs):
+        return np.sum(super().values(*args, **kwargs), axis=1)
 
 
 class SphericalHarmonicsForceGradientDecomposition(SphericalHarmonicsForce):
