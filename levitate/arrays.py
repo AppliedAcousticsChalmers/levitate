@@ -15,6 +15,7 @@ simplify the creation of the transducer positions for common array geometries.
 
 import numpy as np
 from .visualize import Visualizer
+from . import utils
 
 
 class TransducerArray:
@@ -320,6 +321,9 @@ class TransducerArray:
         for key, value in requests.items():
             if key.find('pressure_derivs') > -1:
                 parsed_requests['pressure_derivs'] = max(value, parsed_requests.get('pressure_derivs', -1))
+            elif key.find('spherical_harmonics_gradient') > -1:
+                parsed_requests['spherical_harmonics'] = max(value + 1, parsed_requests.get('spherical_harmonics', -1))
+                parsed_requests['spherical_harmonics_gradient'] = max(value, parsed_requests.get('spherical_harmonics_gradient', -1))
             elif key.find('spherical_harmonics') > -1:
                 parsed_requests['spherical_harmonics'] = max(value, parsed_requests.get('spherical_harmonics', -1))
             elif key != 'complex_transducer_amplitudes':
@@ -330,6 +334,44 @@ class TransducerArray:
             evaluated_requests['pressure_derivs'] = self.pressure_derivs(position, orders=parsed_requests.pop('pressure_derivs'))
         if 'spherical_harmonics' in parsed_requests:
             evaluated_requests['spherical_harmonics'] = self.spherical_harmonics(position, orders=parsed_requests.pop('spherical_harmonics'))
+        if 'spherical_harmonics_gradient' in parsed_requests:
+            gradient_order = parsed_requests.pop('spherical_harmonics_gradient')
+            sph_idx = utils.SphericalHarmonicsIndexer(gradient_order)
+
+            def A(n, m):
+                return ((n + m + 1) * (n + m + 2) / (2 * n + 1) / (2 * n + 3)) ** 0.5
+
+            def B(n, m):
+                return -((n + m + 1) * (n - m + 1) / (2 * n + 1) / (2 * n + 3)) ** 0.5
+
+            S = evaluated_requests['spherical_harmonics']
+            dS_dxpiy = np.zeros((len(sph_idx), self.num_transducers) + position.shape[1:], dtype=complex)
+            dS_dxmiy = np.zeros((len(sph_idx), self.num_transducers) + position.shape[1:], dtype=complex)
+            dS_dz = np.zeros((len(sph_idx), self.num_transducers) + position.shape[1:], dtype=complex)
+
+            for idx, (n, m) in enumerate(sph_idx):
+                dS_dxpiy[idx] = A(n, -m) * S[sph_idx(n + 1, m - 1)]
+                dS_dxmiy[idx] = -A(n, m) * S[sph_idx(n + 1, m + 1)]
+                dS_dz[idx] = -B(n, m) * S[sph_idx(n + 1, m)]
+                try:
+                    dS_dxpiy[idx] += A(n - 1, m - 1) * S[sph_idx(n - 1, m - 1)]
+                except ValueError:
+                    pass
+                try:
+                    dS_dxmiy[idx] -= A(n - 1, - m - 1) * S[sph_idx(n - 1, m + 1)]
+                except ValueError:
+                    pass
+                try:
+                    dS_dz[idx] += B(n - 1, m) * S[sph_idx(n - 1, m)]
+                except ValueError:
+                    pass
+
+            dS_dx = 0.5 * (dS_dxpiy + dS_dxmiy)
+            dS_dy = -0.5j * (dS_dxpiy - dS_dxmiy)
+
+            dS = np.stack([dS_dx, dS_dy, dS_dz], axis=0) * self.k
+            evaluated_requests['spherical_harmonics_gradient'] = dS
+
         if len(parsed_requests) > 0:
             raise ValueError('Unevaluated requests: {}'.format(parsed_requests))
         return evaluated_requests
