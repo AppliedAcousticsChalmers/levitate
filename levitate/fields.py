@@ -461,6 +461,7 @@ class SphericalHarmonicsForceDecomposition(FieldImplementation):
         """
         super().__init__(array, *args, **kwargs)
         self.values_require = FieldImplementation.requirement(spherical_harmonics_summed=orders + 1)
+        self.jacobians_require = FieldImplementation.requirement(spherical_harmonics_summed=orders + 1, spherical_harmonics_individual=orders + 1)
 
         sph_idx = utils.SphericalHarmonicsIndexer(orders)
         from scipy.special import spherical_jn, spherical_yn
@@ -539,6 +540,22 @@ class SphericalHarmonicsForceDecomposition(FieldImplementation):
         Fz = np.real(z_coefs * S[self.N_M] * np.conj(S[self.Nr_M]))
 
         return np.stack([Fx, Fy, Fz])
+
+    def jacobians(self, spherical_harmonics_summed, spherical_harmonics_individual):  # noqa: D102
+        xy_coefs = self.xy_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_individual.ndim - 1))
+        z_coefs = self.z_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_individual.ndim - 1))
+
+        S = spherical_harmonics_summed[:, None]
+        dS = spherical_harmonics_individual
+
+        # Since y is the imaginary part of the expression, we will get a sign change for the parts which is conjugated be the derivatives.
+        dFxy_same = xy_coefs * dS[self.N_M] * np.conj(S[self.Nr_Mr]) - np.conj(xy_coefs) * np.conj(S[self.N_mM]) * dS[self.Nr_mMr]
+        dFxy_conj = np.conj(xy_coefs) * np.conj(S[self.N_M]) * dS[self.Nr_Mr] - xy_coefs * dS[self.N_mM] * np.conj(S[self.Nr_mMr])
+        dFx = dFxy_same + dFxy_conj
+        dFy = -1j * (dFxy_same - dFxy_conj)
+        dFz = z_coefs * dS[self.N_M] * np.conj(S[self.Nr_M]) + np.conj(z_coefs) * np.conj(S[self.N_M]) * dS[self.Nr_M]
+
+        return np.stack([dFx, dFy, dFz], axis=0)
 
 
 class SphericalHarmonicsForce(SphericalHarmonicsForceDecomposition):

@@ -68,6 +68,20 @@ operating_point = large_array.complex_amplitudes
     (lambda arr, weight, position: abs(levitate.fields.Velocity(arr, weight=weight, position=position)), (0, 1, 0)),
     (lambda arr, weight, position: abs(levitate.fields.Velocity(arr, weight=weight, position=position)), (0, 0, 1)),
     (lambda arr, weight, position: abs(levitate.fields.Velocity(arr, weight=weight, position=position)), np.random.uniform(-10, 10, 3)),
+    (lambda arr, weight, position: levitate.fields.SphericalHarmonicsForceDecomposition(arr, orders=1, weight=weight, position=position), [[1, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]),
+    (lambda arr, weight, position: levitate.fields.SphericalHarmonicsForceDecomposition(arr, orders=1, weight=weight, position=position), [[0, 1, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]),
+    (lambda arr, weight, position: levitate.fields.SphericalHarmonicsForceDecomposition(arr, orders=1, weight=weight, position=position), [[0, 0, 1, 0], [0, 0, 0, 0], [0, 0, 0, 0]]),
+    (lambda arr, weight, position: levitate.fields.SphericalHarmonicsForceDecomposition(arr, orders=1, weight=weight, position=position), [[0, 0, 0, 1], [0, 0, 0, 0], [0, 0, 0, 0]]),
+    (lambda arr, weight, position: levitate.fields.SphericalHarmonicsForceDecomposition(arr, orders=1, weight=weight, position=position), [[0, 0, 0, 0], [1, 0, 0, 0], [0, 0, 0, 0]]),
+    (lambda arr, weight, position: levitate.fields.SphericalHarmonicsForceDecomposition(arr, orders=1, weight=weight, position=position), [[0, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 0]]),
+    (lambda arr, weight, position: levitate.fields.SphericalHarmonicsForceDecomposition(arr, orders=1, weight=weight, position=position), [[0, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 0]]),
+    (lambda arr, weight, position: levitate.fields.SphericalHarmonicsForceDecomposition(arr, orders=1, weight=weight, position=position), [[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 0, 0]]),
+    (lambda arr, weight, position: levitate.fields.SphericalHarmonicsForceDecomposition(arr, orders=1, weight=weight, position=position), [[0, 0, 0, 0], [0, 0, 0, 0], [1, 0, 0, 0]]),
+    (lambda arr, weight, position: levitate.fields.SphericalHarmonicsForceDecomposition(arr, orders=1, weight=weight, position=position), [[0, 0, 0, 0], [0, 0, 0, 0], [0, 1, 0, 0]]),
+    (lambda arr, weight, position: levitate.fields.SphericalHarmonicsForceDecomposition(arr, orders=1, weight=weight, position=position), [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 1, 0]]),
+    (lambda arr, weight, position: levitate.fields.SphericalHarmonicsForceDecomposition(arr, orders=1, weight=weight, position=position), [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 1]]),
+    (lambda arr, weight, position: levitate.fields.SphericalHarmonicsForceDecomposition(arr, orders=5, weight=weight, position=position), np.random.uniform(-10, 10, (3, 36))),
+    (lambda arr, weight, position: levitate.fields.SphericalHarmonicsForceDecomposition(arr, orders=12, weight=weight, position=position), np.random.uniform(-10, 10, (3, 169))),
 ])
 def test_jacobian_accuracy(func, weight):
     point = func(large_array, weight=weight, position=pos)
