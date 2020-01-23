@@ -374,10 +374,6 @@ class RadiationForceGradient(RadiationForce):
     This is based on analytical differentiation of the radiation force on small beads from
     [Sapozhnikov]_, see `RadiationForce`.
 
-    Todo
-    ----
-    This function does not yet support jacobians, and cannot be used as a cost function.
-
     """
 
     ndim = 2
@@ -416,8 +412,24 @@ class RadiationForceGradient(RadiationForce):
             )
         )
 
-    def jacobians(self, *args, **kwargs):  # noqa: D102
-        raise NotImplementedError('Jacobians are not implemented for `RadiationForceGradient`')
+    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):  # noqa: D102
+        p = pressure_derivs_summed[:, None]
+        dp = pressure_derivs_individual
+
+        return (
+            self.pressure_coefficient * (dp[self._0] * np.conj(p[self._qw]) + dp[self._w] * np.conj(p[self._q]))
+            + np.conj(self.pressure_coefficient) * (np.conj(p[self._0]) * dp[self._qw] + np.conj(p[self._w]) * dp[self._q])
+            + self.velocity_coefficient * (
+                dp[self._xw] * np.conj(p[self._xq]) + dp[self._x] * np.conj(p[self._xqw])
+                + dp[self._yw] * np.conj(p[self._yq]) + dp[self._y] * np.conj(p[self._yqw])
+                + dp[self._zw] * np.conj(p[self._zq]) + dp[self._z] * np.conj(p[self._zqw])
+            )
+            + np.conj(self.velocity_coefficient) * (
+                np.conj(p[self._xw]) * dp[self._xq] + np.conj(p[self._x]) * dp[self._xqw]
+                + np.conj(p[self._yw]) * dp[self._yq] + np.conj(p[self._y]) * dp[self._yqw]
+                + np.conj(p[self._zw]) * dp[self._zq] + np.conj(p[self._z]) * dp[self._zqw]
+            )
+        )
 
 
 class SphericalHarmonicsForceDecomposition(FieldImplementation):
