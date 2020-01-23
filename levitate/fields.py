@@ -531,18 +531,12 @@ class SphericalHarmonicsForceDecomposition(FieldImplementation):
         # Reshape coefficients to allow multiple receiver positions
         xy_coefs = self.xy_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
         z_coefs = self.z_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
+        S = spherical_harmonics_summed
 
-        # Index the arrays only once, faster.
-        N_M = spherical_harmonics_summed[self.N_M]
-        Nr_Mr = spherical_harmonics_summed[self.Nr_Mr]
-        N_mM = spherical_harmonics_summed[self.N_mM]
-        Nr_mMr = spherical_harmonics_summed[self.Nr_mMr]
-        Nr_M = spherical_harmonics_summed[self.Nr_M]
-
-        Fxy = xy_coefs * N_M * np.conj(Nr_Mr) - np.conj(xy_coefs) * np.conj(N_mM) * Nr_mMr
+        Fxy = xy_coefs * S[self.N_M] * np.conj(S[self.Nr_Mr]) - np.conj(xy_coefs) * np.conj(S[self.N_mM]) * S[self.Nr_mMr]
         Fx = np.real(Fxy)
         Fy = np.imag(Fxy)
-        Fz = np.real(z_coefs * N_M * np.conj(Nr_M))
+        Fz = np.real(z_coefs * S[self.N_M] * np.conj(S[self.Nr_M]))
 
         return np.stack([Fx, Fy, Fz])
 
@@ -588,26 +582,18 @@ class SphericalHarmonicsForceGradientDecomposition(SphericalHarmonicsForceDecomp
         # Reshape coefficients to allow multiple receiver positions
         xy_coefs = self.xy_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
         z_coefs = self.z_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
+        S = spherical_harmonics_summed
+        DS = spherical_harmonics_gradient_summed
 
-        # Index the arrays only once, faster.
-        N_M = spherical_harmonics_summed[self.N_M]
-        Nr_Mr = spherical_harmonics_summed[self.Nr_Mr]
-        N_mM = spherical_harmonics_summed[self.N_mM]
-        Nr_mMr = spherical_harmonics_summed[self.Nr_mMr]
-        Nr_M = spherical_harmonics_summed[self.Nr_M]
+        DFxy = (
+            xy_coefs * (DS[:, self.N_M] * np.conj(S[self.Nr_Mr]) + S[self.N_M] * np.conj(DS[:, self.Nr_Mr]))
+            - np.conj(xy_coefs) * (np.conj(S[self.N_mM]) * DS[:, self.Nr_mMr] + S[self.Nr_mMr] * np.conj(DS[:, self.N_mM]))
+        )
+        DFx = np.real(DFxy)
+        DFy = np.imag(DFxy)
+        DFz = np.real(z_coefs * DS[:, self.N_M] * np.conj(S[self.Nr_M]) + np.conj(z_coefs) * np.conj(S[self.N_M]) * DS[:, self.Nr_M])
 
-        d_N_M = spherical_harmonics_gradient_summed[:, self.N_M]
-        d_Nr_Mr = spherical_harmonics_gradient_summed[:, self.Nr_Mr]
-        d_N_mM = spherical_harmonics_gradient_summed[:, self.N_mM]
-        d_Nr_mMr = spherical_harmonics_gradient_summed[:, self.Nr_mMr]
-        d_Nr_M = spherical_harmonics_gradient_summed[:, self.Nr_M]
-
-        dFxy = xy_coefs * (d_N_M * np.conj(Nr_Mr) + N_M * np.conj(d_Nr_Mr)) - np.conj(xy_coefs) * (np.conj(N_mM) * d_Nr_mMr + Nr_mMr * np.conj(d_N_mM))
-        dFx = np.real(dFxy)
-        dFy = np.imag(dFxy)
-        dFz = np.real(z_coefs * d_N_M * np.conj(Nr_M) + np.conj(z_coefs) * np.conj(N_M) * d_Nr_M)
-
-        return np.stack([dFx, dFy, dFz], axis=0)
+        return np.stack([DFx, DFy, DFz], axis=0)
 
 
 class SphericalHarmonicsForceGradient(SphericalHarmonicsForceGradientDecomposition):
