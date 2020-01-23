@@ -82,11 +82,14 @@ operating_point = large_array.complex_amplitudes
     (levitate.fields.SphericalHarmonicsForceDecomposition, {'orders': 1}, [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 1]]),
     (levitate.fields.SphericalHarmonicsForceDecomposition, {'orders': 5}, np.random.uniform(-10, 10, (3, 36))),
     (levitate.fields.SphericalHarmonicsForceDecomposition, {'orders': 12}, np.random.uniform(-10, 10, (3, 169))),
-    (levitate.fields.SphericalHarmonicsForce, {'orders': 4}, [1, 0, 0]),
-    (levitate.fields.SphericalHarmonicsForce, {'orders': 4}, [0, 1, 0]),
-    (levitate.fields.SphericalHarmonicsForce, {'orders': 4}, [0, 0, 1]),
-    (levitate.fields.SphericalHarmonicsForce, {'orders': 7}, np.random.uniform(-10, 10, 3)),
-    (levitate.fields.SphericalHarmonicsForce, {'orders': 16}, np.random.uniform(-10, 10, 3)),
+    (levitate.fields.SphericalHarmonicsForce, {'orders': 4, 'radius_sphere': large_array.k * 6}, [1, 0, 0]),
+    (levitate.fields.SphericalHarmonicsForce, {'orders': 4, 'radius_sphere': large_array.k * 6}, [0, 1, 0]),
+    (levitate.fields.SphericalHarmonicsForce, {'orders': 4, 'radius_sphere': large_array.k * 6}, [0, 0, 1]),
+    (levitate.fields.SphericalHarmonicsForce, {'orders': 7, 'radius_sphere': large_array.k * 8}, np.random.uniform(-10, 10, 3)),
+    (levitate.fields.SphericalHarmonicsForce, {'orders': 16, 'radius_sphere': large_array.k * 19}, np.random.uniform(-10, 10, 3)),
+    (levitate.fields.SphericalHarmonicsForceGradientDecomposition, {'orders': 1, 'radius_sphere': large_array.k * 2}, np.random.uniform(-10, 10, (3, 3, 4))),
+    (levitate.fields.SphericalHarmonicsForceGradientDecomposition, {'orders': 4, 'radius_sphere': large_array.k * 6}, np.random.uniform(-10, 10, (3, 3, 25))),
+    (levitate.fields.SphericalHarmonicsForceGradientDecomposition, {'orders': 12, 'radius_sphere': large_array.k * 18}, np.random.uniform(-10, 10, (3, 3, 169))),
 ])
 def test_jacobian_accuracy(func, kwargs, weight):
     point = func(large_array, weight=weight, position=pos, **kwargs)
