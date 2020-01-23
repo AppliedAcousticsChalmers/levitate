@@ -660,6 +660,9 @@ class SphericalHarmonicsForceGradient(SphericalHarmonicsForceGradientDecompositi
     def values(self, *args, **kwargs):  # noqa: D102
         return np.sum(super().values(*args, **kwargs), axis=2)
 
+    def jacobians(self, *args, **kwargs):  # noqa: D102
+        return np.sum(super().jacobians(*args, **kwargs), axis=2)
+
 
 class SphericalHarmonicsExpansion(FieldImplementation):
     """Spherical harmonics expansion coefficients of the sound pressure.
