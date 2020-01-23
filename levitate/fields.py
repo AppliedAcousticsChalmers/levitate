@@ -693,9 +693,13 @@ class SphericalHarmonicsExpansion(FieldImplementation):
         super().__init__(array, *args, **kwargs)
         self.max_idx = len(utils.SphericalHarmonicsIndexer(orders))
         self.values_require = FieldImplementation.requirement(spherical_harmonics_summed=orders)
+        self.jacobians_require = FieldImplementation.requirement(spherical_harmonics_individual=orders)
 
     def values(self, spherical_harmonics_summed):  # noqa: D102
         return spherical_harmonics_summed[:self.max_idx]
+
+    def jacobians(self, spherical_harmonics_individual):  # noqa: D102
+        return spherical_harmonics_individual[:self.max_idx]
 
 
 class SphericalHarmonicsExpansionGradient(SphericalHarmonicsExpansion):
@@ -711,6 +715,10 @@ class SphericalHarmonicsExpansionGradient(SphericalHarmonicsExpansion):
     def __init__(self, array, orders, *args, **kwargs):
         super().__init__(array, orders, *args, **kwargs)
         self.values_require = FieldImplementation.requirement(spherical_harmonics_gradient_summed=orders)
+        self.jacobians_require = FieldImplementation.requirement(spherical_harmonics_gradient_individual=orders)
 
     def values(self, spherical_harmonics_gradient_summed):  # noqa: D102
         return spherical_harmonics_gradient_summed[:, :self.max_idx]
+
+    def jacobians(self, spherical_harmonics_gradient_individual):  # noqa: D102
+        return spherical_harmonics_gradient_individual[:, :self.max_idx]
