@@ -579,6 +579,9 @@ class SphericalHarmonicsForce(SphericalHarmonicsForceDecomposition):
     def values(self, *args, **kwargs):  # noqa: D102
         return np.sum(super().values(*args, **kwargs), axis=1)
 
+    def jacobians(self, *args, **kwargs):  # noqa: D102
+        return np.sum(super().jacobians(*args, **kwargs), axis=1)
+
 
 class SphericalHarmonicsForceGradientDecomposition(SphericalHarmonicsForceDecomposition):
     """Spatial gradient of spherical harmonics force decomposition.

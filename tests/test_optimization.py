@@ -82,6 +82,11 @@ operating_point = large_array.complex_amplitudes
     (levitate.fields.SphericalHarmonicsForceDecomposition, {'orders': 1}, [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 1]]),
     (levitate.fields.SphericalHarmonicsForceDecomposition, {'orders': 5}, np.random.uniform(-10, 10, (3, 36))),
     (levitate.fields.SphericalHarmonicsForceDecomposition, {'orders': 12}, np.random.uniform(-10, 10, (3, 169))),
+    (levitate.fields.SphericalHarmonicsForce, {'orders': 4}, [1, 0, 0]),
+    (levitate.fields.SphericalHarmonicsForce, {'orders': 4}, [0, 1, 0]),
+    (levitate.fields.SphericalHarmonicsForce, {'orders': 4}, [0, 0, 1]),
+    (levitate.fields.SphericalHarmonicsForce, {'orders': 7}, np.random.uniform(-10, 10, 3)),
+    (levitate.fields.SphericalHarmonicsForce, {'orders': 16}, np.random.uniform(-10, 10, 3)),
 ])
 def test_jacobian_accuracy(func, kwargs, weight):
     point = func(large_array, weight=weight, position=pos, **kwargs)
