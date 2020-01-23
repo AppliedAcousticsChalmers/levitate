@@ -384,63 +384,37 @@ class RadiationForceGradient(RadiationForce):
     values_require = FieldImplementation.requirement(pressure_derivs_summed=3)
     jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
 
+    _0 = (0, None, None)
+    _x = (1, None, None)
+    _y = (2, None, None)
+    _z = (3, None, None)
+
+    _q = ([1, 2, 3], None)
+    _w = (None, [1, 2, 3])
+    _qw = ([[4, 7, 8], [7, 5, 9], [8, 9, 6]], )
+
+    _xq = ([4, 7, 8], None)
+    _xw = (None, [4, 7, 8])
+    _yq = ([7, 5, 9], None)
+    _yw = (None, [7, 5, 9])
+    _zq = ([8, 9, 6], None)
+    _zw = (None, [8, 9, 6])
+
+    _xqw = ([[10, 13, 14], [13, 15, 19], [14, 19, 17]], )
+    _yqw = ([[13, 15, 19], [15, 11, 16], [19, 16, 18]], )
+    _zqw = ([[14, 19, 17], [19, 16, 18], [17, 18, 12]], )
+
     def values(self, pressure_derivs_summed):  # noqa: D102
-        values = np.zeros((3, 3) + pressure_derivs_summed.shape[1:])
-        values[0, 0] = np.real(  # F_{x,x}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[4]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[1]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[10]) + pressure_derivs_summed[4] * np.conj(pressure_derivs_summed[4]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[13]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[7]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[14]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[8]))
+        p = pressure_derivs_summed
+
+        return np.real(
+            self.pressure_coefficient * (p[self._0] * np.conj(p[self._qw]) + p[self._w] * np.conj(p[self._q]))
+            + self.velocity_coefficient * (
+                p[self._xw] * np.conj(p[self._xq]) + p[self._x] * np.conj(p[self._xqw])
+                + p[self._yw] * np.conj(p[self._yq]) + p[self._y] * np.conj(p[self._yqw])
+                + p[self._zw] * np.conj(p[self._zq]) + p[self._z] * np.conj(p[self._zqw])
+            )
         )
-        values[0, 1] = np.real(  # F_{x,y}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[7]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[1]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[13]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[4]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[15]) + pressure_derivs_summed[5] * np.conj(pressure_derivs_summed[7]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[8]))
-        )
-        values[0, 2] = np.real(  # F_{x,z}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[8]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[1]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[14]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[4]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[7]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[17]) + pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[8]))
-        )
-        values[1, 0] = np.real(  # F_{y,x}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[7]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[2]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[13]) + pressure_derivs_summed[4] * np.conj(pressure_derivs_summed[7]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[15]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[5]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[9]))
-        )
-        values[1, 1] = np.real(  # F_{y,y}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[5]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[2]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[15]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[7]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[11]) + pressure_derivs_summed[5] * np.conj(pressure_derivs_summed[5]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[16]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[9]))
-        )
-        values[1, 2] = np.real(  # F_{y,z}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[9]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[2]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[7]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[16]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[5]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[18]) + pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[9]))
-        )
-        values[2, 0] = np.real(  # F_{z,x}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[8]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[3]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[14]) + pressure_derivs_summed[4] * np.conj(pressure_derivs_summed[8]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[9]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[17]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[6]))
-        )
-        values[2, 1] = np.real(  # F_{z,y}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[9]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[3]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[8]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[16]) + pressure_derivs_summed[5] * np.conj(pressure_derivs_summed[9]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[18]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[6]))
-        )
-        values[2, 2] = np.real(  # F_{z,z}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[6]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[3]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[17]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[8]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[18]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[9]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[12]) + pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[6]))
-        )
-        return values
 
     def jacobians(self, *args, **kwargs):  # noqa: D102
         raise NotImplementedError('Jacobians are not implemented for `RadiationForceGradient`')
