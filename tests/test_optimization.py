@@ -21,7 +21,7 @@ def test_minimize_phases_amplitudes():
 
 def test_minimize_sequence():
     trap = abs(levitate.fields.Pressure(array)) * 1 @ pos + levitate.fields.RadiationForceStiffness(array) * (1, 1, 1) @ pos
-    result = levitate.optimization.minimize(trap, array, variable_amplitudes='phases first', start_values=0.5 * array.complex_amplitudes)
+    result = levitate.optimization.minimize(trap, array, variable_amplitudes=[False, True], start_values=0.5 * array.complex_amplitudes)
     quiet_zone = (abs(levitate.fields.Pressure(array)) * 1 + abs(levitate.fields.Velocity(array)) * (1, 1, 1)) @ (np.array([-5, -2, 60]) * 1e-3)
     result = levitate.optimization.minimize([trap, trap + quiet_zone], array)
     result, status = levitate.optimization.minimize([trap, trap + quiet_zone], array, basinhopping=True, minimize_kwargs={'tol': 1e-6}, callback=lambda **kwargs: False, return_optim_status=True)
