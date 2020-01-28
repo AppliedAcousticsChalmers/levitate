@@ -124,6 +124,7 @@ calculation functions with the magnitude and square.
 """
 
 import numpy as np
+import collections
 
 
 class FieldImplementationMeta(type):
@@ -218,56 +219,69 @@ class FieldImplementation(metaclass=FieldImplementationMeta):
     def __eq__(self, other):
         return type(self) == type(other) and self.array == other.array
 
-    possible_requirements = [
-        'complex_transducer_amplitudes',
-        'pressure_derivs_summed', 'pressure_derivs_individual',
-        'spherical_harmonics_summed', 'spherical_harmonics_individual',
-    ]
-
-    @staticmethod
-    def requirement(**requirements):
+    class requirement(collections.UserDict):
         """Parse a set of requirements.
 
         `FieldImplementation` objects should define requirements for values and jacobians.
-        This function parses the requirements and checks that the request can be met upon call.
-        Currently the inputs are converted to a dict and returned as is, but this might change
-        without warning in the future.
-
-        Keyword arguments
-        ---------------------
-        complex_transducer_amplitudes
-            The field requires the actual complex transducer amplitudes directly.
-            This is a fallback requirement when it is not possible to implement the field
-            with the other requirements, and no performance optimization is possible.
-        pressure_derivs_summed
-            The number of orders of Cartesian spatial derivatives of the total sound pressure field.
-            Currently implemented to third order derivatives.
-            See `levitate.utils.pressure_derivs_order` and `levitate.utils.num_pressure_derivs`
-            for a description of the structure.
-        pressure_derivs_summed
-            Like pressure_derivs_summed, but for individual transducers.
-        spherical_harmonics_summed
-            A spherical harmonics decomposition of the total sound pressure field, up to and
-            including the order specified.
-            where remaining dimensions are determined by the positions.
-        spherical_harmonics_individual
-            Like spherical_harmonics_summed, but for individual transducers.
-
-        Returns
-        -------
-        requirements : dict
-            The parsed requirements.
-
-        Raises
-        ------
-        NotImplementedError
-            If one or more of the requested keys is not implemented.
-
+        This class parses the requirements and checks that the request can be met upon call.
+        The requirements are stored as a non-mutable custom dictionary.
+        Requirements can be added to each other to find the combined requirements.
         """
-        for requirement in requirements:
-            if requirement not in FieldImplementation.possible_requirements:
-                raise NotImplementedError("Requirement '{}' is not implemented for a field. The possible requests are: {}".format(requirement, FieldImplementation.possible_requirements))
-        return requirements
+
+        possible_requirements = [
+            'complex_transducer_amplitudes',
+            'pressure_derivs_summed', 'pressure_derivs_individual',
+            'spherical_harmonics_summed', 'spherical_harmonics_individual',
+            'spherical_harmonics_gradient_summed', 'spherical_harmonics_gradient_individual',
+        ]
+
+        def __setitem__(self, key, value):
+            if self.locked:
+                raise TypeError("`Requirement` instances should not be mutated!")
+            super().__setitem__(key, value)
+
+        def __init__(self, *args, **kwargs):  # noqa: D205, D400
+            """
+            Keyword arguments
+            ---------------------
+            complex_transducer_amplitudes
+                The field requires the actual complex transducer amplitudes directly.
+                This is a fallback requirement when it is not possible to implement the field
+                with the other requirements, and no performance optimization is possible.
+            pressure_derivs_summed
+                The number of orders of Cartesian spatial derivatives of the total sound pressure field.
+                Currently implemented to third order derivatives.
+                See `levitate.utils.pressure_derivs_order` and `levitate.utils.num_pressure_derivs`
+                for a description of the structure.
+            pressure_derivs_summed
+                Like pressure_derivs_summed, but for individual transducers.
+            spherical_harmonics_summed
+                A spherical harmonics decomposition of the total sound pressure field, up to and
+                including the order specified.
+                where remaining dimensions are determined by the positions.
+            spherical_harmonics_individual
+                Like spherical_harmonics_summed, but for individual transducers.
+
+            Raises
+            ------
+            NotImplementedError
+                If one or more of the requested keys is not implemented.
+
+            """
+            self.locked = False
+            super().__init__(*args, **kwargs)
+            self.locked = True
+            for requirement in self:
+                if requirement not in self.possible_requirements:
+                    raise NotImplementedError("Requirement '{}' is not implemented for a field. The possible requests are: {}".format(requirement, self.possible_requirements))
+
+        def __add__(self, other):
+            if not isinstance(other, (dict, collections.UserDict)):
+                return NotImplemented
+            unique_self = {key: self[key] for key in self.keys() - other.keys()}
+            unique_other = {key: other[key] for key in other.keys() - self.keys()}
+            max_common = {key: max(self[key], other[key]) for key in self.keys() & other.keys()}
+            return type(self)(**unique_self, **unique_other, **max_common)
 
 
 class FieldMeta(type):
@@ -304,6 +318,62 @@ class FieldBase(metaclass=FieldMeta):
     This class should not be instantiated directly.
     """
 
+    def evaluate_requirements(self, complex_transducer_amplitudes, position=None):
+        """Evaluate requirements for given complex transducer amplitudes.
+
+        Parameters
+        ----------
+        complex_transducer_amplitudes: complex ndarray
+            The transducer phase and amplitude on complex form,
+            must correspond to the same array used to create the field.
+        position: ndarray
+            The position where to calculate the requirements needed.
+            Shape (3,...). If position is `None` or not passed, it is assumed
+            that the field is bound to a position and `self.position` will be used.
+
+        Returns
+        -------
+        requirements : dict
+            Has (at least) the same fields as `self.requires`, but instead of values specifying the level
+            of the requirement, this dict has the evaluated requirement at the positions and
+            transducer amplitudes specified.
+
+        Note
+        ----
+        Fields which are bound to a position will cache the array requests, i.e. the requirements
+        without any transducer amplitudes applied. It is therefore important to not manually change
+        the position, since that will not clear the cache and the new position is not actually used.
+
+        """
+        if position is None:
+            try:
+                evaluated_requests = self._cached_requests
+            except AttributeError:
+                evaluated_requests = self._cached_requests = self.array.request(self.requires, self.position)
+        else:
+            evaluated_requests = self.array.request(self.requires, position)
+
+        # Apply the input complex amplitudes
+        evaluated_requrements = {}
+        if 'complex_transducer_amplitudes' in self.requires:
+            evaluated_requrements['complex_transducer_amplitudes'] = complex_transducer_amplitudes
+        if 'pressure_derivs' in evaluated_requests:
+            evaluated_requrements['pressure_derivs_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, evaluated_requests['pressure_derivs'])
+            evaluated_requrements['pressure_derivs_summed'] = np.sum(evaluated_requrements['pressure_derivs_individual'], axis=1)
+        if 'spherical_harmonics' in evaluated_requests:
+            evaluated_requrements['spherical_harmonics_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, evaluated_requests['spherical_harmonics'])
+            evaluated_requrements['spherical_harmonics_summed'] = np.sum(evaluated_requrements['spherical_harmonics_individual'], axis=1)
+        if 'spherical_harmonics_gradient' in evaluated_requests:
+            evaluated_requrements['spherical_harmonics_gradient_individual'] = np.einsum('i,jki...->jki...', complex_transducer_amplitudes, evaluated_requests['spherical_harmonics_gradient'])
+            evaluated_requrements['spherical_harmonics_gradient_summed'] = np.sum(evaluated_requrements['spherical_harmonics_gradient_individual'], axis=2)
+        return evaluated_requrements
+
+    def _clear_cache(self):
+        try:
+            del self._cached_requests
+        except AttributeError:
+            pass
+
     @property
     def _type(self):  # noqa: D401
         """The type of the field.
@@ -314,86 +384,6 @@ class FieldBase(metaclass=FieldMeta):
 
     def __eq__(self, other):
         return type(self) == type(other)
-
-    def _evaluate_requirements(self, complex_transducer_amplitudes, spatial_structures):
-        """Evaluate requirements for given complex transducer amplitudes.
-
-        Parameters
-        ----------
-        complex_transducer_amplitudes: complex ndarray
-            The transducer phase and amplitude on complex form,
-            must correspond to the same array used to create the field.
-        spatial_structures: dict
-            Dictionary with the calculated spatial structures required by the field(s).
-
-        Returns
-        -------
-        requirements : dict
-            Has (at least) the same fields as `self.requires`, but instead of values specifying the level
-            of the requirement, this dict has the evaluated requirement at the positions and
-            transducer amplitudes specified.
-
-        """
-        requirements = {}
-        if 'complex_transducer_amplitudes' in self.requires:
-            requirements['complex_transducer_amplitudes'] = complex_transducer_amplitudes
-        if 'pressure_derivs' in spatial_structures:
-            requirements['pressure_derivs_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, spatial_structures['pressure_derivs'])
-            requirements['pressure_derivs_summed'] = np.sum(requirements['pressure_derivs_individual'], axis=1)
-        if 'spherical_harmonics' in spatial_structures:
-            requirements['spherical_harmonics_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, spatial_structures['spherical_harmonics'])
-            requirements['spherical_harmonics_summed'] = np.sum(requirements['spherical_harmonics_individual'], axis=1)
-        return requirements
-
-    def _spatial_structures(self, position=None):
-        """Calculate spatial structures.
-
-        Uses `self.requires` to fill a dictionary of calculated required
-        spatial structures at a give position to satisfy the fields(s) used
-        for calculations.
-
-        Parameters
-        ----------
-        position: ndarray
-            The position where to calculate the spatial structures needed.
-            Shape (3,...). If position is `None` or not passed, it is assumed
-            that the field is bound to a position and `self.position` will be used.
-
-        Returns
-        -------
-        sptaial_structures : dict
-            Dictionary with the spatial structures required to fulfill the evaluation
-            of the field(s).
-
-        Note
-        ----
-        Fields which are bound to a position will cache the spatial structures. It is
-        therefore important to not manually change the position, since that will not clear the cache
-        and the new position is not actually used.
-
-        """
-        # If called without a position we are using a field point, check the cache and calculate it if needed
-        if position is None:
-            try:
-                return self._cached_spatial_structures
-            except AttributeError:
-                self._cached_spatial_structures = self._spatial_structures(self.position)
-                return self._cached_spatial_structures
-        # Check what spatial structures we need from the array to fulfill the requirements
-        spatial_structures = {}
-        for key, value in self.requires.items():
-            if key.find('pressure_derivs') > -1:
-                spatial_structures['pressure_derivs'] = max(value, spatial_structures.get('pressure_derivs', -1))
-            elif key.find('spherical_harmonics') > -1:
-                spatial_structures['spherical_harmonics'] = max(value, spatial_structures.get('spherical_harmonics', -1))
-            elif key != 'complex_transducer_amplitudes':
-                raise ValueError("Unknown requirement '{}'".format(key))
-        # Replace the requests with values calculated by the array
-        if 'pressure_derivs' in spatial_structures:
-            spatial_structures['pressure_derivs'] = self.array.pressure_derivs(position, orders=spatial_structures['pressure_derivs'])
-        if 'spherical_harmonics' in spatial_structures:
-            spatial_structures['spherical_harmonics'] = self.array.spherical_harmonics(position, orders=spatial_structures['spherical_harmonics'])
-        return spatial_structures
 
     def __abs__(self):
         return self - 0
@@ -465,7 +455,7 @@ class Field(FieldBase):
         self.field = field
         value_indices = ''.join(chr(ord('i') + idx) for idx in range(self.ndim))
         self._sum_str = value_indices + ', ' + value_indices + '...'
-        self.requires = self.field.values_require.copy()
+        self.requires = self.values_require
 
     def __eq__(self, other):
         return (
@@ -521,8 +511,7 @@ class Field(FieldBase):
 
         """
         # Prepare the requirements dict
-        spatial_structures = self._spatial_structures(position)
-        requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes, position)
         # Call the function with the correct arguments
         return self.values(**{key: requirements[key] for key in self.values_require})
 
@@ -620,8 +609,7 @@ class FieldPoint(Field):
             The values of the implemented field used to create the wrapper.
 
         """
-        spatial_structures = self._spatial_structures()
-        requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes)
         return self.values(**{key: requirements[key] for key in self.values_require})
 
     def __add__(self, other):
@@ -692,8 +680,7 @@ class CostField(Field):
         if self.weight.ndim < self.ndim:
             extra_dims = self.ndim - self.weight.ndim
             self.weight.shape = (1,) * extra_dims + self.weight.shape
-        for key, value in self.jacobians_require.items():
-            self.requires[key] = max(value, self.requires.get(key, -1))
+        self.requires = self.values_require + self.jacobians_require
 
     def __eq__(self, other):
         return (
@@ -721,8 +708,7 @@ class CostField(Field):
             The jacobians of the values with respect to the transducers.
 
         """
-        spatial_structures = self._spatial_structures(position)
-        requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes, position)
         values = self.values(**{key: requirements[key] for key in self.values_require})
         jacobians = self.jacobians(**{key: requirements[key] for key in self.jacobians_require})
         return np.einsum(self._sum_str, self.weight, values), np.einsum(self._sum_str, self.weight, jacobians)
@@ -819,8 +805,7 @@ class CostFieldPoint(CostField, FieldPoint):
             The jacobians of the values with respect to the transducers.
 
         """
-        spatial_structures = self._spatial_structures()
-        requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes)
         values = self.values(**{key: requirements[key] for key in self.values_require})
         jacobians = self.jacobians(**{key: requirements[key] for key in self.jacobians_require})
         return np.einsum(self._sum_str, self.weight, values), np.einsum(self._sum_str, self.weight, jacobians)
@@ -870,10 +855,10 @@ class SquaredFieldBase(Field):
     def __init__(self, field, target, **kwargs):
         if type(self) == SquaredFieldBase:
             raise AssertionError('`SquaredFieldBase` should never be directly instantiated!')
-        self.values_require = field.values_require.copy()
-        self.jacobians_require = field.jacobians_require.copy()
-        for key, value in field.values_require.items():
-            self.jacobians_require[key] = max(value, self.jacobians_require.get(key, -1))
+        self.values_require = field.values_require
+        if hasattr(field, 'jacobians_require'):
+            self.jacobians_require = field.jacobians_require + field.values_require
+
         super().__init__(field=field, **kwargs)
         target = np.asarray(target)
         self.target = target
@@ -1225,7 +1210,7 @@ class MultiField(FieldBase):
 
     def __init__(self, *fields):
         self.fields = []
-        self.requires = {}
+        self.requires = FieldImplementation.requirement()
         for field in fields:
             self += field
 
@@ -1257,8 +1242,7 @@ class MultiField(FieldBase):
 
         """
         # Prepare the requirements dict
-        spatial_structures = self._spatial_structures(position)
-        requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes, position)
         # Call the function with the correct arguments
         return [field.values(**{key: requirements[key] for key in field.values_require}) for field in self.fields]
 
@@ -1279,10 +1263,9 @@ class MultiField(FieldBase):
             add_point = True
         elif self._type == other._type:
             add_element = True
-        old_requires = self.requires.copy()
+        old_requires = self.requires
         if add_element:
-            for key, value in other.requires.items():
-                self.requires[key] = max(value, self.requires.get(key, -1))
+            self.requires = self.requires + other.requires
             self.fields.append(other)
         elif add_point:
             for field in other.fields:
@@ -1292,10 +1275,7 @@ class MultiField(FieldBase):
         if self.requires != old_requires:
             # We have new requirements, if there are cached spatial structures they will
             # need to be recalculated at next call.
-            try:
-                del self._cached_spatial_structures
-            except AttributeError:
-                pass
+            self._clear_cache()
         return self
 
     def __sub__(self, other):
@@ -1391,8 +1371,7 @@ class MultiFieldPoint(MultiField):
             arrays in the list might not have compatible shapes.
 
         """
-        spatial_structures = self._spatial_structures()
-        requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes)
         return [field.values(**{key: requirements[key] for key in field.values_require}) for field in self.fields]
 
     def __add__(self, other):
@@ -1480,8 +1459,7 @@ class MultiCostField(MultiField):
             The the summed jacobians of all fields.
 
         """
-        spatial_structures = self._spatial_structures(position)
-        requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes, position)
         value = 0
         jacobians = 0
         for field in self.fields:
@@ -1566,8 +1544,7 @@ class MultiCostFieldPoint(MultiCostField, MultiFieldPoint):
             The the summed jacobians of all cost functions.
 
         """
-        spatial_structures = self._spatial_structures()
-        requirements = self._evaluate_requirements(complex_transducer_amplitudes, spatial_structures)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes)
         value = 0
         jacobians = 0
         for field in self.fields:

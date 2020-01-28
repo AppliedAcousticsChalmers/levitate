@@ -374,111 +374,94 @@ class RadiationForceGradient(RadiationForce):
     This is based on analytical differentiation of the radiation force on small beads from
     [Sapozhnikov]_, see `RadiationForce`.
 
-    Todo
-    ----
-    This function does not yet support jacobians, and cannot be used as a cost function.
-
     """
 
     ndim = 2
     values_require = FieldImplementation.requirement(pressure_derivs_summed=3)
     jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
 
+    _0 = (0, None, None)
+    _x = (1, None, None)
+    _y = (2, None, None)
+    _z = (3, None, None)
+
+    _q = ([1, 2, 3], None)
+    _w = (None, [1, 2, 3])
+    _qw = ([[4, 7, 8], [7, 5, 9], [8, 9, 6]], )
+
+    _xq = ([4, 7, 8], None)
+    _xw = (None, [4, 7, 8])
+    _yq = ([7, 5, 9], None)
+    _yw = (None, [7, 5, 9])
+    _zq = ([8, 9, 6], None)
+    _zw = (None, [8, 9, 6])
+
+    _xqw = ([[10, 13, 14], [13, 15, 19], [14, 19, 17]], )
+    _yqw = ([[13, 15, 19], [15, 11, 16], [19, 16, 18]], )
+    _zqw = ([[14, 19, 17], [19, 16, 18], [17, 18, 12]], )
+
     def values(self, pressure_derivs_summed):  # noqa: D102
-        values = np.zeros((3, 3) + pressure_derivs_summed.shape[1:])
-        values[0, 0] = np.real(  # F_{x,x}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[4]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[1]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[10]) + pressure_derivs_summed[4] * np.conj(pressure_derivs_summed[4]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[13]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[7]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[14]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[8]))
+        p = pressure_derivs_summed
+
+        return np.real(
+            self.pressure_coefficient * (p[self._0] * np.conj(p[self._qw]) + p[self._w] * np.conj(p[self._q]))
+            + self.velocity_coefficient * (
+                p[self._xw] * np.conj(p[self._xq]) + p[self._x] * np.conj(p[self._xqw])
+                + p[self._yw] * np.conj(p[self._yq]) + p[self._y] * np.conj(p[self._yqw])
+                + p[self._zw] * np.conj(p[self._zq]) + p[self._z] * np.conj(p[self._zqw])
+            )
         )
-        values[0, 1] = np.real(  # F_{x,y}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[7]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[1]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[13]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[4]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[15]) + pressure_derivs_summed[5] * np.conj(pressure_derivs_summed[7]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[8]))
+
+    def jacobians(self, pressure_derivs_summed, pressure_derivs_individual):  # noqa: D102
+        p = pressure_derivs_summed[:, None]
+        dp = pressure_derivs_individual
+
+        return (
+            self.pressure_coefficient * (dp[self._0] * np.conj(p[self._qw]) + dp[self._w] * np.conj(p[self._q]))
+            + np.conj(self.pressure_coefficient) * (np.conj(p[self._0]) * dp[self._qw] + np.conj(p[self._w]) * dp[self._q])
+            + self.velocity_coefficient * (
+                dp[self._xw] * np.conj(p[self._xq]) + dp[self._x] * np.conj(p[self._xqw])
+                + dp[self._yw] * np.conj(p[self._yq]) + dp[self._y] * np.conj(p[self._yqw])
+                + dp[self._zw] * np.conj(p[self._zq]) + dp[self._z] * np.conj(p[self._zqw])
+            )
+            + np.conj(self.velocity_coefficient) * (
+                np.conj(p[self._xw]) * dp[self._xq] + np.conj(p[self._x]) * dp[self._xqw]
+                + np.conj(p[self._yw]) * dp[self._yq] + np.conj(p[self._y]) * dp[self._yqw]
+                + np.conj(p[self._zw]) * dp[self._zq] + np.conj(p[self._z]) * dp[self._zqw]
+            )
         )
-        values[0, 2] = np.real(  # F_{x,z}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[8]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[1]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[14]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[4]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[7]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[17]) + pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[8]))
-        )
-        values[1, 0] = np.real(  # F_{y,x}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[7]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[2]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[13]) + pressure_derivs_summed[4] * np.conj(pressure_derivs_summed[7]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[15]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[5]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[9]))
-        )
-        values[1, 1] = np.real(  # F_{y,y}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[5]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[2]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[15]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[7]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[11]) + pressure_derivs_summed[5] * np.conj(pressure_derivs_summed[5]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[16]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[9]))
-        )
-        values[1, 2] = np.real(  # F_{y,z}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[9]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[2]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[7]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[16]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[5]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[18]) + pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[9]))
-        )
-        values[2, 0] = np.real(  # F_{z,x}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[8]) + pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[3]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[14]) + pressure_derivs_summed[4] * np.conj(pressure_derivs_summed[8]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[9]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[17]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[6]))
-        )
-        values[2, 1] = np.real(  # F_{z,y}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[9]) + pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[3]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[19]) + pressure_derivs_summed[7] * np.conj(pressure_derivs_summed[8]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[16]) + pressure_derivs_summed[5] * np.conj(pressure_derivs_summed[9]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[18]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[6]))
-        )
-        values[2, 2] = np.real(  # F_{z,z}
-            self.pressure_coefficient * (pressure_derivs_summed[0] * np.conj(pressure_derivs_summed[6]) + pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[3]))
-            + self.velocity_coefficient * (pressure_derivs_summed[1] * np.conj(pressure_derivs_summed[17]) + pressure_derivs_summed[8] * np.conj(pressure_derivs_summed[8]))
-            + self.velocity_coefficient * (pressure_derivs_summed[2] * np.conj(pressure_derivs_summed[18]) + pressure_derivs_summed[9] * np.conj(pressure_derivs_summed[9]))
-            + self.velocity_coefficient * (pressure_derivs_summed[3] * np.conj(pressure_derivs_summed[12]) + pressure_derivs_summed[6] * np.conj(pressure_derivs_summed[6]))
-        )
-        return values
 
 
-class SphericalHarmonicsForce(FieldImplementation):
-    r"""Spherical harmonics based radiation force.
+class SphericalHarmonicsForceDecomposition(FieldImplementation):
+    r"""Radiation force decomposed in spherical harmonics.
 
-    Expands the local sound field in spherical harmonics and calculates
-    the radiation force in the spherical harmonics domain.
-    The expansion coefficients are calculated using superposition
-    of the translated expansions of the transducer radiation patterns.
-    The radiation force is calculated using a similar derivation as [Sapozhnikov]_,
-    but without any plane wave decomposition.
-
-    Parameters
-    ----------
-    array : TransducerArray
-        The object modeling the array.
-    orders : int
-        The number of force orders to include. Note that the sound field will
-        be expanded at one order higher that the force order.
-    radius_sphere : float, default 1e-3
-        Radius of the spherical beads.
-    sphere_material : Material
-        The material of the sphere, default styrofoam.
-    scattering_model:
-        Chooses which scattering model to use. Currently `Hard sphere`, `Soft sphere`, and `Compressible sphere`
-        are implemented.
-
-    Todo
-    ----
-    This function does not yet support jacobians, and cannot be used as a cost function.
-
+    This is mostly intended for research purposes, when the radiation force
+    decomposed in individual spherical harmonics bases is of interest.
     """
 
-    ndim = 1
+    ndim = 2
 
-    def __init__(self, array, orders, radius_sphere=1e-3, sphere_material=materials.styrofoam, scattering_model='Hard sphere', *args, **kwargs):
+    def __init__(self, array, orders, radius_sphere=1e-3, sphere_material=materials.styrofoam, scattering_model='Hard sphere', *args, **kwargs):  # noqa: D205, D400
+        """
+        Parameters
+        ----------
+        array : TransducerArray
+            The object modeling the array.
+        orders : int
+            The number of force orders to include. Note that the sound field will
+            be expanded at one order higher that the force order.
+        radius_sphere : float, default 1e-3
+            Radius of the spherical beads.
+        sphere_material : Material
+            The material of the sphere, default styrofoam.
+        scattering_model:
+            Chooses which scattering model to use. Currently `Hard sphere`, `Soft sphere`, and `Compressible sphere`
+            are implemented.
+
+        """
         super().__init__(array, *args, **kwargs)
         self.values_require = FieldImplementation.requirement(spherical_harmonics_summed=orders + 1)
+        self.jacobians_require = FieldImplementation.requirement(spherical_harmonics_summed=orders + 1, spherical_harmonics_individual=orders + 1)
 
         sph_idx = utils.SphericalHarmonicsIndexer(orders)
         from scipy.special import spherical_jn, spherical_yn
@@ -524,19 +507,17 @@ class SphericalHarmonicsForce(FieldImplementation):
         else:
             raise ValueError("Unknown scattering model '{}'".format(scattering_model))
 
-        psi = np.zeros(orders + 1, dtype=np.complex128)
-        for n in sph_idx.orders:
-            psi[n] = 1j * (1 + 2 * scattering_coefficient[n]) * (1 + 2 * np.conj(scattering_coefficient[n + 1])) - 1j
-
         scaling = array.medium.compressibility / (8 * array.k**2)
         self.xy_coefficients = np.zeros((orders + 1)**2, dtype=np.complex128)
         self.z_coefficients = np.zeros((orders + 1)**2, dtype=np.complex128)
         idx = 0
         for n in sph_idx.orders:
+            psi = 1j * (1 + 2 * scattering_coefficient[n]) * (1 + 2 * np.conj(scattering_coefficient[n + 1])) - 1j
             denom = 1 / ((2 * n + 1) * (2 * n + 3))**0.5
+            coeff = psi * scaling * denom
             for m in sph_idx.modes:
-                self.xy_coefficients[idx] = psi[n] * ((n + m + 1) * (n + m + 2))**0.5 * denom * scaling
-                self.z_coefficients[idx] = -2 * psi[n] * ((n + m + 1) * (n - m + 1))**0.5 * denom * scaling
+                self.xy_coefficients[idx] = ((n + m + 1) * (n + m + 2))**0.5 * coeff
+                self.z_coefficients[idx] = -2 * ((n + m + 1) * (n - m + 1))**0.5 * coeff
                 idx += 1
 
     def __eq__(self, other):
@@ -551,43 +532,193 @@ class SphericalHarmonicsForce(FieldImplementation):
         # Reshape coefficients to allow multiple receiver positions
         xy_coefs = self.xy_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
         z_coefs = self.z_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
+        S = spherical_harmonics_summed
 
-        # Index the arrays only once, faster.
-        N_M = spherical_harmonics_summed[self.N_M]
-        Nr_Mr = spherical_harmonics_summed[self.Nr_Mr]
-        N_mM = spherical_harmonics_summed[self.N_mM]
-        Nr_mMr = spherical_harmonics_summed[self.Nr_mMr]
-        Nr_M = spherical_harmonics_summed[self.Nr_M]
-
-        Fx = np.sum(np.real(xy_coefs * (N_M * np.conj(Nr_Mr) - N_mM * np.conj(Nr_mMr))), axis=0)
-        Fy = np.sum(np.imag(xy_coefs * (N_M * np.conj(Nr_Mr) + N_mM * np.conj(Nr_mMr))), axis=0)
-        Fz = np.sum(np.real(z_coefs * N_M * np.conj(Nr_M)), axis=0)
+        Fxy = xy_coefs * S[self.N_M] * np.conj(S[self.Nr_Mr]) - np.conj(xy_coefs) * np.conj(S[self.N_mM]) * S[self.Nr_mMr]
+        Fx = np.real(Fxy)
+        Fy = np.imag(Fxy)
+        Fz = np.real(z_coefs * S[self.N_M] * np.conj(S[self.Nr_M]))
 
         return np.stack([Fx, Fy, Fz])
 
+    def jacobians(self, spherical_harmonics_summed, spherical_harmonics_individual):  # noqa: D102
+        xy_coefs = self.xy_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_individual.ndim - 1))
+        z_coefs = self.z_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_individual.ndim - 1))
 
-class SphericalHarmonicsForceDecomposition(SphericalHarmonicsForce):
-    r"""Radiation force decomposed in spherical harmoncis.
+        S = spherical_harmonics_summed[:, None]
+        dS = spherical_harmonics_individual
 
-    This is mostly intended for research purposes, when the radiation force
-    decomposed in individual spherical harmonics bases is of interest.
+        # Since y is the imaginary part of the expression, we will get a sign change for the parts which is conjugated be the derivatives.
+        dFxy_same = xy_coefs * dS[self.N_M] * np.conj(S[self.Nr_Mr]) - np.conj(xy_coefs) * np.conj(S[self.N_mM]) * dS[self.Nr_mMr]
+        dFxy_conj = np.conj(xy_coefs) * np.conj(S[self.N_M]) * dS[self.Nr_Mr] - xy_coefs * dS[self.N_mM] * np.conj(S[self.Nr_mMr])
+        dFx = dFxy_same + dFxy_conj
+        dFy = -1j * (dFxy_same - dFxy_conj)
+        dFz = z_coefs * dS[self.N_M] * np.conj(S[self.Nr_M]) + np.conj(z_coefs) * np.conj(S[self.N_M]) * dS[self.Nr_M]
+
+        return np.stack([dFx, dFy, dFz], axis=0)
+
+
+class SphericalHarmonicsForce(SphericalHarmonicsForceDecomposition):
+    r"""Spherical harmonics based radiation force.
+
+    Expands the local sound field in spherical harmonics and calculates
+    the radiation force in the spherical harmonics domain.
+    The expansion coefficients are calculated using superposition
+    of the translated expansions of the transducer radiation patterns.
+    The radiation force is calculated using a similar derivation as [Sapozhnikov]_,
+    but without any plane wave decomposition.
+
+    Todo
+    ----
+    This function does not yet support jacobians, and cannot be used as a cost function.
+
+    """
+
+    ndim = 1
+
+    def values(self, *args, **kwargs):  # noqa: D102
+        return np.sum(super().values(*args, **kwargs), axis=1)
+
+    def jacobians(self, *args, **kwargs):  # noqa: D102
+        return np.sum(super().jacobians(*args, **kwargs), axis=1)
+
+
+class SphericalHarmonicsForceGradientDecomposition(SphericalHarmonicsForceDecomposition):
+    """Spatial gradient of spherical harmonics force decomposition.
+
+    Takes the spatial gradient in Cartesian coordinates of each order and mode of
+    the radiation force calculated from a spherical harmonics expansion.
+    See `SphericalHarmonicsForce` for details on algorithms and parameters.
+
+    """
+
+    ndim = 3
+
+    def __init__(self, array, orders, *args, **kwargs):
+        super().__init__(array, orders, *args, **kwargs)
+        self.values_require = FieldImplementation.requirement(spherical_harmonics_summed=orders + 1, spherical_harmonics_gradient_summed=orders + 1)
+        self.jacobians_require = FieldImplementation.requirement(
+            spherical_harmonics_summed=orders + 1, spherical_harmonics_gradient_summed=orders + 1,
+            spherical_harmonics_individual=orders + 1, spherical_harmonics_gradient_individual=orders + 1)
+
+    def values(self, spherical_harmonics_summed, spherical_harmonics_gradient_summed):  # noqa: D102
+        # Reshape coefficients to allow multiple receiver positions
+        xy_coefs = self.xy_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
+        z_coefs = self.z_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
+        S = spherical_harmonics_summed
+        DS = spherical_harmonics_gradient_summed
+
+        DFxy = (
+            xy_coefs * (DS[:, self.N_M] * np.conj(S[self.Nr_Mr]) + S[self.N_M] * np.conj(DS[:, self.Nr_Mr]))
+            - np.conj(xy_coefs) * (np.conj(S[self.N_mM]) * DS[:, self.Nr_mMr] + S[self.Nr_mMr] * np.conj(DS[:, self.N_mM]))
+        )
+        DFx = np.real(DFxy)
+        DFy = np.imag(DFxy)
+        DFz = np.real(z_coefs * DS[:, self.N_M] * np.conj(S[self.Nr_M]) + np.conj(z_coefs) * np.conj(S[self.N_M]) * DS[:, self.Nr_M])
+
+        return np.stack([DFx, DFy, DFz], axis=0)
+
+    def jacobians(self, spherical_harmonics_summed, spherical_harmonics_individual,
+                  spherical_harmonics_gradient_summed, spherical_harmonics_gradient_individual):  # noqa: D102
+        xy_coefs = self.xy_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_individual.ndim - 1))
+        z_coefs = self.z_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_individual.ndim - 1))
+
+        S = spherical_harmonics_summed[:, None]
+        DS = spherical_harmonics_gradient_summed[:, :, None]
+        dS = spherical_harmonics_individual
+        dDS = spherical_harmonics_gradient_individual
+
+        dDFxy_same = (
+            xy_coefs * (dDS[:, self.N_M] * np.conj(S[self.Nr_Mr]) + dS[self.N_M] * np.conj(DS[:, self.Nr_Mr]))
+            - np.conj(xy_coefs) * (np.conj(S[self.N_mM]) * dDS[:, self.Nr_mMr] + dS[self.Nr_mMr] * np.conj(DS[:, self.N_mM]))
+        )
+        dDFxy_conj = (
+            np.conj(xy_coefs) * (np.conj(DS[:, self.N_M]) * dS[self.Nr_Mr] + np.conj(S[self.N_M]) * dDS[:, self.Nr_Mr])
+            - xy_coefs * (dS[self.N_mM] * np.conj(DS[:, self.Nr_mMr]) + np.conj(S[self.Nr_mMr]) * dDS[:, self.N_mM])
+        )
+        dDFx = dDFxy_same + dDFxy_conj
+        dDFy = -1j * (dDFxy_same - dDFxy_conj)
+        dDFz = (
+            z_coefs * (dDS[:, self.N_M] * np.conj(S[self.Nr_M]) + dS[self.N_M] * np.conj(DS[:, self.Nr_M]))
+            + np.conj(z_coefs) * (np.conj(DS[:, self.N_M]) * dS[self.Nr_M] + np.conj(S[self.N_M]) * dDS[:, self.Nr_M])
+        )
+
+        return np.stack([dDFx, dDFy, dDFz], axis=0)
+
+
+class SphericalHarmonicsForceGradient(SphericalHarmonicsForceGradientDecomposition):
+    """Spatial gradient of the total spherical radiation force.
+
+    The three Cartesian derivatives of the radiation force on a spherical object,
+    calculated using spherical harmonics expansion of the sound field.
+    See `SphericalHarmonicsForce` for details on the parameters.
+
     """
 
     ndim = 2
 
+    def values(self, *args, **kwargs):  # noqa: D102
+        return np.sum(super().values(*args, **kwargs), axis=2)
+
+    def jacobians(self, *args, **kwargs):  # noqa: D102
+        return np.sum(super().jacobians(*args, **kwargs), axis=2)
+
+
+class SphericalHarmonicsExpansion(FieldImplementation):
+    """Spherical harmonics expansion coefficients of the sound pressure.
+
+    The expansion coefficients up to a certain order, where the complex
+    amplitudes of the transducers will be accounted for.
+
+    """
+
+    ndim = 1
+
+    def __eq__(self, other):
+        return(
+            super().__eq__(other)
+            and self.max_idx == other.max_idx
+        )
+
+    def __init__(self, array, orders, *args, **kwargs):  # noqa: D205, D400
+        """
+        Parameters
+        ----------
+        array : TransducerArray
+            The object modeling the array.
+        orders : int
+            The number of expansion orders to include.
+
+        """
+        super().__init__(array, *args, **kwargs)
+        self.max_idx = len(utils.SphericalHarmonicsIndexer(orders))
+        self.values_require = FieldImplementation.requirement(spherical_harmonics_summed=orders)
+        self.jacobians_require = FieldImplementation.requirement(spherical_harmonics_individual=orders)
+
     def values(self, spherical_harmonics_summed):  # noqa: D102
-        # Reshape coefficients to allow multiple receiver positions
-        xy_coefs = self.xy_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
-        z_coefs = self.z_coefficients[self.N_M].reshape((-1,) + (1,) * (spherical_harmonics_summed.ndim - 1))
+        return spherical_harmonics_summed[:self.max_idx]
 
-        # Index the arrays only once, faster.
-        N_M = spherical_harmonics_summed[self.N_M]
-        Nr_Mr = spherical_harmonics_summed[self.Nr_Mr]
-        N_mM = spherical_harmonics_summed[self.N_mM]
-        Nr_mMr = spherical_harmonics_summed[self.Nr_mMr]
-        Nr_M = spherical_harmonics_summed[self.Nr_M]
+    def jacobians(self, spherical_harmonics_individual):  # noqa: D102
+        return spherical_harmonics_individual[:self.max_idx]
 
-        Fx = np.real(xy_coefs * (N_M * np.conj(Nr_Mr) - N_mM * np.conj(Nr_mMr)))
-        Fy = np.imag(xy_coefs * (N_M * np.conj(Nr_Mr) + N_mM * np.conj(Nr_mMr)))
-        Fz = np.real(z_coefs * N_M * np.conj(Nr_M))
-        return np.stack([Fx, Fy, Fz])
+
+class SphericalHarmonicsExpansionGradient(SphericalHarmonicsExpansion):
+    """Spatial gradient of spherical harmonics expansion coefficients.
+
+    Gives the Cartesian gradient of the expansion coefficient with respect
+    to the expansion center.
+    See `SphericalHarmonicsExpansion` for documentation of parameters.
+    """
+
+    ndim = 2
+
+    def __init__(self, array, orders, *args, **kwargs):
+        super().__init__(array, orders, *args, **kwargs)
+        self.values_require = FieldImplementation.requirement(spherical_harmonics_gradient_summed=orders)
+        self.jacobians_require = FieldImplementation.requirement(spherical_harmonics_gradient_individual=orders)
+
+    def values(self, spherical_harmonics_gradient_summed):  # noqa: D102
+        return spherical_harmonics_gradient_summed[:, :self.max_idx]
+
+    def jacobians(self, spherical_harmonics_gradient_individual):  # noqa: D102
+        return spherical_harmonics_gradient_individual[:, :self.max_idx]

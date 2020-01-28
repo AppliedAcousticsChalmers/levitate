@@ -73,6 +73,52 @@ def test_RadiationForce_implementations():
     np.testing.assert_allclose(implemented_gradient, np.stack([dFdx, dFdy, dFdz], axis=1))
 
 
+def test_SphericalHarmonicsExpansions():
+    amps = large_array.complex_amplitudes
+    orders = 8
+    S = levitate.fields.SphericalHarmonicsExpansion(large_array, orders=orders)
+    dS = levitate.fields.SphericalHarmonicsExpansionGradient(large_array, orders=orders)
+
+    delta = 1e-8
+    xp = pos + [delta, 0, 0]
+    xm = pos - [delta, 0, 0]
+    yp = pos + [0, delta, 0]
+    ym = pos - [0, delta, 0]
+    zp = pos + [0, 0, delta]
+    zm = pos - [0, 0, delta]
+
+    dSdx = (S(amps, xp) - S(amps, xm)) / (2 * delta)
+    dSdy = (S(amps, yp) - S(amps, ym)) / (2 * delta)
+    dSdz = (S(amps, zp) - S(amps, zm)) / (2 * delta)
+
+    np.testing.assert_allclose(dS(amps, pos), [dSdx, dSdy, dSdz])
+
+
+def test_SphericalHarmonicsForces():
+    amps = large_array.complex_amplitudes
+    orders = 9
+    radius = 12 * large_array.k
+    F = levitate.fields.SphericalHarmonicsForce(large_array, orders=orders, radius_sphere=radius)
+    dF = levitate.fields.SphericalHarmonicsForceGradient(large_array, orders=orders, radius_sphere=radius)
+    F_sep = levitate.fields.SphericalHarmonicsForceDecomposition(large_array, orders=orders, radius_sphere=radius)
+    dF_sep = levitate.fields.SphericalHarmonicsForceGradientDecomposition(large_array, orders=orders, radius_sphere=radius)
+
+    delta = 1e-7
+
+    dFdx = (F(amps, pos + [delta, 0, 0]) - F(amps, pos - [delta, 0, 0])) / (2 * delta)
+    dFdy = (F(amps, pos + [0, delta, 0]) - F(amps, pos - [0, delta, 0])) / (2 * delta)
+    dFdz = (F(amps, pos + [0, 0, delta]) - F(amps, pos - [0, 0, delta])) / (2 * delta)
+
+    dFdx_sep = (F_sep(amps, pos + [delta, 0, 0]) - F_sep(amps, pos - [delta, 0, 0])) / (2 * delta)
+    dFdy_sep = (F_sep(amps, pos + [0, delta, 0]) - F_sep(amps, pos - [0, delta, 0])) / (2 * delta)
+    dFdz_sep = (F_sep(amps, pos + [0, 0, delta]) - F_sep(amps, pos - [0, 0, delta])) / (2 * delta)
+
+    np.testing.assert_allclose(dF(amps, pos), np.stack([dFdx, dFdy, dFdz], axis=1), rtol=1e-6)
+    np.testing.assert_allclose(dF_sep(amps, pos), np.stack([dFdx_sep, dFdy_sep, dFdz_sep], axis=1), rtol=1e-6)
+    np.testing.assert_allclose(dF(amps, pos), np.sum(dF_sep(amps, pos), axis=2), rtol=1e-6)
+    np.testing.assert_allclose(F(amps, pos), np.sum(F_sep(amps, pos), axis=1), rtol=1e-6)
+
+
 array = levitate.arrays.RectangularArray(shape=(2, 1))
 pos_1 = np.array([0.1, 0.2, 0.3])
 pos_2 = np.array([-0.15, 1.27, 0.001])
@@ -135,6 +181,11 @@ requirements = dict(
         [+9.950696205718e-11, +2.697812005596e-10, +4.046718008394e-10],
         None,
      ),
+    (levitate.fields.SphericalHarmonicsForceDecomposition, {'orders': 2},
+        [[+1.766918922489e-10, -1.796622157995e-11, -2.191928296745e-11, -2.599333684854e-11, -1.001026447213e-12, -7.856639712671e-13, -2.159467674377e-12, -5.722295540776e-12, -1.280839850720e-12], [+2.144581380772e-10, -1.437955598814e-11, +4.592891425167e-11, +2.274814569305e-11, +2.623003571298e-13, -1.045489575308e-12, -3.966663817153e-13, +1.700953892274e-12, +4.791025771738e-13], [+3.216872071158e-10, +2.052902419245e-11, +4.313866796441e-11, +1.777856377802e-11, -1.925567596154e-14, +2.272961554343e-13, +1.044756168385e-12, +2.505146189833e-13, -3.009962508997e-15]],
+        None
+     ),
+    (levitate.fields.SphericalHarmonicsExpansion, {'orders': 15}, sum_harms[..., 0], None),
 ])
 def test_field(field, kwargs, value_at_pos_1, jacobian_at_pos_1):
     field = field(array, **kwargs).field

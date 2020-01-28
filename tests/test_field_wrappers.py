@@ -190,7 +190,7 @@ def test_cost_field():
     str(cost_field)
 
 
-def test_cost_field():
+def test_cost_field_point():
     # Test for addition
     addable(cost_field_a, cost_field_a, classes.MultiCostFieldPoint)
     addable(cost_field_a, cost_field_b, classes.MultiCostFieldMultiPoint)
