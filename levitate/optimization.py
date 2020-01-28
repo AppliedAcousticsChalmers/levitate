@@ -85,7 +85,7 @@ def _minimize_phase_amplitude(function, array, start_values,
                               constrain_transducers, variable_amplitudes,
                               basinhopping, minimize_kwargs,
                               return_optim_status):
-    if variable_amplitudes == 'phases first':
+    if variable_amplitudes == [False, True]:
         result, status = minimize([function, function], array, start_values=start_values, constrain_transducers=constrain_transducers,
                                   variable_amplitudes=[False, True], basinhopping=basinhopping, minimize_kwargs=minimize_kwargs,
                                   return_optim_status=True)
@@ -93,6 +93,8 @@ def _minimize_phase_amplitude(function, array, start_values,
             return result[-1], status[-1]
         else:
             return result[-1]
+    elif not isinstance(variable_amplitudes, bool):
+        raise TypeError('the `variable_amplitudes` argument should be a bool or "phases first"')
 
     num_total_transducers = len(start_values)
     unconstrained_transducers = np.delete(np.arange(num_total_transducers), constrain_transducers)
