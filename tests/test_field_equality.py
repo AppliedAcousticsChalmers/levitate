@@ -13,6 +13,17 @@ array = levitate.arrays.RectangularArray(shape=(4, 5))
 array_b = levitate.arrays.RectangularArray(shape=(5, 4))
 
 
+def test_spheherical_harmonics_parameters():
+    assert levitate.fields.SphericalHarmonicsExpansion(array, orders=3) == levitate.fields.SphericalHarmonicsExpansion(array, orders=3)
+    assert levitate.fields.SphericalHarmonicsExpansion(array, orders=3) == pickle.loads(pickle.dumps(levitate.fields.SphericalHarmonicsExpansion(array, orders=3)))
+    assert levitate.fields.SphericalHarmonicsExpansion(array, orders=3) != levitate.fields.SphericalHarmonicsExpansion(array, orders=4)
+
+    assert levitate.fields.SphericalHarmonicsExpansion(array, orders=3) != levitate.fields.SphericalHarmonicsExpansionGradient(array, orders=3)
+    assert levitate.fields.SphericalHarmonicsExpansionGradient(array, orders=3) == levitate.fields.SphericalHarmonicsExpansionGradient(array, orders=3)
+    assert levitate.fields.SphericalHarmonicsExpansionGradient(array, orders=3) == pickle.loads(pickle.dumps(levitate.fields.SphericalHarmonicsExpansionGradient(array, orders=3)))
+    assert levitate.fields.SphericalHarmonicsExpansionGradient(array, orders=3) != levitate.fields.SphericalHarmonicsExpansionGradient(array, orders=4)
+
+
 def test_gorkov_parameters():
 
     assert levitate.fields.GorkovPotential(array) == levitate.fields.GorkovPotential(array)
@@ -54,7 +65,7 @@ def test_radiation_force_parameters():
     assert levitate.fields.RadiationForceGradient(array) != levitate.fields.RadiationForceGradient(array, sphere_material=levitate.materials.air)
 
 
-def test_spherical_harmonics_parameters():
+def test_spherical_harmonics_force_parameters():
     assert levitate.fields.SphericalHarmonicsForce(array, orders=2) == levitate.fields.SphericalHarmonicsForce(array, orders=2)
     assert levitate.fields.SphericalHarmonicsForce(array, orders=2) == pickle.loads(pickle.dumps(levitate.fields.SphericalHarmonicsForce(array, orders=2)))
     assert levitate.fields.SphericalHarmonicsForce(array, orders=2) != levitate.fields.SphericalHarmonicsForce(array, orders=3)
