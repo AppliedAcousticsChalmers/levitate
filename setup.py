@@ -10,7 +10,7 @@ with hardcoded() as version:
         name='levitate',
         version=version,
         description='Python implementations from the Levitate research project',
-        long_description=open('README.rst').read(),
+        long_description=open('README.rst', encoding='UTF-8').read(),
         long_description_content_type='text/x-rst',
         url='https://github.com/AppliedAcousticsChalmers/levitate',
         author='Carl Andersson',
