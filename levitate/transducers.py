@@ -646,7 +646,15 @@ class TransducerReflector(TransducerModel):
         direct = func(source_positions, source_normals, receiver_positions, *args, **kwargs)
         reflected = func(mirror_position, mirror_normal, receiver_positions, *args, **kwargs)
 
-        return direct + self.reflection_coefficient * reflected
+        source_side = np.sign((source_positions * plane_normal).sum(axis=0) - self.plane_distance).reshape(source_positions.shape[1:] + (1,) * (receiver_positions.ndim - 1))
+        receiver_side = np.sign(np.einsum('i...,i', receiver_positions, self.plane_normal) - self.plane_distance)
+        # `source_side` and `receiver_side` are zero if the source or receiver is inside the plane.
+        # `source_side * receiver_side` will be -1 if they are on different sides, 0 if any of them is in the plane, and 1 otherwise.
+        # We should return 0 if the source and receiver is on different sides, otherwise we return the calculated expression.
+        # The below expression maps (-1, 0, 1) to (0, 1, 1).
+        same_side = np.sign(source_side * receiver_side + 1)
+
+        return (direct + self.reflection_coefficient * reflected) * same_side
 
 
 class PlaneWaveTransducer(TransducerModel):
