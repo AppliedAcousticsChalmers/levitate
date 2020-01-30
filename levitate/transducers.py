@@ -605,14 +605,9 @@ class TransducerReflector(TransducerModel):
             The pressure at the locations, shape `source_positions.shape[1:] + receiver_positions.shape[1:]`.
 
         """
-        plane_normal = self.plane_normal.reshape((3,) + (1,) * (source_positions.ndim - 1))
-        direct = self._transducer.greens_function(source_positions, source_normals, receiver_positions)
-        mirror_position = source_positions - 2 * plane_normal * ((source_positions * plane_normal).sum(axis=0) - self.plane_distance)
-        mirror_normal = source_normals - 2 * plane_normal * (source_normals * plane_normal).sum(axis=0)
-        reflected = self._transducer.greens_function(mirror_position, mirror_normal, receiver_positions)
-        return direct + self.reflection_coefficient * reflected
+        return self._evaluate_with_reflector(self._transducer.greens_function, source_positions, source_normals, receiver_positions)
 
-    def pressure_derivs(self, source_positions, source_normals, receiver_positions, orders=3, **kwargs):
+    def pressure_derivs(self, source_positions, source_normals, receiver_positions, *args, **kwargs):
         """Calculate the spatial derivatives of the greens function.
 
         Parameters
@@ -634,11 +629,23 @@ class TransducerReflector(TransducerModel):
             where `M` is the number of spatial derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`.
 
         """
+        return self._evaluate_with_reflector(self._transducer.pressure_derivs, source_positions, source_normals, receiver_positions, *args, **kwargs)
+
+    def _evaluate_with_reflector(self, func, source_positions, source_normals, receiver_positions, *args, **kwargs):
+        """Evaluate a function using a missor source model.
+
+        Calculates the positions and normals of the mirror sources. Evaluates the function
+        using both the real sources and the mirrored sources. Adds the two results, cosidering
+        some arbitrary complex reflections coefficient.
+
+        """
         plane_normal = self.plane_normal.reshape((3,) + (1,) * (source_positions.ndim - 1))
-        direct = self._transducer.pressure_derivs(source_positions, source_normals, receiver_positions, orders, **kwargs)
         mirror_position = source_positions - 2 * plane_normal * ((source_positions * plane_normal).sum(axis=0) - self.plane_distance)
         mirror_normal = source_normals - 2 * plane_normal * (source_normals * plane_normal).sum(axis=0)
-        reflected = self._transducer.pressure_derivs(mirror_position, mirror_normal, receiver_positions, orders, **kwargs)
+
+        direct = func(source_positions, source_normals, receiver_positions, *args, **kwargs)
+        reflected = func(mirror_position, mirror_normal, receiver_positions, *args, **kwargs)
+
         return direct + self.reflection_coefficient * reflected
 
 
