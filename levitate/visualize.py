@@ -330,7 +330,7 @@ class Visualizer:
 
             for t_idx in range(self.array.num_transducers):
                 position = self.array.positions[:, t_idx]
-                normal = self.array.transducer_normals[:, t_idx]
+                normal = self.array.normals[:, t_idx]
 
                 # Find two vectors that sweep the circle
                 if normal[2] != 0:

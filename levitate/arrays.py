@@ -28,7 +28,7 @@ class TransducerArray:
     ----------
     positions : numpy.ndarray
         The positions of the transducer elements in the array, shape 3xN.
-    transducer_normals : numpy.ndarray
+    normals : numpy.ndarray
         The normals of the transducer elements in the array, shape 3xN.
     transducer_model
         An object of `levitate.transducers.TransducerModel` or a subclass. If passed a class it will create a new instance.
@@ -49,7 +49,7 @@ class TransducerArray:
         The number of transducers used.
     positions : numpy.ndarray
         As above.
-    transducer_normals : numpy.ndarray
+    normals : numpy.ndarray
         As above.
     transducer_model : TransducerModel
         An instance of a specific transducer model implementation.
@@ -66,10 +66,10 @@ class TransducerArray:
 
     """
 
-    _repr_fmt_spec = '{:%cls(transducer_model=%transducer_model_full, transducer_size=%transducer_size,\n\tpositions=%positions,\n\ttransducer_normals=%transducer_normals)}'
+    _repr_fmt_spec = '{:%cls(transducer_model=%transducer_model_full, transducer_size=%transducer_size,\n\tpositions=%positions,\n\tnormals=%normals)}'
     _str_fmt_spec = '{:%cls(transducer_model=%transducer_model): %num_transducers transducers}'
 
-    def __init__(self, positions, transducer_normals,
+    def __init__(self, positions, normals,
                  transducer_model=None, transducer_size=10e-3, transducer_kwargs=None,
                  medium=None, **kwargs
                  ):
@@ -91,9 +91,9 @@ class TransducerArray:
 
         self.positions = positions
         self.num_transducers = self.positions.shape[1]
-        if transducer_normals.ndim == 1:
-            transducer_normals = np.tile(transducer_normals.reshape(3, 1), (1, self.num_transducers))
-        self.transducer_normals = transducer_normals
+        if normals.ndim == 1:
+            normals = np.tile(normals.reshape(3, 1), (1, self.num_transducers))
+        self.normals = normals
         self.amplitudes = np.ones(self.num_transducers)
         self.phases = np.zeros(self.num_transducers)
 
@@ -105,7 +105,7 @@ class TransducerArray:
         s_out = s_out.replace('%transducer_size', str(self.transducer_size))
         s_out = s_out.replace('%medium_full', repr(self.medium)).replace('%medium', str(self.medium))
         s_out = s_out.replace('%transducer_model_full', repr(self.transducer_model)).replace('%transducer_model', str(self.transducer_model))
-        s_out = s_out.replace('%positions', repr(self.positions)).replace('%transducer_normals', repr(self.transducer_normals))
+        s_out = s_out.replace('%positions', repr(self.positions)).replace('%normals', repr(self.normals))
         for key, value in self._extra_print_args.items():
             s_out = s_out.replace('%' + key, str(value))
         return s_out
@@ -115,7 +115,7 @@ class TransducerArray:
             isinstance(other, TransducerArray)
             and self.num_transducers == other.num_transducers
             and np.allclose(self.positions, other.positions)
-            and np.allclose(self.transducer_normals, other.transducer_normals)
+            and np.allclose(self.normals, other.normals)
             and self.transducer_model == other.transducer_model
         )
 
@@ -256,7 +256,7 @@ class TransducerArray:
             and the remaining dimensions are the same as the `positions` input with the first dimension removed.
 
         """
-        return self.transducer_model.pressure_derivs(self.positions, self.transducer_normals, positions, orders)
+        return self.transducer_model.pressure_derivs(self.positions, self.normals, positions, orders)
 
     def spherical_harmonics(self, positions, orders=0):
         """Spherical harmonics expansion of transducer sound fields.
@@ -285,7 +285,7 @@ class TransducerArray:
             the same as the `positions` input with the first dimension removed.
 
         """
-        return self.transducer_model.spherical_harmonics(self.positions, self.transducer_normals, positions, orders)
+        return self.transducer_model.spherical_harmonics(self.positions, self.normals, positions, orders)
 
     def request(self, requests, position):
         """Evaluate a set of requests.
@@ -545,7 +545,7 @@ class RectangularArray(TransducerArray):
 
         kwargs.setdefault('transducer_size', spread)
         kwargs.setdefault('positions', positions)
-        kwargs.setdefault('transducer_normals', normals)
+        kwargs.setdefault('normals', normals)
         super().__init__(**kwargs)
         self._extra_print_args.update(extra_print_args)
 
@@ -700,12 +700,12 @@ class DoublesidedArray(TransducerArray):
         lower_positions = array.positions - 0.5 * separation * normal[:, None]
         lower_positions -= np.mean(array.positions, axis=1)[:, None]
         upper_positions = lower_positions - 2 * np.sum(lower_positions * normal[:, None], axis=0) * normal[:, None]
-        lower_normals = array.transducer_normals.copy()
+        lower_normals = array.normals.copy()
         normal_proj = np.sum(lower_normals * normal[:, None], axis=0) * normal[:, None]
         upper_normals = lower_normals - 2 * normal_proj
         super().__init__(
             positions=np.concatenate([lower_positions, upper_positions], axis=1) + offset[:, None],
-            transducer_normals=np.concatenate([lower_normals, upper_normals], axis=1),
+            normals=np.concatenate([lower_normals, upper_normals], axis=1),
             transducer_model=array.transducer_model, transducer_size=array.transducer_size,
         )
         self._extra_print_args.update(extra_print_args)

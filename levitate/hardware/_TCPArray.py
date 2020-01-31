@@ -197,7 +197,7 @@ class TCPArray:
         return np.array([np.array(x.decode().strip('()').split(',')).astype(float) for x in raw])
 
     @property
-    def transducer_normals(self):
+    def normals(self):
         """Normals of the transducer elements."""
         num_transducers = self.num_transducers
         self._send('transducer normals')
