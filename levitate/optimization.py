@@ -236,6 +236,8 @@ def minimize(functions, array,
     """
     if start_values is None:
         start_values = array.complex_amplitudes.copy()
+    else:
+        start_values = np.asarray(start_values)
     if constrain_transducers is None or constrain_transducers is False:
         constrain_transducers = []
     # Check if we should do sequenced optimization

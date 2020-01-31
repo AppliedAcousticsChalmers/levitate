@@ -89,7 +89,8 @@ class TransducerArray:
 
         self.calculate = self.PersistentFieldEvaluator(self)
 
-        self.positions = positions
+        self.positions = np.asarray(positions)
+        normals = np.asarray(normals)
         self.num_transducers = self.positions.shape[1]
         if normals.ndim == 1:
             normals = np.tile(normals.reshape(3, 1), (1, self.num_transducers))
@@ -202,6 +203,7 @@ class TransducerArray:
             Array with the phases for the transducer elements.
 
         """
+        focus = np.asarray(focus)
         phase = -np.sum((self.positions - focus.reshape([3, 1]))**2, axis=0)**0.5 * self.k
         phase = np.mod(phase + np.pi, 2 * np.pi) - np.pi  # Wrap phase to [-pi, pi]
         return phase
@@ -317,6 +319,7 @@ class TransducerArray:
             A dictionary of the set of calculated data, according to the requests.
 
         """
+        position = np.asarray(position)
         parsed_requests = {}
         for key, value in requests.items():
             if key.find('pressure_derivs') > -1:
@@ -396,6 +399,7 @@ class TransducerArray:
 
         def pressure_derivs(self, positions, orders=3):
             """Cashed wrapper around `TransducerArray.pressure_derivs`."""
+            positions = np.asarray(positions)
             if (
                 self._pressure_derivs is not None
                 and self._existing_orders >= orders
@@ -516,7 +520,7 @@ class RectangularArray(TransducerArray):
 
     def __init__(self, shape=16, spread=10e-3, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
         extra_print_args = {'shape': shape, 'spread': spread, 'offset': offset, 'normal': normal, 'rotation': rotation}
-        normal = np.asarray(normal, dtype='float64')
+        normal = np.asarray(normal, dtype=float)
         normal /= (normal**2).sum()**0.5
         positions, normals = self._grid_generator(shape=shape, spread=spread, normal=normal, **kwargs)
 
@@ -570,7 +574,7 @@ class RectangularArray(TransducerArray):
 
         X, Y, Z = np.meshgrid(x, y, 0)
         positions = np.stack((X.flatten(), Y.flatten(), Z.flatten()))
-        normals = np.tile(normal.reshape((3, 1)), (1, positions.shape[1]))
+        normals = np.tile(np.asarray(normal).reshape((3, 1)), (1, positions.shape[1]))
         return positions, normals
 
     def signature(self, position=None, stype=None, *args, **kwargs):
@@ -694,7 +698,7 @@ class DoublesidedArray(TransducerArray):
         if type(array) is type:
             array = array(normal=normal, **kwargs)
         extra_print_args = {'separation': separation, 'normal': normal, 'offset': offset, 'array': str(array)}
-        normal = np.asarray(normal, dtype='float64').copy()
+        normal = np.asarray(normal, dtype=float).copy()
         normal /= (normal**2).sum()**0.5
         offset = np.asarray(offset).copy()
         lower_positions = array.positions - 0.5 * separation * normal[:, None]

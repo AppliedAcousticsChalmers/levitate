@@ -353,6 +353,7 @@ class FieldBase(metaclass=FieldMeta):
         else:
             evaluated_requests = self.array.request(self.requires, position)
 
+        complex_transducer_amplitudes = np.asarray(complex_transducer_amplitudes)
         # Apply the input complex amplitudes
         evaluated_requrements = {}
         if 'complex_transducer_amplitudes' in self.requires:
@@ -586,7 +587,7 @@ class FieldPoint(Field):
 
     def __init__(self, field, position, **kwargs):
         super().__init__(field=field, **kwargs)
-        self.position = position
+        self.position = np.asarray(position)
 
     def __eq__(self, other):
         return (

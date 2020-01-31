@@ -200,7 +200,7 @@ class PointSource(TransducerModel):
             The amplitude (and phase) of the directivity, shape `source_positions.shape[1:] + receiver_positions.shape[1:]`.
 
         """
-        return np.ones(source_positions.shape[1:2] + receiver_positions.shape[1:])
+        return np.ones(np.asarray(source_positions).shape[1:2] + np.asarray(receiver_positions).shape[1:])
 
     def pressure_derivs(self, source_positions, source_normals, receiver_positions, orders=3, **kwargs):
         """Calculate the spatial derivatives of the greens function.
@@ -227,6 +227,7 @@ class PointSource(TransducerModel):
             where `M` is the number of spatial derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`.
 
         """
+        receiver_positions = np.asarray(receiver_positions)
         if receiver_positions.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
         wavefront_derivatives = self.wavefront_derivatives(source_positions, receiver_positions, orders)
@@ -285,6 +286,8 @@ class PointSource(TransducerModel):
             where `M` is the number of spatial derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`.
 
         """
+        source_positions = np.asarray(source_positions)
+        receiver_positions = np.asarray(receiver_positions)
         if receiver_positions.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
         diff = receiver_positions.reshape((3,) + (1,) * (source_positions.ndim - 1) + receiver_positions.shape[1:]) - source_positions.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
@@ -355,6 +358,9 @@ class PointSource(TransducerModel):
             where `M` is the number of spatial derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`.
 
         """
+        source_positions = np.asarray(source_positions)
+        source_normals = np.asarray(source_normals)
+        receiver_positions = np.asarray(receiver_positions)
         if receiver_positions.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
         finite_difference_coefficients = {'': (np.array([[0, 0, 0]]).T, np.array([1]))}
@@ -423,6 +429,9 @@ class PointSource(TransducerModel):
             for details on the structure of the coefficients.
 
         """
+        source_positions = np.asarray(source_positions)
+        source_normals = np.asarray(source_normals)
+        receiver_positions = np.asarray(receiver_positions)
         if receiver_positions.shape[0] != 3:
             raise ValueError('Incorrect shape of positions')
 
@@ -483,7 +492,7 @@ class TransducerReflector(TransducerModel):
             transducer = transducer(*args, **kwargs)
         self._transducer = transducer
         self.plane_distance = plane_distance
-        self.plane_normal = np.asarray(plane_normal, dtype='float64')
+        self.plane_normal = np.asarray(plane_normal, dtype=float)
         self.plane_normal /= (self.plane_normal**2).sum()**0.5
         self.reflection_coefficient = reflection_coefficient
 
@@ -577,6 +586,9 @@ class TransducerReflector(TransducerModel):
         some arbitrary complex reflections coefficient.
 
         """
+        source_positions = np.asarray(source_positions)
+        source_normals = np.asarray(source_normals)
+        receiver_positions = np.asarray(receiver_positions)
         plane_normal = self.plane_normal.reshape((3,) + (1,) * (source_positions.ndim - 1))
         mirror_position = source_positions - 2 * plane_normal * ((source_positions * plane_normal).sum(axis=0) - self.plane_distance)
         mirror_normal = source_normals - 2 * plane_normal * (source_normals * plane_normal).sum(axis=0)
@@ -624,6 +636,8 @@ class PlaneWaveTransducer(TransducerModel):
             where `M` is the number of spatial derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`.
 
         """
+        source_positions = np.asarray(source_positions)
+        receiver_positions = np.asarray(receiver_positions)
         source_normals = np.asarray(source_normals, dtype=np.float64)
         source_normals /= (source_normals**2).sum(axis=0)**0.5
         diff = receiver_positions.reshape((3,) + (1,) * (source_positions.ndim - 1) + receiver_positions.shape[1:]) - source_positions.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
@@ -714,6 +728,9 @@ class CircularPiston(PointSource):
             The amplitude (and phase) of the directivity, shape `source_positions.shape[1:] + receiver_positions.shape[1:]`.
 
         """
+        source_positions = np.asarray(source_positions)
+        source_normals = np.asarray(source_normals)
+        receiver_positions = np.asarray(receiver_positions)
         source_normals = source_normals.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
         diff = receiver_positions.reshape((3,) + (1,) * (source_positions.ndim - 1) + receiver_positions.shape[1:]) - source_positions.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
         dots = np.einsum('i...,i...', diff, source_normals)
@@ -782,6 +799,9 @@ class CircularRing(PointSource):
             The amplitude (and phase) of the directivity, shape `source_positions.shape[1:] + receiver_positions.shape[1:]`.
 
         """
+        source_positions = np.asarray(source_positions)
+        source_normals = np.asarray(source_normals)
+        receiver_positions = np.asarray(receiver_positions)
         source_normals = source_normals.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
         diff = receiver_positions.reshape((3,) + (1,) * (source_positions.ndim - 1) + receiver_positions.shape[1:]) - source_positions.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
         dots = np.einsum('i...,i...', diff, source_normals)
@@ -817,6 +837,9 @@ class CircularRing(PointSource):
             where `M` is the number of spatial derivatives, see `num_spatial_derivatives` and `spatial_derivative_order`.
 
         """
+        source_positions = np.asarray(source_positions)
+        source_normals = np.asarray(source_normals)
+        receiver_positions = np.asarray(receiver_positions)
         source_normals = source_normals.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
         diff = receiver_positions.reshape((3,) + (1,) * (source_positions.ndim - 1) + receiver_positions.shape[1:]) - source_positions.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
         dot = np.einsum('i...,i...', diff, source_normals)
