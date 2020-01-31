@@ -34,13 +34,13 @@ def test_pressure_derivs(t_model, args, atol, rtol):
     z_minus = rpos - np.array([0, 0, delta])
 
     implemented_results = T.pressure_derivs(spos, n, rpos)
-    np.testing.assert_allclose(implemented_results[idx('')], T.greens_function(spos, n, rpos), rtol=rtol, atol=atol)
+    np.testing.assert_allclose(implemented_results[idx('')], T.pressure(spos, n, rpos), rtol=rtol, atol=atol)
 
-    dx = (T.greens_function(spos, n, x_plus) - T.greens_function(spos, n, x_minus)) / (2 * delta)
+    dx = (T.pressure(spos, n, x_plus) - T.pressure(spos, n, x_minus)) / (2 * delta)
     np.testing.assert_allclose(implemented_results[idx('x')], dx, rtol=rtol, atol=atol)
-    dy = (T.greens_function(spos, n, y_plus) - T.greens_function(spos, n, y_minus)) / (2 * delta)
+    dy = (T.pressure(spos, n, y_plus) - T.pressure(spos, n, y_minus)) / (2 * delta)
     np.testing.assert_allclose(implemented_results[idx('y')], dy, rtol=rtol, atol=atol)
-    dz = (T.greens_function(spos, n, z_plus) - T.greens_function(spos, n, z_minus)) / (2 * delta)
+    dz = (T.pressure(spos, n, z_plus) - T.pressure(spos, n, z_minus)) / (2 * delta)
     np.testing.assert_allclose(implemented_results[idx('z')], dz, rtol=rtol, atol=atol)
 
     dx2 = (T.pressure_derivs(spos, n, x_plus, orders=1)[idx('x')] - T.pressure_derivs(spos, n, x_minus, orders=1)[idx('x')]) / (2 * delta)
@@ -105,7 +105,7 @@ def test_pressure_derivs(t_model, args, atol, rtol):
 def test_PointSource():
     transducer = levitate.transducers.PointSource()
     expected_result = np.array([-15.10269228 + 8.46147216j, -4.76079297 + 2.00641887j])
-    np.testing.assert_allclose(transducer.greens_function(source_pos, source_normal, receiver_pos), expected_result)
+    np.testing.assert_allclose(transducer.pressure(source_pos, source_normal, receiver_pos), expected_result)
     expected_result = np.array([
         [-1.51026923e+01+8.46147216e+00j, -4.76079297e+00+2.00641887e+00j],
         [-1.59865364e+03-2.87993690e+03j,  2.01978326e+02+4.80828427e+02j],
@@ -160,7 +160,7 @@ def test_PointSource():
 def test_ReflectingTransducer():
     transducer = levitate.transducers.TransducerReflector(levitate.transducers.PointSource, plane_distance=0.5, plane_normal=(3, -1, 9), reflection_coefficient=np.exp(1j))
     expected_result = np.array([-22.81413464 + 10.64739914j, -3.69589556 + 5.43218304j])
-    np.testing.assert_allclose(transducer.greens_function(source_pos, source_normal, receiver_pos), expected_result)
+    np.testing.assert_allclose(transducer.pressure(source_pos, source_normal, receiver_pos), expected_result)
     expected_result = np.array([
         [-2.28141346e+01+1.06473991e+01j, -3.69589556e+00+5.43218304e+00j],
         [-1.07726257e+03-1.02772709e+03j,  9.45472742e+02+2.50378634e+02j],
@@ -206,7 +206,7 @@ def test_ReflectingTransducer():
 def test_PlaneWaveTransducer():
     transducer = levitate.transducers.PlaneWaveTransducer()
     expected_result = np.array([0.10009402 + 5.99916504j, 5.8662305 + 1.2598967j])
-    np.testing.assert_allclose(transducer.greens_function(source_pos, source_normal, receiver_pos), expected_result)
+    np.testing.assert_allclose(transducer.pressure(source_pos, source_normal, receiver_pos), expected_result)
     expected_result = np.array([
         [ 1.00094019e-01+5.99916504e+00j,  5.86623050e+00+1.25989670e+00j],
         [-1.63255397e+03+2.72386050e+01j, -3.42855939e+02+1.59637846e+03j],
@@ -234,7 +234,7 @@ def test_PlaneWaveTransducer():
 def test_CircularPiston():
     transducer = levitate.transducers.CircularPiston(effective_radius=3e-3)
     expected_result = np.array([-13.76846639 + 7.71395542j, -2.94292484 + 1.24028496j])
-    np.testing.assert_allclose(transducer.greens_function(source_pos, source_normal, receiver_pos), expected_result)
+    np.testing.assert_allclose(transducer.pressure(source_pos, source_normal, receiver_pos), expected_result)
     expected_result = np.array([
         [-1.37684664e+01+7.71395542e+00j, -2.94292484e+00+1.24028496e+00j],
         [-1.46345035e+03-2.62213599e+03j,  1.24020677e+02+2.97579665e+02j],
@@ -262,7 +262,7 @@ def test_CircularPiston():
 def test_CircularRing():
     transducer = levitate.transducers.CircularRing(effective_radius=3e-3)
     expected_result = np.array([-12.47473964 + 6.98912884j, -1.39288579 + 0.58702665j])
-    np.testing.assert_allclose(transducer.greens_function(source_pos, source_normal, receiver_pos), expected_result)
+    np.testing.assert_allclose(transducer.pressure(source_pos, source_normal, receiver_pos), expected_result)
     expected_result = np.array([
         [-1.24747396e+01+6.98912884e+00j, -1.39288579e+00+5.87026646e-01j],
         [-1.33216229e+03-2.37226612e+03j,  5.76923908e+01+1.41268617e+02j],
