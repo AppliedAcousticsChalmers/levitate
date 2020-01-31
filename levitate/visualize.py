@@ -38,14 +38,14 @@ class Visualizer:
 
     def __init__(self, array, xlimits=None, ylimits=None, zlimits=None, resolution=10, display_scale='mm'):
         self.array = array
-        xlimits = xlimits or (np.min(array.transducer_positions[0]), np.max(array.transducer_positions[0]))
-        ylimits = ylimits or (np.min(array.transducer_positions[1]), np.max(array.transducer_positions[1]))
+        xlimits = xlimits or (np.min(array.positions[0]), np.max(array.positions[0]))
+        ylimits = ylimits or (np.min(array.positions[1]), np.max(array.positions[1]))
         if 'Doublesided' not in type(array).__name__:
             # Singlesided array, one of the limits will give a zero range.
             # Assuming that the array is in the xy-plane, pointing up
-            zlimits = zlimits or (np.min(array.transducer_positions[2]) + 1e-3, np.min(array.transducer_positions[2]) + 20 * array.wavelength)
+            zlimits = zlimits or (np.min(array.positions[2]) + 1e-3, np.min(array.positions[2]) + 20 * array.wavelength)
         else:
-            zlimits = zlimits or (np.min(array.transducer_positions[2]), np.max(array.transducer_positions[2]))
+            zlimits = zlimits or (np.min(array.positions[2]), np.max(array.positions[2]))
 
         if max(xlimits) > min(xlimits):
             ylimits = (max(ylimits) + min(ylimits)) / 2
@@ -276,9 +276,9 @@ class Visualizer:
             marker = dict(color=data, colorscale=colorscale, size=16, colorbar={'title': title, 'x': -0.02}, cmin=cmin, cmax=cmax)
             trace = dict(
                 type='scatter3d', mode='markers',
-                x=self.array.transducer_positions[0] / self._display_scale,
-                y=self.array.transducer_positions[1] / self._display_scale,
-                z=self.array.transducer_positions[2] / self._display_scale,
+                x=self.array.positions[0] / self._display_scale,
+                y=self.array.positions[1] / self._display_scale,
+                z=self.array.positions[2] / self._display_scale,
                 marker=marker
             )
 
@@ -329,7 +329,7 @@ class Visualizer:
             vertex_color = []
 
             for t_idx in range(self.array.num_transducers):
-                position = self.array.transducer_positions[:, t_idx]
+                position = self.array.positions[:, t_idx]
                 normal = self.array.transducer_normals[:, t_idx]
 
                 # Find two vectors that sweep the circle

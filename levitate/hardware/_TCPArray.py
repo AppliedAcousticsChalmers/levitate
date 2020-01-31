@@ -189,7 +189,7 @@ class TCPArray:
         return np.array(self._recv()).astype(int)
 
     @property
-    def transducer_positions(self):
+    def positions(self):
         """Positions of the transducer elements."""
         num_transducers = self.num_transducers
         self._send('transducer positions')

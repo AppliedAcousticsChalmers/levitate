@@ -26,7 +26,7 @@ class TransducerArray:
 
     Parameters
     ----------
-    transducer_positions : numpy.ndarray
+    positions : numpy.ndarray
         The positions of the transducer elements in the array, shape 3xN.
     transducer_normals : numpy.ndarray
         The normals of the transducer elements in the array, shape 3xN.
@@ -47,7 +47,7 @@ class TransducerArray:
         Transducer element controls on complex form.
     num_transducers : int
         The number of transducers used.
-    transducer_positions : numpy.ndarray
+    positions : numpy.ndarray
         As above.
     transducer_normals : numpy.ndarray
         As above.
@@ -66,10 +66,10 @@ class TransducerArray:
 
     """
 
-    _repr_fmt_spec = '{:%cls(transducer_model=%transducer_model_full, transducer_size=%transducer_size,\n\ttransducer_positions=%transducer_positions,\n\ttransducer_normals=%transducer_normals)}'
+    _repr_fmt_spec = '{:%cls(transducer_model=%transducer_model_full, transducer_size=%transducer_size,\n\tpositions=%positions,\n\ttransducer_normals=%transducer_normals)}'
     _str_fmt_spec = '{:%cls(transducer_model=%transducer_model): %num_transducers transducers}'
 
-    def __init__(self, transducer_positions, transducer_normals,
+    def __init__(self, positions, transducer_normals,
                  transducer_model=None, transducer_size=10e-3, transducer_kwargs=None,
                  medium=None, **kwargs
                  ):
@@ -89,8 +89,8 @@ class TransducerArray:
 
         self.calculate = self.PersistentFieldEvaluator(self)
 
-        self.transducer_positions = transducer_positions
-        self.num_transducers = self.transducer_positions.shape[1]
+        self.positions = positions
+        self.num_transducers = self.positions.shape[1]
         if transducer_normals.ndim == 1:
             transducer_normals = np.tile(transducer_normals.reshape(3, 1), (1, self.num_transducers))
         self.transducer_normals = transducer_normals
@@ -105,7 +105,7 @@ class TransducerArray:
         s_out = s_out.replace('%transducer_size', str(self.transducer_size))
         s_out = s_out.replace('%medium_full', repr(self.medium)).replace('%medium', str(self.medium))
         s_out = s_out.replace('%transducer_model_full', repr(self.transducer_model)).replace('%transducer_model', str(self.transducer_model))
-        s_out = s_out.replace('%transducer_positions', repr(self.transducer_positions)).replace('%transducer_normals', repr(self.transducer_normals))
+        s_out = s_out.replace('%positions', repr(self.positions)).replace('%transducer_normals', repr(self.transducer_normals))
         for key, value in self._extra_print_args.items():
             s_out = s_out.replace('%' + key, str(value))
         return s_out
@@ -114,7 +114,7 @@ class TransducerArray:
         return (
             isinstance(other, TransducerArray)
             and self.num_transducers == other.num_transducers
-            and np.allclose(self.transducer_positions, other.transducer_positions)
+            and np.allclose(self.positions, other.positions)
             and np.allclose(self.transducer_normals, other.transducer_normals)
             and self.transducer_model == other.transducer_model
         )
@@ -202,7 +202,7 @@ class TransducerArray:
             Array with the phases for the transducer elements.
 
         """
-        phase = -np.sum((self.transducer_positions - focus.reshape([3, 1]))**2, axis=0)**0.5 * self.k
+        phase = -np.sum((self.positions - focus.reshape([3, 1]))**2, axis=0)**0.5 * self.k
         phase = np.mod(phase + np.pi, 2 * np.pi) - np.pi  # Wrap phase to [-pi, pi]
         return phase
 
@@ -256,7 +256,7 @@ class TransducerArray:
             and the remaining dimensions are the same as the `positions` input with the first dimension removed.
 
         """
-        return self.transducer_model.pressure_derivs(self.transducer_positions, self.transducer_normals, positions, orders)
+        return self.transducer_model.pressure_derivs(self.positions, self.transducer_normals, positions, orders)
 
     def spherical_harmonics(self, positions, orders=0):
         """Spherical harmonics expansion of transducer sound fields.
@@ -285,7 +285,7 @@ class TransducerArray:
             the same as the `positions` input with the first dimension removed.
 
         """
-        return self.transducer_model.spherical_harmonics(self.transducer_positions, self.transducer_normals, positions, orders)
+        return self.transducer_model.spherical_harmonics(self.positions, self.transducer_normals, positions, orders)
 
     def request(self, requests, position):
         """Evaluate a set of requests.
@@ -544,7 +544,7 @@ class RectangularArray(TransducerArray):
         positions += np.asarray(offset).reshape([3] + (positions.ndim - 1) * [1])
 
         kwargs.setdefault('transducer_size', spread)
-        kwargs.setdefault('transducer_positions', positions)
+        kwargs.setdefault('positions', positions)
         kwargs.setdefault('transducer_normals', normals)
         super().__init__(**kwargs)
         self._extra_print_args.update(extra_print_args)
@@ -640,17 +640,17 @@ class RectangularArray(TransducerArray):
             angle = kwargs.get('angle', None)
             if angle is None:
                 angle = np.arctan2(position[1], position[0]) + np.pi / 2
-            signature = np.arctan2(self.transducer_positions[1] - position[1], self.transducer_positions[0] - position[0]) - angle
+            signature = np.arctan2(self.positions[1] - position[1], self.positions[0] - position[0]) - angle
             signature = np.round(np.mod(signature / (2 * np.pi), 1))
             signature = (signature - 0.5) * np.pi
             return signature
         if stype.lower().strip() == 'vortex':
             angle = kwargs.get('angle', 0)
-            return np.arctan2(self.transducer_positions[1] - position[1], self.transducer_positions[0] - position[0]) + angle
+            return np.arctan2(self.positions[1] - position[1], self.positions[0] - position[0]) + angle
         if stype.lower().strip() == 'bottle':
             position = np.asarray(position)[:2]
             radius = kwargs.get('radius', (self.num_transducers / 2 / np.pi)**0.5 * self.transducer_size)
-            return np.where(np.sum((self.transducer_positions[:2] - position[:, None])**2, axis=0) > radius**2, np.pi, 0)
+            return np.where(np.sum((self.positions[:2] - position[:, None])**2, axis=0) > radius**2, np.pi, 0)
         return super().signature(position, stype=stype, *args, **kwargs)
 
 
@@ -697,14 +697,14 @@ class DoublesidedArray(TransducerArray):
         normal = np.asarray(normal, dtype='float64').copy()
         normal /= (normal**2).sum()**0.5
         offset = np.asarray(offset).copy()
-        lower_positions = array.transducer_positions - 0.5 * separation * normal[:, None]
-        lower_positions -= np.mean(array.transducer_positions, axis=1)[:, None]
+        lower_positions = array.positions - 0.5 * separation * normal[:, None]
+        lower_positions -= np.mean(array.positions, axis=1)[:, None]
         upper_positions = lower_positions - 2 * np.sum(lower_positions * normal[:, None], axis=0) * normal[:, None]
         lower_normals = array.transducer_normals.copy()
         normal_proj = np.sum(lower_normals * normal[:, None], axis=0) * normal[:, None]
         upper_normals = lower_normals - 2 * normal_proj
         super().__init__(
-            transducer_positions=np.concatenate([lower_positions, upper_positions], axis=1) + offset[:, None],
+            positions=np.concatenate([lower_positions, upper_positions], axis=1) + offset[:, None],
             transducer_normals=np.concatenate([lower_normals, upper_normals], axis=1),
             transducer_model=array.transducer_model, transducer_size=array.transducer_size,
         )

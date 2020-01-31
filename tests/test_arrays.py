@@ -46,7 +46,7 @@ def test_rectangular_grid():
         [0., 0., 1.],
         [0., 0., 1.],
         [0., 0., 1.]]).T
-    np.testing.assert_allclose(array.transducer_positions, expected_positions)
+    np.testing.assert_allclose(array.positions, expected_positions)
     np.testing.assert_allclose(array.transducer_normals, expected_normals)
 
 
@@ -70,7 +70,7 @@ def test_array_offset():
         [0., 0., 1.],
         [0., 0., 1.],
         [0., 0., 1.]]).T
-    np.testing.assert_allclose(array.transducer_positions, expected_positions)
+    np.testing.assert_allclose(array.positions, expected_positions)
     np.testing.assert_allclose(array.transducer_normals, expected_normals)
 
 
@@ -94,7 +94,7 @@ def test_array_normal():
         [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01],
         [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01],
         [+3.713906763541e-01, +5.570860145312e-01, +7.427813527082e-01]]).T
-    np.testing.assert_allclose(array.transducer_positions, expected_positions)
+    np.testing.assert_allclose(array.positions, expected_positions)
     np.testing.assert_allclose(array.transducer_normals, expected_normals)
 
 
@@ -118,7 +118,7 @@ def test_array_rotation():
         [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01],
         [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01],
         [-2.182178902360e-01, +8.728715609440e-01, -4.364357804720e-01]]).T
-    np.testing.assert_allclose(array.transducer_positions, expected_positions)
+    np.testing.assert_allclose(array.positions, expected_positions)
     np.testing.assert_allclose(array.transducer_normals, expected_normals)
 
 
@@ -143,7 +143,7 @@ def test_double_sided_grid():
         [-8.16496581e-02, +5.71547607e-01, -8.16496581e-01],
         [-8.16496581e-02, +5.71547607e-01, -8.16496581e-01],
         [-8.16496581e-02, +5.71547607e-01, -8.16496581e-01]]).T
-    np.testing.assert_allclose(array.transducer_positions, expected_positions)
+    np.testing.assert_allclose(array.positions, expected_positions)
     np.testing.assert_allclose(array.transducer_normals, expected_normals)
     expected_signature = np.array([0, 0, 0, 0, np.pi, np.pi, np.pi, np.pi])
     np.testing.assert_allclose(array.signature(stype='doublesided'), expected_signature)
