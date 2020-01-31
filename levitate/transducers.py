@@ -646,7 +646,7 @@ class TransducerReflector(TransducerModel):
         """Evaluate a function using a mirror source model.
 
         Calculates the positions and normals of the mirror sources. Evaluates the function
-        using both the real sources and the mirrored sources. Adds the two results, cosidering
+        using both the real sources and the mirrored sources. Adds the two results, considering
         some arbitrary complex reflections coefficient.
 
         """
