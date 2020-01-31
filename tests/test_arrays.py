@@ -159,10 +159,10 @@ def test_Array_basics():
     array.wavelength = 8.5e-3
     np.testing.assert_allclose(air.c, array.wavelength * array.freq)
     array.freq = 41e3
-    np.testing.assert_allclose(array.transducer_model.freq, 41e3)
+    np.testing.assert_allclose(array.transducer.freq, 41e3)
 
     from levitate.transducers import PlaneWaveTransducer
-    array = levitate.arrays.RectangularArray(shape=(4, 4), transducer_model=PlaneWaveTransducer)
+    array = levitate.arrays.RectangularArray(shape=(4, 4), transducer=PlaneWaveTransducer)
     pos = np.array([7e-3, -3e-3, 70e-3])
     np.testing.assert_allclose(array.focus_phases(pos), np.array([+2.069588782645e+00, -2.511641902621e+00, -1.794667262208e+00, -2.103144086214e+00, +2.763870843565e+00, -1.794667262208e+00, -1.067679552580e+00, -1.380498791671e+00, +2.465230031099e+00, -2.103144086214e+00, -1.380498791671e+00, -1.691434660688e+00, +1.189733359830e+00, +2.863786956082e+00, -2.714709695304e+00, -3.017860322253e+00]))
     np.testing.assert_allclose(array.signature(pos, stype='twin'), np.array([-1.570796326795e+00, -1.570796326795e+00, +1.570796326795e+00, +1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, +1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, +1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, -1.570796326795e+00, +1.570796326795e+00]))

@@ -21,7 +21,7 @@ transducer = levitate.transducers.TransducerReflector(
 array = levitate.arrays.DoublesidedArray(
     levitate.arrays.RectangularArray, separation=200e-3,
     normal=(1, 0, 0), offset=(0, 0, 50e-3),
-    shape=(5, 10), transducer_model=transducer)
+    shape=(5, 10), transducer=transducer)
 
 array.phases = array.focus_phases(np.array([25e-3, 0, 40e-3]))
 array.visualize.zlimits = (0, 0.1)

@@ -30,7 +30,7 @@ class TransducerArray:
         The positions of the transducer elements in the array, shape 3xN.
     normals : numpy.ndarray
         The normals of the transducer elements in the array, shape 3xN.
-    transducer_model
+    transducer
         An object of `levitate.transducers.TransducerModel` or a subclass. If passed a class it will create a new instance.
     transducer_size : float
         Fallback transducer size if no transducer model object is given, or if no grid is given.
@@ -51,7 +51,7 @@ class TransducerArray:
         As above.
     normals : numpy.ndarray
         As above.
-    transducer_model : TransducerModel
+    transducer : TransducerModel
         An instance of a specific transducer model implementation.
     calculate : PersistentFieldEvaluator
         Use to perform cashed field calculations.
@@ -66,24 +66,24 @@ class TransducerArray:
 
     """
 
-    _repr_fmt_spec = '{:%cls(transducer_model=%transducer_model_full, transducer_size=%transducer_size,\n\tpositions=%positions,\n\tnormals=%normals)}'
-    _str_fmt_spec = '{:%cls(transducer_model=%transducer_model): %num_transducers transducers}'
+    _repr_fmt_spec = '{:%cls(transducer=%transducer_full, transducer_size=%transducer_size,\n\tpositions=%positions,\n\tnormals=%normals)}'
+    _str_fmt_spec = '{:%cls(transducer=%transducer): %num_transducers transducers}'
 
     def __init__(self, positions, normals,
-                 transducer_model=None, transducer_size=10e-3, transducer_kwargs=None,
+                 transducer=None, transducer_size=10e-3, transducer_kwargs=None,
                  medium=None, **kwargs
                  ):
         self.transducer_size = transducer_size
         transducer_kwargs = transducer_kwargs or {}
         self._extra_print_args = {}
 
-        if transducer_model is None:
+        if transducer is None:
             from .transducers import PointSource
-            self.transducer_model = PointSource(**transducer_kwargs)
-        elif type(transducer_model) is type:
-            self.transducer_model = transducer_model(**transducer_kwargs)
+            self.transducer = PointSource(**transducer_kwargs)
+        elif type(transducer) is type:
+            self.transducer = transducer(**transducer_kwargs)
         else:
-            self.transducer_model = transducer_model
+            self.transducer = transducer
         if medium is not None:
             self.medium = medium
 
@@ -104,7 +104,7 @@ class TransducerArray:
         s_out = s_out.replace('%cls', self.__class__.__name__).replace('%num_transducers', str(self.num_transducers))
         s_out = s_out.replace('%transducer_size', str(self.transducer_size))
         s_out = s_out.replace('%medium_full', repr(self.medium)).replace('%medium', str(self.medium))
-        s_out = s_out.replace('%transducer_model_full', repr(self.transducer_model)).replace('%transducer_model', str(self.transducer_model))
+        s_out = s_out.replace('%transducer_full', repr(self.transducer)).replace('%transducer', str(self.transducer))
         s_out = s_out.replace('%positions', repr(self.positions)).replace('%normals', repr(self.normals))
         for key, value in self._extra_print_args.items():
             s_out = s_out.replace('%' + key, str(value))
@@ -116,7 +116,7 @@ class TransducerArray:
             and self.num_transducers == other.num_transducers
             and np.allclose(self.positions, other.positions)
             and np.allclose(self.normals, other.normals)
-            and self.transducer_model == other.transducer_model
+            and self.transducer == other.transducer
         )
 
     def __repr__(self):
@@ -130,43 +130,43 @@ class TransducerArray:
 
     @property
     def k(self):
-        return self.transducer_model.k
+        return self.transducer.k
 
     @k.setter
     def k(self, value):
-        self.transducer_model.k = value
+        self.transducer.k = value
 
     @property
     def omega(self):
-        return self.transducer_model.omega
+        return self.transducer.omega
 
     @omega.setter
     def omega(self, value):
-        self.transducer_model.omega = value
+        self.transducer.omega = value
 
     @property
     def freq(self):
-        return self.transducer_model.freq
+        return self.transducer.freq
 
     @freq.setter
     def freq(self, value):
-        self.transducer_model.freq = value
+        self.transducer.freq = value
 
     @property
     def wavelength(self):
-        return self.transducer_model.wavelength
+        return self.transducer.wavelength
 
     @wavelength.setter
     def wavelength(self, value):
-        self.transducer_model.wavelength = value
+        self.transducer.wavelength = value
 
     @property
     def medium(self):
-        return self.transducer_model.medium
+        return self.transducer.medium
 
     @medium.setter
     def medium(self, val):
-        self.transducer_model.medium = val
+        self.transducer.medium = val
 
     @property
     def complex_amplitudes(self):
@@ -256,7 +256,7 @@ class TransducerArray:
             and the remaining dimensions are the same as the `positions` input with the first dimension removed.
 
         """
-        return self.transducer_model.pressure_derivs(self.positions, self.normals, positions, orders)
+        return self.transducer.pressure_derivs(self.positions, self.normals, positions, orders)
 
     def spherical_harmonics(self, positions, orders=0):
         """Spherical harmonics expansion of transducer sound fields.
@@ -285,7 +285,7 @@ class TransducerArray:
             the same as the `positions` input with the first dimension removed.
 
         """
-        return self.transducer_model.spherical_harmonics(self.positions, self.normals, positions, orders)
+        return self.transducer.spherical_harmonics(self.positions, self.normals, positions, orders)
 
     def request(self, requests, position):
         """Evaluate a set of requests.
@@ -512,7 +512,7 @@ class RectangularArray(TransducerArray):
 
     """
 
-    _str_fmt_spec = '{:%cls(transducer_model=%transducer_model, shape=%shape, spread=%spread, offset=%offset, normal=%normal, rotation=%rotation)}'
+    _str_fmt_spec = '{:%cls(transducer=%transducer, shape=%shape, spread=%spread, offset=%offset, normal=%normal, rotation=%rotation)}'
 
     def __init__(self, shape=16, spread=10e-3, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
         extra_print_args = {'shape': shape, 'spread': spread, 'offset': offset, 'normal': normal, 'rotation': rotation}
@@ -706,7 +706,7 @@ class DoublesidedArray(TransducerArray):
         super().__init__(
             positions=np.concatenate([lower_positions, upper_positions], axis=1) + offset[:, None],
             normals=np.concatenate([lower_normals, upper_normals], axis=1),
-            transducer_model=array.transducer_model, transducer_size=array.transducer_size,
+            transducer=array.transducer, transducer_size=array.transducer_size,
         )
         self._extra_print_args.update(extra_print_args)
 
@@ -767,7 +767,7 @@ class DragonflyArray(RectangularArray):
     behaves exactly like a `RectangularArray`.
     """
 
-    _str_fmt_spec = '{:%cls(transducer_model=%transducer_model, offset=%offset, normal=%normal, rotation=%rotation)}'
+    _str_fmt_spec = '{:%cls(transducer=%transducer, offset=%offset, normal=%normal, rotation=%rotation)}'
 
     @classmethod
     def _grid_generator(cls, **kwargs):
