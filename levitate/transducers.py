@@ -631,8 +631,19 @@ class TransducerReflector(TransducerModel):
         """
         return self._evaluate_with_reflector(self._transducer.pressure_derivs, source_positions, source_normals, receiver_positions, *args, **kwargs)
 
+    def spherical_harmonics(self, source_positions, source_normals, receiver_positions, *args, **kwargs):
+        """Evaluate the spherical harmonics expansion at a point.
+
+        Mirrors the sources in the reflection plane and calculates the superposition of the expansions
+        from the combined sources.
+        For the full documentation of the parameters and output format, see the documentation of the
+        spherical harmonics method of the underlying transducer model.
+
+        """
+        return self._evaluate_with_reflector(self._transducer.spherical_harmonics, source_positions, source_normals, receiver_positions, *args, **kwargs)
+
     def _evaluate_with_reflector(self, func, source_positions, source_normals, receiver_positions, *args, **kwargs):
-        """Evaluate a function using a missor source model.
+        """Evaluate a function using a mirror source model.
 
         Calculates the positions and normals of the mirror sources. Evaluates the function
         using both the real sources and the mirrored sources. Adds the two results, cosidering
