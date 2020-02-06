@@ -249,17 +249,10 @@ class ScalarFieldSlice(Trace):
     def _update_mesh(self):
         if self._in_init:
             return
-        # We need to create a mesh which is parallel to e.g. xy to start with, then map that to the desired tilted plane
-        # A proper rotate and shift should preserve the distances between points, so that's not a problem
-        # It will be somewhat difficult to figure out the limits of the original plane depending on the limits we want for out final mesh
-        # Perhaps we should find two vectors in the plane and add integer numbers of the vectors together until we reach the end of out mesh domain.
-        # It might be faster to mesh too much first and then remove the points outside out target domain?
-        nx, ny, nz = self.normal
-        if nz == 0:
-            v1 = np.array([0, 0, 1], dtype=float)
-        else:
-            v1 = np.array([1, 1, -(nx + ny) / nz], dtype=float)
-            v1 /= np.sum(v1**2)**0.5
+        # Find two vectors that span the plane
+        v1 = np.array([1., 1., 1.])
+        n_max = np.argmax(np.abs(self.normal))
+        v1[n_max] = -(np.sum(self.normal) - self.normal[n_max]) / self.normal[n_max]
         v2 = np.cross(self.normal, v1)
         v2 /= np.sum(v2**2)**0.5
 
@@ -280,9 +273,10 @@ class ScalarFieldSlice(Trace):
         zmax = zmax - self.intersect[2]
 
         # Intersection of the bounding box and the plane
+        nx, ny, nz = self.normal
         edge_intersections = []
         if nx != 0:
-            edge_intersections.extend([np.array([-(ny * yl + nz * zl) / ny, yl, zl]) for yl in (ymin, ymax) for zl in (zmin, zmax)])
+            edge_intersections.extend([np.array([-(ny * yl + nz * zl) / nx, yl, zl]) for yl in (ymin, ymax) for zl in (zmin, zmax)])
         if ny != 0:
             edge_intersections.extend([np.array([xl, -(nx * xl + nz * zl) / ny, zl]) for xl in (xmin, xmax) for zl in (zmin, zmax)])
         if nz != 0:
