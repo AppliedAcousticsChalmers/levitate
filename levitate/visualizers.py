@@ -347,3 +347,118 @@ class VelocitySlice(ScalarFieldSlice):
     from .fields import Velocity as _field_class
     cmin = 130
     cmax = 170
+
+
+class VectorFieldCones(Trace):
+    preprocesssors = []
+    postprocessors = []
+    opacity = 0.5
+    cone_length = 0.8
+    cone_vertices = 10
+    cone_ratio = 3
+
+    def __init__(self, array, center, resolution=5,
+                 xrange=None, yrange=None, zrange=None, **kwargs):
+        super().__init__(array, **kwargs)
+        self._in_init = True
+        self.center = center
+        self.resolution = resolution
+        self.xrange = xrange if xrange is not None else self.array.wavelength
+        self.yrange = yrange if yrange is not None else self.array.wavelength
+        self.zrange = zrange if zrange is not None else self.array.wavelength
+        self._in_init = False
+        self._update_mesh()
+
+    @Trace.meshproperty
+    def resolution(self, val):
+        self._resolution = self.array.wavelength / val
+        return val
+
+    center = Trace.meshproperty()
+    xrange = Trace.meshproperty()
+    yrange = Trace.meshproperty()
+    zrange = Trace.meshproperty()
+
+    def _update_mesh(self):
+        if self._in_init:
+            return
+        nx = 2 * np.ceil(self.xrange / self._resolution) + 1
+        ny = 2 * np.ceil(self.yrange / self._resolution) + 1
+        nz = 2 * np.ceil(self.zrange / self._resolution) + 1
+
+        x = np.linspace(-self.xrange, self.xrange, nx) + self.center[0]
+        y = np.linspace(-self.yrange, self.yrange, ny) + self.center[1]
+        z = np.linspace(-self.zrange, self.zrange, nz) + self.center[2]
+
+        self.mesh = np.stack(np.meshgrid(x, y, z, indexing='ij'), axis=0).reshape((3, -1))
+
+    def __call__(self, complex_transducer_amplitudes):
+        for pp in self.preprocesssors:
+            complex_transducer_amplitudes = pp(complex_transducer_amplitudes)
+        field_data = self.field(complex_transducer_amplitudes)
+        for pp in self.postprocessors:
+            field_data = pp(field_data)
+
+        vertex_indices, vertex_coordinates, vertex_intensities = self._generate_vertices(field_data)
+        return dict(
+            type='mesh3d',
+            x=vertex_coordinates[0], y=vertex_coordinates[1], z=vertex_coordinates[2],
+            i=vertex_indices[0], j=vertex_indices[1], k=vertex_indices[2],
+            intensity=vertex_intensities, opacity=self.opacity, colorscale=self.colorscale,
+        )
+
+    def _generate_vertices(self, field_data):
+        centers = self.mesh
+        intensity = np.sum(np.abs(field_data)**2, axis=0)**0.5
+        normals = field_data / intensity
+
+        # n_vertices is the number of vertices in the base of the cone
+        n_vertices = self.cone_vertices
+        i = [0] * n_vertices
+        j = list(range(1, n_vertices + 1))
+        k = list(range(2, n_vertices + 1)) + [1]
+        i += [1] * (n_vertices - 2)
+        j += list(range(2, n_vertices))
+        k += list(range(3, n_vertices + 1))
+        base_indices = np.stack([i, j, k], axis=0)
+
+        theta = np.arange(n_vertices) / n_vertices * 2 * np.pi
+        cos = np.cos(theta)
+        sin = np.sin(theta)
+
+        vertex_indices = []
+        vertex_coordinates = []
+        vertex_intensities = []
+        back_length = self._resolution * self.cone_length / 3
+        forward_length = self._resolution * self.cone_length / 3 * 2
+        radius = 0.5 * self._resolution * self.cone_length / self.cone_ratio
+
+        for cone_idx in range(len(intensity)):
+            # Find two vectors that sweep the surface of the base
+            c = centers[:, cone_idx]
+            n = normals[:, cone_idx]
+            n_max = np.argmax(np.abs(n))
+            v1 = np.array([1., 1., 1.])
+            v1[n_max] = -(np.sum(n) - n[n_max]) / n[n_max]
+            v1 /= np.sum(v1**2)**0.5
+            v2 = np.cross(v1, n)
+
+            circle = cos * v1[:, None] + sin * v2[:, None]
+            circle = circle * radius - n[:, None] * back_length
+
+            vertex_indices.append(base_indices + (n_vertices + 1) * cone_idx)
+            vertex_intensities.append([intensity[cone_idx]] * (n_vertices + 1))
+            vertex_coordinates.append(np.concatenate([n[:, None] * forward_length, circle], axis=1) + c[:, None])
+
+        vertex_indices = np.concatenate(vertex_indices, axis=1)
+        vertex_intensities = np.concatenate(vertex_intensities, axis=0)
+        vertex_coordinates = np.concatenate(vertex_coordinates, axis=1) / self.display_scale
+        return vertex_indices, vertex_coordinates, vertex_intensities
+
+
+class RadiationForceCones(VectorFieldCones):
+    from .fields import RadiationForce as _field_class
+
+
+class SphericalHarmonicsForceCones(VectorFieldCones):
+    from .fields import SphericalHarmonicsForce as _field_class
