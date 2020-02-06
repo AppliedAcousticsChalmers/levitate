@@ -116,33 +116,6 @@ class Visualizer(collections.abc.MutableSequence):
         else:
             self._display_scale = val
 
-    # @property
-    # def traces(self):
-    #     try:
-    #         traces = self._traces
-    #     except AttributeError:
-    #         return []
-    #     for trace in traces:
-    #         if 'x' in trace:
-    #             trace['x'] /= self._display_scale
-    #         if 'y' in trace:
-    #             trace['y'] /= self._display_scale
-    #         if 'z' in trace:
-    #             trace['z'] /= self._display_scale
-    #     return traces
-
-    # @traces.setter
-    # def traces(self, value):
-    #     self._traces = value
-
-    # @property
-    # def resolution(self):
-    #     return self.array.wavelength / self._resolution
-
-    # @resolution.setter
-    # def resolution(self, val):
-    #     self._resolution = self.array.wavelength / val
-
 
 class ArrayVisualizer(Visualizer):
     def __init__(self, array, **kwargs):
@@ -156,9 +129,18 @@ class ArrayVisualizer(Visualizer):
 
 
 class Trace:
-    # Todo: should the automatic creation of the field be part of Trace?
-    # Todo: should rebinding the field to the mesh be part of trace?
-    # I guess this will reveal itself when you o tom implement the other trace types.
+    colorscale = 'Viridis'
+
+    def __init__(self, array, field=None, **field_kwargs):
+        self.array = array
+        if field is not None:
+            if type(field) is type:
+                self.field = field(array, **field_kwargs)
+            else:
+                self.field = field
+        elif hasattr(self, '_field_class'):
+            self.field = self._field_class(array, **field_kwargs)
+
     @property
     def display_scale(self):
         try:
@@ -168,7 +150,6 @@ class Trace:
 
 
 class ScalarFieldSlice(Trace):
-    colorscale = 'Viridis'
     label = ''
     cmin = None
     cmax = None
@@ -176,16 +157,9 @@ class ScalarFieldSlice(Trace):
     preprocesssors = []
     postprocessors = []
 
-    def __init__(self, array, xlimits=None, ylimits=None, zlimits=None, normal=None, intersect=None, resolution=10, field=None):
+    def __init__(self, array, xlimits=None, ylimits=None, zlimits=None, normal=None, intersect=None, resolution=10, **kwargs):
+        super().__init__(array, **kwargs)
         self._in_init = True
-        self.array = array
-        if field is not None:
-            if type(field) is type:
-                self.field = field(array)
-            else:
-                self.field = field
-        elif hasattr(self, '_field_class'):
-            self.field = self._field_class(array)
 
         self.resolution = resolution
         self.normal = normal if normal is not None else (0, 1, 0)
