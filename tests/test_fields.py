@@ -98,10 +98,10 @@ def test_SphericalHarmonicsForces():
     amps = large_array.complex_amplitudes
     orders = 9
     radius = 12 * large_array.k
-    F = levitate.fields.SphericalHarmonicsForce(large_array, orders=orders, radius_sphere=radius)
-    dF = levitate.fields.SphericalHarmonicsForceGradient(large_array, orders=orders, radius_sphere=radius)
-    F_sep = levitate.fields.SphericalHarmonicsForceDecomposition(large_array, orders=orders, radius_sphere=radius)
-    dF_sep = levitate.fields.SphericalHarmonicsForceGradientDecomposition(large_array, orders=orders, radius_sphere=radius)
+    F = levitate.fields.SphericalHarmonicsForce(large_array, orders=orders, radius=radius)
+    dF = levitate.fields.SphericalHarmonicsForceGradient(large_array, orders=orders, radius=radius)
+    F_sep = levitate.fields.SphericalHarmonicsForceDecomposition(large_array, orders=orders, radius=radius)
+    dF_sep = levitate.fields.SphericalHarmonicsForceGradientDecomposition(large_array, orders=orders, radius=radius)
 
     delta = 1e-7
 
