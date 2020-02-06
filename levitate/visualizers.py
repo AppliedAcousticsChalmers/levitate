@@ -148,6 +148,44 @@ class Trace:
         except AttributeError:
             return 1
 
+    class meshproperty:
+        def __init__(self, fpre=None, fpost=None):
+            self.fpre = fpre or (lambda self, value: value)
+            self.fpost = fpost or (lambda self, value: value)
+            self.value = None
+            self.__doc__ = fpre.__doc__
+
+        def __get__(self, obj, obj_type=None):
+            return self.fpost(obj, self.value)
+
+        def __set__(self, obj, value):
+            self.value = self.fpre(obj, value)
+            obj._update_mesh()
+
+        def __delete__(self, obj):
+            self.value = None
+
+        def preprocessor(self, fpre):
+            return type(self)(fpre, self.fpost)
+
+        def postprocessor(self, fpost):
+            return type(self)(self.fpre, fpost)
+
+    @property
+    def mesh(self):
+        return self.__mesh
+
+    @mesh.setter
+    def mesh(self, value):
+        # Rebind the field to the new mesh.
+        # Doing this in a setter makes sure that if the user changes the mesh manually,
+        # the field will still match the mesh.
+        self.__mesh = value
+        self.field = self.field @ value
+
+    def _update_mesh(self):
+        raise NotImplementedError('Subclasses of `Trace` has to implement `_update_mesh`')
+
 
 class ScalarFieldSlice(Trace):
     label = ''
@@ -190,62 +228,23 @@ class ScalarFieldSlice(Trace):
         self._in_init = False
         self._update_mesh()
 
-    @property
-    def normal(self):
-        return self._normal
-
-    @normal.setter
+    @Trace.meshproperty
     def normal(self, value):
         value = np.asarray(value, dtype=float)
-        self._normal = value / np.sum(value**2)**0.5
-        self._update_mesh()
+        return value / np.sum(value**2)**0.5
 
-    @property
-    def intersect(self):
-        return self._intersect
-
-    @intersect.setter
+    @Trace.meshproperty
     def intersect(self, value):
-        value = np.asarray(value, dtype=float)
-        self._intersect = value
-        self._distance = np.sum(self.normal * value)
-        self._update_mesh()
+        return np.asarray(value, dtype=float)
 
-    @property
-    def resolution(self):
-        return self.array.wavelength / self._resolution
-
-    @resolution.setter
+    @Trace.meshproperty
     def resolution(self, val):
         self._resolution = self.array.wavelength / val
-        self._update_mesh()
+        return val
 
-    @property
-    def xlimits(self):
-        return self._xlimits
-
-    @xlimits.setter
-    def xlimits(self, val):
-        self._xlimits = val
-        self._update_mesh()
-
-    @property
-    def ylimits(self):
-        return self._ylimits
-
-    @ylimits.setter
-    def ylimits(self, val):
-        self._ylimits = val
-        self._update_mesh()
-
-    @property
-    def zlimits(self):
-        return self._zlimits
-
-    @zlimits.setter
-    def zlimits(self, val):
-        self._zlimits = val
-        self._update_mesh()
+    xlimits = Trace.meshproperty()
+    ylimits = Trace.meshproperty()
+    zlimits = Trace.meshproperty()
 
     def _update_mesh(self):
         if self._in_init:
@@ -319,18 +318,6 @@ class ScalarFieldSlice(Trace):
 
         # Reshift the mesh to the actual coordinates so that it intersects the intersect point.
         self.mesh = mesh[:, idx] + self.intersect.reshape((3, 1))
-
-    @property
-    def mesh(self):
-        return self._mesh
-
-    @mesh.setter
-    def mesh(self, value):
-        # Rebind the field to the new mesh.
-        # Doing this in a setter makes sure that if the user changes the mesh manually,
-        # the field will still match the mesh.
-        self._mesh = value
-        self.field = self.field @ value
 
     def __call__(self, complex_transducer_amplitudes):
         for pp in self.preprocesssors:
