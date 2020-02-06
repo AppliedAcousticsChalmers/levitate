@@ -477,7 +477,7 @@ class Visualizer:
             from .fields import SphericalHarmonicsForce
             ka = self.array.k * radius_sphere
             orders = int(ka) + 3  # Gives N>ka+2, i.e. two more orders than what we should need
-            force_calculator = SphericalHarmonicsForce(array=self.array, radius_sphere=radius_sphere, orders=orders, sphere_material=sphere_material)
+            force_calculator = SphericalHarmonicsForce(array=self.array, radius=radius_sphere, orders=orders, material=sphere_material)
 
         range = range or self.array.wavelength
         n_pos = int(2 * range / self._resolution) + 1

@@ -35,7 +35,7 @@ has_jabobians_fields = [
 ]
 no_jacobians_fields = [
     levitate.fields.RadiationForceGradient,
-    lambda arr: levitate.fields.SphericalHarmonicsForce(arr, orders=5),
+    lambda arr: levitate.fields.SphericalHarmonicsForce(arr, orders=5, radius=1e-3),
 ]
 
 values_fields = has_jabobians_fields + no_jacobians_fields

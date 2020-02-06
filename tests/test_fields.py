@@ -98,10 +98,10 @@ def test_SphericalHarmonicsForces():
     amps = large_array.complex_amplitudes
     orders = 9
     radius = 12 * large_array.k
-    F = levitate.fields.SphericalHarmonicsForce(large_array, orders=orders, radius_sphere=radius)
-    dF = levitate.fields.SphericalHarmonicsForceGradient(large_array, orders=orders, radius_sphere=radius)
-    F_sep = levitate.fields.SphericalHarmonicsForceDecomposition(large_array, orders=orders, radius_sphere=radius)
-    dF_sep = levitate.fields.SphericalHarmonicsForceGradientDecomposition(large_array, orders=orders, radius_sphere=radius)
+    F = levitate.fields.SphericalHarmonicsForce(large_array, orders=orders, radius=radius)
+    dF = levitate.fields.SphericalHarmonicsForceGradient(large_array, orders=orders, radius=radius)
+    F_sep = levitate.fields.SphericalHarmonicsForceDecomposition(large_array, orders=orders, radius=radius)
+    dF_sep = levitate.fields.SphericalHarmonicsForceGradientDecomposition(large_array, orders=orders, radius=radius)
 
     delta = 1e-7
 
@@ -177,15 +177,15 @@ requirements = dict(
         [[-5.377916683452e-09, +2.991379534396e-10, +4.487069301596e-10], [-1.564536162914e-08, +2.563628836166e-09, +7.321993568902e-10], [-2.346804244372e-08, +7.321993568902e-10, +3.173794966908e-09]],
         None
      ),
-    (levitate.fields.SphericalHarmonicsForce, {'orders': 12},
+    (levitate.fields.SphericalHarmonicsForce, {'radius': 1e-3, 'orders': 12},
         [+9.950696205718e-11, +2.697812005596e-10, +4.046718008394e-10],
         None,
      ),
-    (levitate.fields.SphericalHarmonicsForceDecomposition, {'orders': 2},
+    (levitate.fields.SphericalHarmonicsForceDecomposition, {'radius': 1e-3, 'orders': 2},
         [[+1.766918922489e-10, -1.796622157995e-11, -2.191928296745e-11, -2.599333684854e-11, -1.001026447213e-12, -7.856639712671e-13, -2.159467674377e-12, -5.722295540776e-12, -1.280839850720e-12], [+2.144581380772e-10, -1.437955598814e-11, +4.592891425167e-11, +2.274814569305e-11, +2.623003571298e-13, -1.045489575308e-12, -3.966663817153e-13, +1.700953892274e-12, +4.791025771738e-13], [+3.216872071158e-10, +2.052902419245e-11, +4.313866796441e-11, +1.777856377802e-11, -1.925567596154e-14, +2.272961554343e-13, +1.044756168385e-12, +2.505146189833e-13, -3.009962508997e-15]],
         None
      ),
-    (levitate.fields.SphericalHarmonicsExpansion, {'orders': 15}, sum_harms[..., 0], None),
+    (levitate.fields.SphericalHarmonicsExpansion, {'radius': 1e-3, 'orders': 15}, sum_harms[..., 0], None),
 ])
 def test_field(field, kwargs, value_at_pos_1, jacobian_at_pos_1):
     field = field(array, **kwargs).field
