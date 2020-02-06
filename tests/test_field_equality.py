@@ -29,17 +29,17 @@ def test_gorkov_parameters():
     assert levitate.fields.GorkovPotential(array) == levitate.fields.GorkovPotential(array)
     assert levitate.fields.GorkovPotential(array) == pickle.loads(pickle.dumps(levitate.fields.GorkovPotential(array)))
     assert levitate.fields.GorkovPotential(array, radius=1e-3) != levitate.fields.GorkovPotential(array, radius=1.1e-3)
-    assert levitate.fields.GorkovPotential(array) != levitate.fields.GorkovPotential(array, sphere_material=levitate.materials.air)
+    assert levitate.fields.GorkovPotential(array) != levitate.fields.GorkovPotential(array, material=levitate.materials.air)
 
     assert levitate.fields.GorkovGradient(array) == levitate.fields.GorkovGradient(array)
     assert levitate.fields.GorkovGradient(array) == pickle.loads(pickle.dumps(levitate.fields.GorkovGradient(array)))
     assert levitate.fields.GorkovGradient(array, radius=1e-3) != levitate.fields.GorkovGradient(array, radius=1.1e-3)
-    assert levitate.fields.GorkovGradient(array) != levitate.fields.GorkovGradient(array, sphere_material=levitate.materials.air)
+    assert levitate.fields.GorkovGradient(array) != levitate.fields.GorkovGradient(array, material=levitate.materials.air)
 
     assert levitate.fields.GorkovLaplacian(array) == levitate.fields.GorkovLaplacian(array)
     assert levitate.fields.GorkovLaplacian(array) == pickle.loads(pickle.dumps(levitate.fields.GorkovLaplacian(array)))
     assert levitate.fields.GorkovLaplacian(array, radius=1e-3) != levitate.fields.GorkovLaplacian(array, radius=1.1e-3)
-    assert levitate.fields.GorkovLaplacian(array) != levitate.fields.GorkovLaplacian(array, sphere_material=levitate.materials.air)
+    assert levitate.fields.GorkovLaplacian(array) != levitate.fields.GorkovLaplacian(array, material=levitate.materials.air)
 
 
 def test_radiation_force_parameters():
@@ -47,22 +47,22 @@ def test_radiation_force_parameters():
     assert levitate.fields.RadiationForce(array) == levitate.fields.RadiationForce(array)
     assert levitate.fields.RadiationForce(array) == pickle.loads(pickle.dumps(levitate.fields.RadiationForce(array)))
     assert levitate.fields.RadiationForce(array, radius=1e-3) != levitate.fields.RadiationForce(array, radius=1.1e-3)
-    assert levitate.fields.RadiationForce(array) != levitate.fields.RadiationForce(array, sphere_material=levitate.materials.air)
+    assert levitate.fields.RadiationForce(array) != levitate.fields.RadiationForce(array, material=levitate.materials.air)
 
     assert levitate.fields.RadiationForceStiffness(array) == levitate.fields.RadiationForceStiffness(array)
     assert levitate.fields.RadiationForceStiffness(array) == pickle.loads(pickle.dumps(levitate.fields.RadiationForceStiffness(array)))
     assert levitate.fields.RadiationForceStiffness(array, radius=1e-3) != levitate.fields.RadiationForceStiffness(array, radius=1.1e-3)
-    assert levitate.fields.RadiationForceStiffness(array) != levitate.fields.RadiationForceStiffness(array, sphere_material=levitate.materials.air)
+    assert levitate.fields.RadiationForceStiffness(array) != levitate.fields.RadiationForceStiffness(array, material=levitate.materials.air)
 
     assert levitate.fields.RadiationForceCurl(array) == levitate.fields.RadiationForceCurl(array)
     assert levitate.fields.RadiationForceCurl(array) == pickle.loads(pickle.dumps(levitate.fields.RadiationForceCurl(array)))
     assert levitate.fields.RadiationForceCurl(array, radius=1e-3) != levitate.fields.RadiationForceCurl(array, radius=1.1e-3)
-    assert levitate.fields.RadiationForceCurl(array) != levitate.fields.RadiationForceCurl(array, sphere_material=levitate.materials.air)
+    assert levitate.fields.RadiationForceCurl(array) != levitate.fields.RadiationForceCurl(array, material=levitate.materials.air)
 
     assert levitate.fields.RadiationForceGradient(array) == levitate.fields.RadiationForceGradient(array)
     assert levitate.fields.RadiationForceGradient(array) == pickle.loads(pickle.dumps(levitate.fields.RadiationForceGradient(array)))
     assert levitate.fields.RadiationForceGradient(array, radius=1e-3) != levitate.fields.RadiationForceGradient(array, radius=1.1e-3)
-    assert levitate.fields.RadiationForceGradient(array) != levitate.fields.RadiationForceGradient(array, sphere_material=levitate.materials.air)
+    assert levitate.fields.RadiationForceGradient(array) != levitate.fields.RadiationForceGradient(array, material=levitate.materials.air)
 
 
 def test_spherical_harmonics_force_parameters():
@@ -71,7 +71,7 @@ def test_spherical_harmonics_force_parameters():
     assert levitate.fields.SphericalHarmonicsForce(array, orders=2) != levitate.fields.SphericalHarmonicsForce(array, orders=3)
     assert levitate.fields.SphericalHarmonicsForce(array, orders=2) != levitate.fields.SphericalHarmonicsForce(array, orders=2, radius=1.1e-3)
     assert levitate.fields.SphericalHarmonicsForce(array, orders=2) != levitate.fields.SphericalHarmonicsForce(array, orders=2, scattering_model='compressible')
-    assert levitate.fields.SphericalHarmonicsForce(array, orders=2, scattering_model='compressible') != levitate.fields.SphericalHarmonicsForce(array, orders=2, sphere_material=levitate.materials.air, scattering_model='compressible')
+    assert levitate.fields.SphericalHarmonicsForce(array, orders=2, scattering_model='compressible') != levitate.fields.SphericalHarmonicsForce(array, orders=2, material=levitate.materials.air, scattering_model='compressible')
 
 
 def test_direct_params():

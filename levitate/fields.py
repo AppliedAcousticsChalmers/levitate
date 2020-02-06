@@ -115,7 +115,7 @@ class GorkovPotential(FieldImplementation):
     values_require = FieldImplementation.requirement(pressure_derivs_summed=1)
     jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=1, pressure_derivs_individual=1)
 
-    def __init__(self, array, radius=1e-3, sphere_material=materials.styrofoam, *args, **kwargs):  # noqa: D205, D400
+    def __init__(self, array, radius=1e-3, material=materials.styrofoam, *args, **kwargs):  # noqa: D205, D400
         """
         Parameters
         ----------
@@ -123,14 +123,14 @@ class GorkovPotential(FieldImplementation):
             The object modeling the array.
         radius : float, default 1e-3
             Radius of the spherical beads.
-        sphere_material : Material
+        material : Material
             The material of the sphere, default styrofoam.
 
         """
         super().__init__(array, *args, **kwargs)
         V = 4 / 3 * np.pi * radius**3
-        monopole_coefficient = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
-        dipole_coefficient = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
+        monopole_coefficient = 1 - material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
+        dipole_coefficient = 2 * (material.rho / array.medium.rho - 1) / (2 * material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
         preToVel = 1 / (array.omega * array.medium.rho)  # Converting velocity to pressure gradient using equation of motion
         self.pressure_coefficient = V / 4 * array.medium.compressibility * monopole_coefficient
         self.gradient_coefficient = V * 3 / 8 * dipole_coefficient * preToVel**2 * array.medium.rho
@@ -253,7 +253,7 @@ class RadiationForce(FieldImplementation):
     values_require = FieldImplementation.requirement(pressure_derivs_summed=2)
     jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
-    def __init__(self, array, radius=1e-3, sphere_material=materials.styrofoam, *args, **kwargs):  # noqa: D205, D400
+    def __init__(self, array, radius=1e-3, material=materials.styrofoam, *args, **kwargs):  # noqa: D205, D400
         """
         Parameters
         ----------
@@ -261,13 +261,13 @@ class RadiationForce(FieldImplementation):
             The object modeling the array.
         radius : float, default 1e-3
             Radius of the spherical beads.
-        sphere_material : Material
+        material : Material
             The material of the sphere, default styrofoam.
 
         """
         super().__init__(array, *args, **kwargs)
-        f_1 = 1 - sphere_material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
-        f_2 = 2 * (sphere_material.rho / array.medium.rho - 1) / (2 * sphere_material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
+        f_1 = 1 - material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
+        f_2 = 2 * (material.rho / array.medium.rho - 1) / (2 * material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
 
         ka = array.k * radius
         overall_coeff = -np.pi / array.k**5 * array.medium.compressibility
@@ -441,7 +441,7 @@ class SphericalHarmonicsForceDecomposition(FieldImplementation):
 
     ndim = 2
 
-    def __init__(self, array, orders, radius=1e-3, sphere_material=materials.styrofoam, scattering_model='Hard sphere', *args, **kwargs):  # noqa: D205, D400
+    def __init__(self, array, orders, radius=1e-3, material=materials.styrofoam, scattering_model='Hard sphere', *args, **kwargs):  # noqa: D205, D400
         """
         Parameters
         ----------
@@ -452,7 +452,7 @@ class SphericalHarmonicsForceDecomposition(FieldImplementation):
             be expanded at one order higher that the force order.
         radius : float, default 1e-3
             Radius of the spherical beads.
-        sphere_material : Material
+        material : Material
             The material of the sphere, default styrofoam.
         scattering_model:
             Chooses which scattering model to use. Currently `Hard sphere`, `Soft sphere`, and `Compressible sphere`
@@ -494,13 +494,13 @@ class SphericalHarmonicsForceDecomposition(FieldImplementation):
             scattering_coefficient = - bessel_function / hankel_function
         elif 'compressible' in scattering_model.lower():
             # See Blackstock, Hamilton (2008): Eq. 6.88, p.193
-            ka_interior = array.omega / sphere_material.c * radius
+            ka_interior = array.omega / material.c * radius
             bessel_function_interior = spherical_jn(n, ka_interior)
             # hankel_function_interior = bessel_function_interior + 1j * spherical_yn(n, ka_interior)
             bessel_derivative_interior = spherical_jn(n, ka_interior, derivative=True)
             # hankel_derivative_interior = bessel_derivative_interior + 1j * spherical_yn(n, ka_interior, derivative=True)
 
-            relative_impedance = sphere_material.impedance / array.medium.impedance
+            relative_impedance = material.impedance / array.medium.impedance
             numerator = bessel_function * bessel_derivative_interior - relative_impedance * bessel_derivative * bessel_function_interior
             denominator = hankel_function * bessel_derivative_interior - relative_impedance * hankel_derivative * bessel_function_interior
             scattering_coefficient = - numerator / denominator
