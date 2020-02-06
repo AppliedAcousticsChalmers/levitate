@@ -315,10 +315,10 @@ class ScalarFieldSlice(Trace):
 
     def __call__(self, complex_transducer_amplitudes):
         for pp in self.preprocesssors:
-            complex_transducer_amplitudes = pp(complex_transducer_amplitudes)
+            complex_transducer_amplitudes = pp(self, complex_transducer_amplitudes)
         field_data = self.field(complex_transducer_amplitudes)
         for pp in self.postprocessors:
-            field_data = pp(field_data)
+            field_data = pp(self, field_data)
 
         return dict(
             type='mesh3d', intensity=np.squeeze(field_data),
@@ -334,7 +334,7 @@ class ScalarFieldSlice(Trace):
 class PressureSlice(ScalarFieldSlice):
     name = 'Pressure'
     label = 'Sound pressure in dB re. 20 µPa'
-    postprocessors = [SPL]
+    postprocessors = [lambda self, values: SPL(values)]
     from .fields import Pressure as _field_class
     cmin = 130
     cmax = 170
@@ -343,7 +343,7 @@ class PressureSlice(ScalarFieldSlice):
 class VelocitySlice(ScalarFieldSlice):
     name = 'Velocity'
     label = 'Particle velocity in dB re. 50 nm/s'
-    postprocessors = [SVL]
+    postprocessors = [lambda self, values: SVL(values)]
     from .fields import Velocity as _field_class
     cmin = 130
     cmax = 170
@@ -394,10 +394,10 @@ class VectorFieldCones(Trace):
 
     def __call__(self, complex_transducer_amplitudes):
         for pp in self.preprocesssors:
-            complex_transducer_amplitudes = pp(complex_transducer_amplitudes)
+            complex_transducer_amplitudes = pp(self, complex_transducer_amplitudes)
         field_data = self.field(complex_transducer_amplitudes)
         for pp in self.postprocessors:
-            field_data = pp(field_data)
+            field_data = pp(self, field_data)
 
         vertex_indices, vertex_coordinates, vertex_intensities = self._generate_vertices(field_data)
         return dict(
@@ -458,7 +458,19 @@ class VectorFieldCones(Trace):
 
 class RadiationForceCones(VectorFieldCones):
     from .fields import RadiationForce as _field_class
+    postprocessors = []
+
+    def __init__(self, *args, add_gravity=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_gravity = add_gravity
+
+    def _add_gravity(self, values):
+        if self.add_gravity:
+            values[2] -= self.field.field.mg
+        return values
+
+    postprocessors.append(_add_gravity)
 
 
-class SphericalHarmonicsForceCones(VectorFieldCones):
+class SphericalHarmonicsForceCones(RadiationForceCones):
     from .fields import SphericalHarmonicsForce as _field_class

@@ -129,6 +129,7 @@ class GorkovPotential(FieldImplementation):
         """
         super().__init__(array, *args, **kwargs)
         V = 4 / 3 * np.pi * radius**3
+        self.mg = V * 9.82 * material.rho
         monopole_coefficient = 1 - material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
         dipole_coefficient = 2 * (material.rho / array.medium.rho - 1) / (2 * material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
         preToVel = 1 / (array.omega * array.medium.rho)  # Converting velocity to pressure gradient using equation of motion
@@ -266,6 +267,7 @@ class RadiationForce(FieldImplementation):
 
         """
         super().__init__(array, *args, **kwargs)
+        self.mg = 4 / 3 * np.pi * radius**3 * 9.82 * material.rho
         f_1 = 1 - material.compressibility / array.medium.compressibility  # f_1 in H. Bruus 2012
         f_2 = 2 * (material.rho / array.medium.rho - 1) / (2 * material.rho / array.medium.rho + 1)   # f_2 in H. Bruus 2012
 
@@ -460,6 +462,7 @@ class SphericalHarmonicsForceDecomposition(FieldImplementation):
 
         """
         super().__init__(array, *args, **kwargs)
+        self.mg = 4 / 3 * np.pi * radius**3 * 9.82 * material.rho
         self.values_require = FieldImplementation.requirement(spherical_harmonics_summed=orders + 1)
         self.jacobians_require = FieldImplementation.requirement(spherical_harmonics_summed=orders + 1, spherical_harmonics_individual=orders + 1)
 
