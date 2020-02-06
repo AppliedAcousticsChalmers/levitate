@@ -441,7 +441,7 @@ class SphericalHarmonicsForceDecomposition(FieldImplementation):
 
     ndim = 2
 
-    def __init__(self, array, orders, radius=1e-3, material=materials.styrofoam, scattering_model='Hard sphere', *args, **kwargs):  # noqa: D205, D400
+    def __init__(self, array, orders, radius, material=materials.styrofoam, scattering_model='Hard sphere', *args, **kwargs):  # noqa: D205, D400
         """
         Parameters
         ----------

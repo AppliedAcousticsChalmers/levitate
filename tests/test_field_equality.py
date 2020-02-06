@@ -66,12 +66,12 @@ def test_radiation_force_parameters():
 
 
 def test_spherical_harmonics_force_parameters():
-    assert levitate.fields.SphericalHarmonicsForce(array, orders=2) == levitate.fields.SphericalHarmonicsForce(array, orders=2)
-    assert levitate.fields.SphericalHarmonicsForce(array, orders=2) == pickle.loads(pickle.dumps(levitate.fields.SphericalHarmonicsForce(array, orders=2)))
-    assert levitate.fields.SphericalHarmonicsForce(array, orders=2) != levitate.fields.SphericalHarmonicsForce(array, orders=3)
-    assert levitate.fields.SphericalHarmonicsForce(array, orders=2) != levitate.fields.SphericalHarmonicsForce(array, orders=2, radius=1.1e-3)
-    assert levitate.fields.SphericalHarmonicsForce(array, orders=2) != levitate.fields.SphericalHarmonicsForce(array, orders=2, scattering_model='compressible')
-    assert levitate.fields.SphericalHarmonicsForce(array, orders=2, scattering_model='compressible') != levitate.fields.SphericalHarmonicsForce(array, orders=2, material=levitate.materials.air, scattering_model='compressible')
+    assert levitate.fields.SphericalHarmonicsForce(array, radius=1e-3, orders=2) == levitate.fields.SphericalHarmonicsForce(array, radius=1e-3, orders=2)
+    assert levitate.fields.SphericalHarmonicsForce(array, radius=1e-3, orders=2) == pickle.loads(pickle.dumps(levitate.fields.SphericalHarmonicsForce(array, radius=1e-3, orders=2)))
+    assert levitate.fields.SphericalHarmonicsForce(array, radius=1e-3, orders=2) != levitate.fields.SphericalHarmonicsForce(array, radius=1e-3, orders=3)
+    assert levitate.fields.SphericalHarmonicsForce(array, radius=1e-3, orders=2) != levitate.fields.SphericalHarmonicsForce(array, orders=2, radius=1.1e-3)
+    assert levitate.fields.SphericalHarmonicsForce(array, radius=1e-3, orders=2) != levitate.fields.SphericalHarmonicsForce(array, radius=1e-3, orders=2, scattering_model='compressible')
+    assert levitate.fields.SphericalHarmonicsForce(array, radius=1e-3, orders=2, scattering_model='compressible') != levitate.fields.SphericalHarmonicsForce(array, radius=1e-3, orders=2, material=levitate.materials.air, scattering_model='compressible')
 
 
 def test_direct_params():
