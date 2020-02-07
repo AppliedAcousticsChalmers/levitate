@@ -89,11 +89,7 @@ class TransducerArray:
 
         self.calculate = self.PersistentFieldEvaluator(self)
 
-        self.positions = np.asarray(positions)
-        normals = np.asarray(normals)
-        self.num_transducers = self.positions.shape[1]
-        if normals.ndim == 1:
-            normals = np.tile(normals.reshape(3, 1), (1, self.num_transducers))
+        self.positions = positions
         self.normals = normals
         self.amplitudes = np.ones(self.num_transducers)
         self.phases = np.zeros(self.num_transducers)
@@ -188,6 +184,42 @@ class TransducerArray:
     def complex_amplitudes(self, value):
         self.amplitudes = np.abs(value)
         self.phases = np.angle(value)
+
+    @property
+    def positions(self):
+        return self._positions
+
+    @positions.setter
+    def positions(self, val):
+        val = np.asarray(val)
+        if not val.shape[0] == 3:
+            raise ValueError('Cannot set position to these values, the first axis must have length 3 and represent the [x,y,z] coordinates!')
+        self._positions = val
+        self._num_transducers = val.shape[1]
+
+    @property
+    def normals(self):
+        return self._normals
+
+    @normals.setter
+    def normals(self, val):
+        val = np.asarray(val)
+        if not val.shape[0] == 3:
+            raise ValueError('Cannot set normals to these values, the first axis must have length 3 and represent the [x,y,z] components!')
+        if self.num_transducers == 0:
+            raise ValueError('Set the array positions before setting the normals!')
+        if val.ndim == 1:
+            val = np.tile(val.reshape(3, 1), (1, self.num_transducers))
+        elif val.shape[1] != self.num_transducers:
+            raise ValueError('The array needs to have the same number of normals as transducers!')
+        self._normals = val / np.sum(val**2, axis=0)**0.5
+
+    @property
+    def num_transducers(self):
+        try:
+            return self._num_transducers
+        except AttributeError:
+            return 0
 
     def focus_phases(self, focus):
         """Focuses the phases to create a focus point.
