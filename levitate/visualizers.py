@@ -128,7 +128,7 @@ class ArrayVisualizer(Visualizer):
         # Create transducer visualizations, make sure to have raw phases, amplitudes, real, imaginary, and signature as options for the transducers
 
 
-class Trace:
+class FieldTrace:
     colorscale = 'Viridis'
 
     def __init__(self, array, field=None, **field_kwargs):
@@ -184,10 +184,10 @@ class Trace:
         self.field = self.field @ value
 
     def _update_mesh(self):
-        raise NotImplementedError('Subclasses of `Trace` has to implement `_update_mesh`')
+        raise NotImplementedError('Subclasses of `FieldTrace` has to implement `_update_mesh`')
 
 
-class ScalarFieldSlice(Trace):
+class ScalarFieldSlice(FieldTrace):
     label = ''
     cmin = None
     cmax = None
@@ -228,23 +228,23 @@ class ScalarFieldSlice(Trace):
         self._in_init = False
         self._update_mesh()
 
-    @Trace.meshproperty
+    @FieldTrace.meshproperty
     def normal(self, value):
         value = np.asarray(value, dtype=float)
         return value / np.sum(value**2)**0.5
 
-    @Trace.meshproperty
+    @FieldTrace.meshproperty
     def intersect(self, value):
         return np.asarray(value, dtype=float)
 
-    @Trace.meshproperty
+    @FieldTrace.meshproperty
     def resolution(self, val):
         self._resolution = self.array.wavelength / val
         return val
 
-    xlimits = Trace.meshproperty()
-    ylimits = Trace.meshproperty()
-    zlimits = Trace.meshproperty()
+    xlimits = FieldTrace.meshproperty()
+    ylimits = FieldTrace.meshproperty()
+    zlimits = FieldTrace.meshproperty()
 
     def _update_mesh(self):
         if self._in_init:
@@ -349,7 +349,7 @@ class VelocitySlice(ScalarFieldSlice):
     cmax = 170
 
 
-class VectorFieldCones(Trace):
+class VectorFieldCones(FieldTrace):
     preprocesssors = []
     postprocessors = []
     opacity = 0.5
@@ -369,15 +369,15 @@ class VectorFieldCones(Trace):
         self._in_init = False
         self._update_mesh()
 
-    @Trace.meshproperty
+    @FieldTrace.meshproperty
     def resolution(self, val):
         self._resolution = self.array.wavelength / val
         return val
 
-    center = Trace.meshproperty()
-    xrange = Trace.meshproperty()
-    yrange = Trace.meshproperty()
-    zrange = Trace.meshproperty()
+    center = FieldTrace.meshproperty()
+    xrange = FieldTrace.meshproperty()
+    yrange = FieldTrace.meshproperty()
+    zrange = FieldTrace.meshproperty()
 
     def _update_mesh(self):
         if self._in_init:
