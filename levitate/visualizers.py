@@ -197,6 +197,104 @@ class FieldTrace:
         raise NotImplementedError('Subclasses of `FieldTrace` has to implement `_update_mesh`')
 
 
+class TransducerTrace(FieldTrace):
+    preprocessors = [lambda self, values=None: np.zeros(self.array.num_transducers)]
+
+    radius_ratio = 3 / 2
+    height = 5e-3
+    num_vertices = 10
+    colorscale = 'Greys'
+    showscale = False
+    label = ''
+    cmin = 0
+    cmax = 0
+
+    class _field_class:
+        def __init__(self, array):
+            self.array = array
+
+        def __call__(self, data):
+            return np.repeat(data, self.num_coordinates // len(data))
+
+        def __matmul__(self, other):
+            coordinates, indices = other
+            self.num_faces = indices.shape[1]
+            self.num_coordinates = coordinates.shape[1]
+            self.num_vertices_per_side = self.num_coordinates // 2
+            return self
+
+    def __init__(self, *args, visualize=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.vizualise = visualize
+        self._update_mesh()
+
+    def __call__(self, complex_transducer_amplitudes=None):
+        coordinates, indices = self.mesh
+
+        return dict(
+            type='mesh3d',
+            x=coordinates[0], y=coordinates[1], z=coordinates[2],
+            i=indices[0], j=indices[1], k=indices[2],
+            intensity=super().__call__(complex_transducer_amplitudes),
+            colorscale=self.colorscale, showscale=self.showscale,
+            colorbar=dict(title=dict(text=self.label, side='right'), x=-0.02),
+            cmin=self.cmin, cmax=self.cmax,
+        )
+
+    def _update_mesh(self):
+        N = self.num_vertices
+        # Each transducer coordinates will have first N point in the upper circle, then N points in the lower circle
+        i = []
+        j = []
+        k = []
+        # Upper disk
+        i += [0] * (N - 2)
+        j += list(range(1, N - 1))
+        k += list(range(2, N))
+        # Lower disk
+        i += [N] * (N - 2)
+        j += list(range(N + 1, 2 * N - 1))
+        k += list(range(N + 2, 2 * N))
+        # Half of the side
+        i += list(range(0, N))
+        j += list(range(N, 2 * N))
+        k += list(range(1, N)) + [0]
+        # Other half of the side
+        i += list(range(N, 2 * N))
+        j += list(range(N + 1, 2 * N)) + [N]
+        k += list(range(1, N)) + [0]
+
+        base_indices = np.stack([i, j, k], axis=0)
+
+        upper_radius = self.array.transducer_size / 2
+        lower_radius = upper_radius / self.radius_ratio
+        theta = np.arange(N) / N * np.pi * 2
+        cos = np.cos(theta)
+        sin = np.sin(theta)
+
+        coordinates = []
+        indices = []
+        for t_idx in range(self.array.num_transducers):
+            pos = self.array.positions[:, t_idx]
+            n = self.array.normals[:, t_idx]
+            n_max = np.argmax(n)
+            v1 = np.array([1., 1., 1.])
+            v1[n_max] = -(np.sum(n) - n[n_max]) / n[n_max]
+            v2 = np.cross(v1, n)
+            v1 /= np.sum(v1**2)**0.5
+            v2 /= np.sum(v2**2)**0.5
+
+            circle = cos * v1[:, None] + sin * v2[:, None]
+            upper_circle = circle * upper_radius + pos[:, None]
+            lower_circle = circle * lower_radius + pos[:, None] - n[:, None] * self.height
+            coordinates.append(np.concatenate([upper_circle, lower_circle], axis=1))
+            indices.append(base_indices + t_idx * 2 * N)
+
+        indices = np.concatenate(indices, axis=1)
+        coordinates = np.concatenate(coordinates, axis=1) / self.display_scale
+        self.mesh = (coordinates, indices)
+
+
 class ScalarFieldSlice(FieldTrace):
     label = ''
     cmin = None
