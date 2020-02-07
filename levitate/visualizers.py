@@ -130,6 +130,8 @@ class ArrayVisualizer(Visualizer):
 
 class FieldTrace:
     colorscale = 'Viridis'
+    preprocessors = []
+    postprocessors = []
 
     def __init__(self, array, field=None, **field_kwargs):
         self.array = array
@@ -140,6 +142,14 @@ class FieldTrace:
                 self.field = field
         elif hasattr(self, '_field_class'):
             self.field = self._field_class(array, **field_kwargs)
+
+    def __call__(self, complex_transducer_amplitudes=None):
+        for pp in self.preprocessors:
+            complex_transducer_amplitudes = pp(self, complex_transducer_amplitudes)
+        data = self.field(complex_transducer_amplitudes)
+        for pp in self.postprocessors:
+            data = pp(self, data)
+        return data
 
     @property
     def display_scale(self):
@@ -191,9 +201,6 @@ class ScalarFieldSlice(FieldTrace):
     label = ''
     cmin = None
     cmax = None
-
-    preprocesssors = []
-    postprocessors = []
 
     def __init__(self, array, xlimits=None, ylimits=None, zlimits=None, normal=None, intersect=None, resolution=10, **kwargs):
         super().__init__(array, **kwargs)
@@ -254,6 +261,7 @@ class ScalarFieldSlice(FieldTrace):
         n_max = np.argmax(np.abs(self.normal))
         v1[n_max] = -(np.sum(self.normal) - self.normal[n_max]) / self.normal[n_max]
         v2 = np.cross(self.normal, v1)
+        v1 /= np.sum(v1**2)**0.5
         v2 /= np.sum(v2**2)**0.5
 
         v1 *= self._resolution
@@ -314,14 +322,8 @@ class ScalarFieldSlice(FieldTrace):
         self.mesh = mesh[:, idx] + self.intersect.reshape((3, 1))
 
     def __call__(self, complex_transducer_amplitudes):
-        for pp in self.preprocesssors:
-            complex_transducer_amplitudes = pp(self, complex_transducer_amplitudes)
-        field_data = self.field(complex_transducer_amplitudes)
-        for pp in self.postprocessors:
-            field_data = pp(self, field_data)
-
         return dict(
-            type='mesh3d', intensity=np.squeeze(field_data),
+            type='mesh3d', intensity=super().__call__(complex_transducer_amplitudes),
             cmin=self.cmin, cmax=self.cmax, colorscale=self.colorscale,
             colorbar={'title': self.label},
             x=np.squeeze(self.mesh[0]) / self.display_scale,
@@ -350,8 +352,6 @@ class VelocitySlice(ScalarFieldSlice):
 
 
 class VectorFieldCones(FieldTrace):
-    preprocesssors = []
-    postprocessors = []
     opacity = 0.5
     cone_length = 0.8
     cone_vertices = 10
@@ -393,12 +393,7 @@ class VectorFieldCones(FieldTrace):
         self.mesh = np.stack(np.meshgrid(x, y, z, indexing='ij'), axis=0).reshape((3, -1))
 
     def __call__(self, complex_transducer_amplitudes):
-        for pp in self.preprocesssors:
-            complex_transducer_amplitudes = pp(self, complex_transducer_amplitudes)
-        field_data = self.field(complex_transducer_amplitudes)
-        for pp in self.postprocessors:
-            field_data = pp(self, field_data)
-
+        field_data = super().__call__(complex_transducer_amplitudes)
         vertex_indices, vertex_coordinates, vertex_intensities = self._generate_vertices(field_data)
         return dict(
             type='mesh3d',
@@ -440,8 +435,9 @@ class VectorFieldCones(FieldTrace):
             n_max = np.argmax(np.abs(n))
             v1 = np.array([1., 1., 1.])
             v1[n_max] = -(np.sum(n) - n[n_max]) / n[n_max]
-            v1 /= np.sum(v1**2)**0.5
             v2 = np.cross(v1, n)
+            v1 /= np.sum(v1**2)**0.5
+            v2 /= np.sum(v2**2)**0.5
 
             circle = cos * v1[:, None] + sin * v2[:, None]
             circle = circle * radius - n[:, None] * back_length
