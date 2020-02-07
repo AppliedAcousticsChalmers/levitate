@@ -130,6 +130,7 @@ class ArrayVisualizer(Visualizer):
 
 class FieldTrace:
     colorscale = 'Viridis'
+    label = ''
     preprocessors = []
     postprocessors = []
 
@@ -205,7 +206,6 @@ class TransducerTrace(FieldTrace):
     num_vertices = 10
     colorscale = 'Greys'
     showscale = False
-    label = ''
     cmin = 0
     cmax = 0
 
@@ -237,7 +237,7 @@ class TransducerTrace(FieldTrace):
             i=indices[0], j=indices[1], k=indices[2],
             intensity=super().__call__(complex_transducer_amplitudes),
             colorscale=self.colorscale, showscale=self.showscale,
-            colorbar=dict(title=dict(text=self.label, side='right'), x=-0.02),
+            colorbar={'title': {'text': self.label, 'side': 'right'}, 'x': -0.02},
             cmin=self.cmin, cmax=self.cmax,
         )
 
@@ -328,7 +328,6 @@ class TransducerAmplitude(TransducerTrace):
 
 
 class ScalarFieldSlice(FieldTrace):
-    label = ''
     cmin = None
     cmax = None
 
@@ -455,7 +454,7 @@ class ScalarFieldSlice(FieldTrace):
         return dict(
             type='mesh3d', intensity=super().__call__(complex_transducer_amplitudes),
             cmin=self.cmin, cmax=self.cmax, colorscale=self.colorscale,
-            colorbar={'title': self.label},
+            colorbar={'title': {'text': self.label, 'side': 'right'}},
             x=np.squeeze(self.mesh[0]) / self.display_scale,
             y=np.squeeze(self.mesh[1]) / self.display_scale,
             z=np.squeeze(self.mesh[2]) / self.display_scale,
@@ -530,6 +529,7 @@ class VectorFieldCones(FieldTrace):
             x=vertex_coordinates[0], y=vertex_coordinates[1], z=vertex_coordinates[2],
             i=vertex_indices[0], j=vertex_indices[1], k=vertex_indices[2],
             intensity=vertex_intensities, opacity=self.opacity, colorscale=self.colorscale,
+            colorbar={'title': {'text': self.label, 'side': 'right'}},
         )
 
     def _generate_vertices(self, field_data):
@@ -585,6 +585,7 @@ class VectorFieldCones(FieldTrace):
 class RadiationForceCones(VectorFieldCones):
     from .fields import RadiationForce as _field_class
     postprocessors = []
+    label = 'Force magnitude in N'
 
     def __init__(self, *args, add_gravity=True, **kwargs):
         super().__init__(*args, **kwargs)
