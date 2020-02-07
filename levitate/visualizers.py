@@ -295,6 +295,38 @@ class TransducerTrace(FieldTrace):
         self.mesh = (coordinates, indices)
 
 
+class TransducerPhase(TransducerTrace):
+    preprocessors = [lambda self, data: np.angle(data) / np.pi]
+    cmin = -1
+    cmax = 1
+    colorscale = 'Phase'
+    label = 'Transducer phase in rad/π'
+    showscale = True
+
+
+class TransducerSignature(TransducerPhase):
+    label = 'Transducer signature in rad/π'
+
+    preprocessors = [
+        lambda self, data: np.angle(data),
+        lambda self, data: self.array.signature(position=self.position, phases=data),
+        lambda self, data: data / np.pi,
+    ]
+
+    def __init__(self, *args, position=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.position = position
+
+
+class TransducerAmplitude(TransducerTrace):
+    preprocessors = [lambda self, data: np.abs(data)]
+    cmin = 0
+    cmax = 1
+    colorscale = 'Viridis'
+    label = 'Transducer normalized amplitude'
+    showscale = True
+
+
 class ScalarFieldSlice(FieldTrace):
     label = ''
     cmin = None
