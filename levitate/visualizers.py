@@ -2,10 +2,7 @@
 import collections.abc
 import numpy as np
 from .utils import SPL, SVL
-try:
-    import plotly
-except ImportError:
-    pass
+import plotly.graph_objects as go
 
 
 """Notes:
@@ -122,10 +119,42 @@ class ArrayVisualizer(Visualizer):
         super().__init__(array, **kwargs)
 
     def __call__(self, complex_transducer_amplitudes):
-        pass
-        # Get the traces from the included fields, make sure they have access to the "visualizer" property
-        # Set the layout so that you can toggle the traces
-        # Create transducer visualizations, make sure to have raw phases, amplitudes, real, imaginary, and signature as options for the transducers
+        traces = []
+        transducer_trace_idx = []
+        field_trace_idx = []
+        for trace_idx, trace in enumerate(self):
+            if isinstance(trace, TransducerTrace):
+                transducer_trace_idx.append(trace_idx)
+            elif isinstance(trace, FieldTrace):
+                field_trace_idx.append(trace_idx)
+            traces.append(trace(complex_transducer_amplitudes))
+
+        updatemenus = []
+        n_trans = len(transducer_trace_idx)
+        if n_trans > 1:
+            buttons = []
+            for trans_idx, trace_idx in enumerate(transducer_trace_idx):
+                buttons.append(dict(
+                    method='restyle', label=self[trace_idx].name,
+                    args=[{'visible': trans_idx * [False] + [True] + (n_trans - trans_idx - 1) * [False]}, transducer_trace_idx],
+                ))
+                if trans_idx > 0:
+                    traces[trace_idx]['visible'] = False
+            updatemenus.append(dict(active=0, buttons=buttons, type='buttons', direction='down', x=-0.02, xanchor='right'))
+
+        n_fields = len(field_trace_idx)
+        if n_fields > 1:
+            buttons = []
+            for field_idx, trace_idx in enumerate(field_trace_idx):
+                buttons.append(dict(
+                    method='restyle', label=self[trace_idx].name,
+                    args=[{'visible': field_idx * [False] + [True] + (n_fields - field_idx - 1) * [False]}, field_trace_idx],
+                ))
+                if field_idx > 0:
+                    traces[trace_idx]['visible'] = False
+            updatemenus.append(dict(active=0, buttons=buttons, type='buttons', direction='down', x=1.02, xanchor='left'))
+        layout = dict(updatemenus=updatemenus)
+        return go.Figure(data=traces, layout=layout)
 
 
 class FieldTrace:
@@ -199,6 +228,7 @@ class FieldTrace:
 
 
 class TransducerTrace(FieldTrace):
+    name = 'Transducers'
     preprocessors = [lambda self, values=None: np.zeros(self.array.num_transducers)]
 
     radius_ratio = 3 / 2
@@ -233,11 +263,11 @@ class TransducerTrace(FieldTrace):
 
         return dict(
             type='mesh3d',
-            x=coordinates[0], y=coordinates[1], z=coordinates[2],
+            x=coordinates[0] / self.display_scale, y=coordinates[1] / self.display_scale, z=coordinates[2] / self.display_scale,
             i=indices[0], j=indices[1], k=indices[2],
             intensity=super().__call__(complex_transducer_amplitudes),
             colorscale=self.colorscale, showscale=self.showscale,
-            colorbar={'title': {'text': self.label, 'side': 'right'}, 'x': -0.02},
+            colorbar={'title': {'text': self.label, 'side': 'right'}, 'x': -0.02, 'xanchor': 'left'},
             cmin=self.cmin, cmax=self.cmax,
         )
 
@@ -291,7 +321,7 @@ class TransducerTrace(FieldTrace):
             indices.append(base_indices + t_idx * 2 * N)
 
         indices = np.concatenate(indices, axis=1)
-        coordinates = np.concatenate(coordinates, axis=1) / self.display_scale
+        coordinates = np.concatenate(coordinates, axis=1)
         self.mesh = (coordinates, indices)
 
 
@@ -300,11 +330,13 @@ class TransducerPhase(TransducerTrace):
     cmin = -1
     cmax = 1
     colorscale = 'Phase'
+    name = 'Phase'
     label = 'Transducer phase in rad/π'
     showscale = True
 
 
 class TransducerSignature(TransducerPhase):
+    name = 'Signature at '
     label = 'Transducer signature in rad/π'
 
     preprocessors = [
@@ -316,6 +348,7 @@ class TransducerSignature(TransducerPhase):
     def __init__(self, *args, position=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.position = position
+        self.name = self.name + str(position)
 
 
 class TransducerAmplitude(TransducerTrace):
@@ -323,6 +356,7 @@ class TransducerAmplitude(TransducerTrace):
     cmin = 0
     cmax = 1
     colorscale = 'Viridis'
+    name = 'Amplitude'
     label = 'Transducer normalized amplitude'
     showscale = True
 
@@ -454,7 +488,7 @@ class ScalarFieldSlice(FieldTrace):
         return dict(
             type='mesh3d', intensity=super().__call__(complex_transducer_amplitudes),
             cmin=self.cmin, cmax=self.cmax, colorscale=self.colorscale,
-            colorbar={'title': {'text': self.label, 'side': 'right'}},
+            colorbar={'title': {'text': self.label, 'side': 'right'}, 'x': 1.02, 'xanchor': 'right'},
             x=np.squeeze(self.mesh[0]) / self.display_scale,
             y=np.squeeze(self.mesh[1]) / self.display_scale,
             z=np.squeeze(self.mesh[2]) / self.display_scale,
