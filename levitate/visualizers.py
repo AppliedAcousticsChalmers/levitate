@@ -3,6 +3,7 @@ import collections.abc
 import numpy as np
 from .utils import SPL, SVL
 import plotly.graph_objects as go
+import plotly.colors
 
 
 """Notes:
@@ -645,3 +646,189 @@ class RadiationForceCones(VectorFieldCones):
 
 class SphericalHarmonicsForceCones(RadiationForceCones):
     from .fields import SphericalHarmonicsForce as _field_class
+
+
+class ForceDiagram(Visualizer):
+    def __init__(self, *args, scale_to_gravity=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.scale_to_gravity = scale_to_gravity
+
+    def __call__(self, *complex_transducer_amplitudes, **kwargs):
+        colors = plotly.colors.qualitative.Plotly
+
+        all_traces = []
+        if len(complex_transducer_amplitudes) > 1 and len(self) > 1:
+            # We could possibly use markers to distinguish between the sets of complex amplitudes,
+            # and colors to distinguing between forces (or the other way around).
+            # There is a "maxdisplayed" property for markers, which is probably useful
+            # to avoid clutter in the plots. I have not found any list of available marker shapers,
+            # so that probably has to be hardcoded here.
+            raise NotImplementedError('Showing force diagrams for mutiple array settings with multiple forces is not available!')
+        elif len(complex_transducer_amplitudes) > 1:
+            field = self[0]
+            for idx, data in enumerate(complex_transducer_amplitudes):
+                this_state_traces = field(
+                    data, line=kwargs['line'][idx] if 'line' in kwargs else dict(color=colors[idx % len(colors)]),
+                    name=kwargs['name'][idx] if 'name' in kwargs else 'Data {}'.format(idx),
+                )
+                all_traces.extend(this_state_traces)
+        elif len(self) > 1:
+            data = complex_transducer_amplitudes[0]
+            for idx, field in enumerate(self):
+                this_field_traces = field(
+                    data, line=kwargs['line'][idx] if 'line' in kwargs else dict(color=colors[idx % len(colors)]),
+                    name=kwargs['name'][idx] if 'name' in kwargs else field.name if field.name is not '' else 'Force {}'.format(idx),
+                )
+                all_traces.extend(this_field_traces)
+        else:
+            data = complex_transducer_amplitudes[0]
+            field = self[0]
+            all_traces = field(data, line=kwargs['line'] if 'line' in kwargs else dict(color=colors[0]))
+            all_traces[0]['showlegend'] = False
+
+        return go.Figure(data=all_traces, layout=self.layout)
+
+    @property
+    def layout(self):
+        layout_gap_ratio = 12
+        total_pieces = layout_gap_ratio * 3 + 2
+        width = layout_gap_ratio / total_pieces
+        gap = 1 / total_pieces
+        length_unit = r'\text{{ in {}}}'.format(self.display_scale)
+        force_unit = '/mg' if self.scale_to_gravity else r'\text{ in N}'
+        return dict(
+            xaxis=dict(title='$x' + length_unit + '$', domain=[0, width], anchor='y3'),
+            xaxis2=dict(title='$y' + length_unit + '$', domain=[width + gap, 2 * width + gap], anchor='y3'),
+            xaxis3=dict(title='$z' + length_unit + '$', domain=[2 * width + 2 * gap, 1], anchor='y3'),
+            yaxis=dict(title='$F_x' + force_unit + '$', domain=[2 * width + 2 * gap, 1]),
+            yaxis2=dict(title='$F_y' + force_unit + '$', domain=[width + gap, 2 * width + gap]),
+            yaxis3=dict(title='$F_z' + force_unit + '$', domain=[0, width]),
+        )
+
+    class ForceTrace(FieldTrace):
+        _trace_objects = 0
+
+        def __init__(self, array, center, *args,
+                     resolution=25, xrange=None, yrange=None, zrange=None,
+                     force_calculator=None, name=None, **kwargs):
+            if force_calculator is None:
+                if 'radius' in kwargs:
+                    from .fields import SphericalHarmonicsForce as force_calculator
+                else:
+                    from .fields import RadiationForce as force_calculator
+            super().__init__(array, *args, field=force_calculator, **kwargs)
+            self._trace_id = self._trace_objects
+            self._trace_objects += 1
+            self._trace_calls = 0
+            if name is not None:
+                self.name = name
+
+            self._in_init = True
+            self.center = center
+            self.resolution = resolution
+            self.xrange = xrange if xrange is not None else self.array.wavelength
+            self.yrange = yrange if yrange is not None else self.array.wavelength
+            self.zrange = zrange if zrange is not None else self.array.wavelength
+            self._in_init = False
+            self._update_mesh()
+
+        @property
+        def scale_to_gravity(self):
+            try:
+                return self.visualizer.scale_to_gravity
+            except AttributeError:
+                return False
+
+        @FieldTrace.meshproperty
+        def resolution(self, val):
+            return self.array.wavelength / val
+
+        @resolution.postprocessor
+        def resolution(self, val):
+            return self.array.wavelength / val
+
+        center = FieldTrace.meshproperty()
+        xrange = FieldTrace.meshproperty()
+        yrange = FieldTrace.meshproperty()
+        zrange = FieldTrace.meshproperty()
+
+        def _update_mesh(self):
+            if self._in_init:
+                return
+            nx = int(2 * np.ceil(self.xrange / self._resolution) + 1)
+            ny = int(2 * np.ceil(self.yrange / self._resolution) + 1)
+            nz = int(2 * np.ceil(self.zrange / self._resolution) + 1)
+
+            self._xidx = np.arange(0, nx)
+            self._yidx = np.arange(nx, nx + ny)
+            self._zidx = np.arange(nx + ny, nx + ny + nz)
+
+            x = np.linspace(-self.xrange, self.xrange, nx) + self.center[0]
+            y = np.linspace(-self.yrange, self.yrange, ny) + self.center[1]
+            z = np.linspace(-self.zrange, self.zrange, nz) + self.center[2]
+
+            X = np.stack([x, np.repeat(self.center[1], nx), np.repeat(self.center[2], nx)], axis=0)
+            Y = np.stack([np.repeat(self.center[0], ny), y, np.repeat(self.center[2], ny)], axis=0)
+            Z = np.stack([np.repeat(self.center[0], nz), np.repeat(self.center[1], nz), z], axis=0)
+
+            self.mesh = np.concatenate([X, Y, Z], axis=1)
+
+        def __call__(self, complex_transducer_amplitudes, **kwargs):
+            force = super().__call__(complex_transducer_amplitudes)
+            if self.scale_to_gravity:
+                force /= self.field.field.mg
+
+            dx = (self.mesh[0, self._xidx] - self.center[0]) / self.display_scale
+            dy = (self.mesh[1, self._yidx] - self.center[1]) / self.display_scale
+            dz = (self.mesh[2, self._zidx] - self.center[2]) / self.display_scale
+
+            unique_id = 'obj{}_call{}'.format(self._trace_id, self._trace_calls)
+            self._trace_calls += 1
+
+            traces = []
+            # Fx over x
+            traces.append(dict(
+                type='scatter', xaxis='x', yaxis='y', x=dx, y=force[0, self._xidx],
+                legendgroup=unique_id, showlegend=True, **kwargs,
+            ))
+            # Fy over x
+            traces.append(dict(
+                type='scatter', xaxis='x', yaxis='y2', x=dx, y=force[1, self._xidx],
+                legendgroup=unique_id, showlegend=False, **kwargs,
+            ))
+            # Fz over x
+            traces.append(dict(
+                type='scatter', xaxis='x', yaxis='y3', x=dx, y=force[2, self._xidx],
+                legendgroup=unique_id, showlegend=False, **kwargs,
+            ))
+            # Fx over y
+            traces.append(dict(
+                type='scatter', xaxis='x2', yaxis='y', x=dy, y=force[0, self._yidx],
+                legendgroup=unique_id, showlegend=False, **kwargs,
+            ))
+            # Fy over y
+            traces.append(dict(
+                type='scatter', xaxis='x2', yaxis='y2', x=dy, y=force[1, self._yidx],
+                legendgroup=unique_id, showlegend=False, **kwargs,
+            ))
+            # Fz over y
+            traces.append(dict(
+                type='scatter', xaxis='x2', yaxis='y3', x=dy, y=force[2, self._yidx],
+                legendgroup=unique_id, showlegend=False, **kwargs,
+            ))
+            # Fx over z
+            traces.append(dict(
+                type='scatter', xaxis='x3', yaxis='y', x=dz, y=force[0, self._zidx],
+                legendgroup=unique_id, showlegend=False, **kwargs,
+            ))
+            # Fy over z
+            traces.append(dict(
+                type='scatter', xaxis='x3', yaxis='y2', x=dz, y=force[1, self._zidx],
+                legendgroup=unique_id, showlegend=False, **kwargs,
+            ))
+            # Fz over z
+            traces.append(dict(
+                type='scatter', xaxis='x3', yaxis='y3', x=dz, y=force[2, self._zidx],
+                legendgroup=unique_id, showlegend=False, **kwargs,
+            ))
+            return traces
