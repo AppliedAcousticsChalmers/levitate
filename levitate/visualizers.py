@@ -189,21 +189,23 @@ class FieldTrace:
             return 1
 
     class meshproperty:
+        def __set_name__(self, obj, name):
+            self.name = '_' + name
+
         def __init__(self, fpre=None, fpost=None):
             self.fpre = fpre or (lambda self, value: value)
             self.fpost = fpost or (lambda self, value: value)
-            self.value = None
             self.__doc__ = fpre.__doc__
 
         def __get__(self, obj, obj_type=None):
-            return self.fpost(obj, self.value)
+            return self.fpost(obj, getattr(obj, self.name))
 
         def __set__(self, obj, value):
-            self.value = self.fpre(obj, value)
+            setattr(obj, self.name, self.fpre(obj, value))
             obj._update_mesh()
 
         def __delete__(self, obj):
-            self.value = None
+            delattr(obj, self.name)
 
         def preprocessor(self, fpre):
             return type(self)(fpre, self.fpost)
@@ -409,8 +411,11 @@ class ScalarFieldSlice(FieldTrace):
 
     @FieldTrace.meshproperty
     def resolution(self, val):
-        self._resolution = self.array.wavelength / val
-        return val
+        return self.array.wavelength / val
+
+    @resolution.postprocessor
+    def resolution(self, val):
+        return self.array.wavelength / val
 
     xlimits = FieldTrace.meshproperty()
     ylimits = FieldTrace.meshproperty()
@@ -534,8 +539,11 @@ class VectorFieldCones(FieldTrace):
 
     @FieldTrace.meshproperty
     def resolution(self, val):
-        self._resolution = self.array.wavelength / val
-        return val
+        return self.array.wavelength / val
+
+    @resolution.postprocessor
+    def resolution(self, val):
+        return self.array.wavelength / val
 
     center = FieldTrace.meshproperty()
     xrange = FieldTrace.meshproperty()
