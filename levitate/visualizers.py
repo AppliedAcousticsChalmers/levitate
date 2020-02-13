@@ -69,8 +69,8 @@ class Visualizer(collections.abc.MutableSequence):
         return len(self._traces)
 
     def insert(self, index, value):
-        value.visualizer = self
-        self._traces.insert(index, value)
+        self._traces.insert(index, None)
+        self[index] = value
 
     @property
     def display_scale(self):
