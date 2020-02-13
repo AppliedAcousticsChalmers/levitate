@@ -153,20 +153,21 @@ class ArrayVisualizer(Visualizer):
                 if field_idx > 0:
                     traces[trace_idx]['visible'] = False
             updatemenus.append(dict(active=0, buttons=buttons, type='buttons', direction='down', x=1.02, xanchor='left'))
-        layout = dict(updatemenus=updatemenus)
+        layout = dict(updatemenus=updatemenus, scene=dict(aspectmode='data'))
         return go.Figure(data=traces, layout=layout)
 
 
 class FieldTrace:
     colorscale = 'Viridis'
     label = ''
+    name = ''
     preprocessors = []
     postprocessors = []
 
     def __init__(self, array, field=None, **field_kwargs):
         self.array = array
         if field is not None:
-            if type(field) is type:
+            if isinstance(field, type):
                 self.field = field(array, **field_kwargs)
             else:
                 self.field = field
@@ -553,9 +554,9 @@ class VectorFieldCones(FieldTrace):
     def _update_mesh(self):
         if self._in_init:
             return
-        nx = 2 * np.ceil(self.xrange / self._resolution) + 1
-        ny = 2 * np.ceil(self.yrange / self._resolution) + 1
-        nz = 2 * np.ceil(self.zrange / self._resolution) + 1
+        nx = int(2 * np.ceil(self.xrange / self._resolution) + 1)
+        ny = int(2 * np.ceil(self.yrange / self._resolution) + 1)
+        nz = int(2 * np.ceil(self.zrange / self._resolution) + 1)
 
         x = np.linspace(-self.xrange, self.xrange, nx) + self.center[0]
         y = np.linspace(-self.yrange, self.yrange, ny) + self.center[1]
@@ -571,7 +572,7 @@ class VectorFieldCones(FieldTrace):
             x=vertex_coordinates[0], y=vertex_coordinates[1], z=vertex_coordinates[2],
             i=vertex_indices[0], j=vertex_indices[1], k=vertex_indices[2],
             intensity=vertex_intensities, opacity=self.opacity, colorscale=self.colorscale,
-            colorbar={'title': {'text': self.label, 'side': 'right'}},
+            colorbar={'title': {'text': self.label, 'side': 'right'}, 'x': 1.02, 'xanchor': 'right'},
         )
 
     def _generate_vertices(self, field_data):
@@ -628,6 +629,7 @@ class RadiationForceCones(VectorFieldCones):
     from .fields import RadiationForce as _field_class
     postprocessors = []
     label = 'Force magnitude in N'
+    name = 'Force'
 
     def __init__(self, *args, add_gravity=True, **kwargs):
         super().__init__(*args, **kwargs)
