@@ -634,23 +634,34 @@ class VectorFieldCones(FieldTrace):
         return vertex_indices, vertex_coordinates, vertex_intensities
 
 
-class RadiationForceCones(VectorFieldCones):
-    from .fields import RadiationForce as _field_class
-    label = 'Force magnitude in N'
+class ForceCones(VectorFieldCones):
     name = 'Force'
 
-    def __init__(self, *args, add_gravity=True, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, add_gravity=True, scale_to_gravity=True, field=None, **kwargs):
+        if field is None:
+            if 'radius' in kwargs:
+                from .fields import SphericalHarmonicsForce as field
+            else:
+                from .fields import RadiationForce as field
+        super().__init__(*args, field=field, **kwargs)
         self.add_gravity = add_gravity
+        self.scale_to_gravity = scale_to_gravity
 
     def postprocessing(self, field_data):
         if self.add_gravity:
             field_data[2] -= self.field.field.mg
+        if self.scale_to_gravity:
+            field_data /= self.field.field.mg
         return field_data
 
-
-class SphericalHarmonicsForceCones(RadiationForceCones):
-    from .fields import SphericalHarmonicsForce as _field_class
+    @property
+    def label(self):
+        try:
+            if self.scale_to_gravity:
+                return "$|F|/mg$"
+        except AttributeError:
+            pass
+        return 'Force magnitude in N'
 
 
 class ForceDiagram(Visualizer):
