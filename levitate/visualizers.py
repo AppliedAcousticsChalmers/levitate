@@ -158,30 +158,9 @@ class ArrayVisualizer(Visualizer):
         return go.Figure(data=traces, layout=layout)
 
 
-class FieldTrace:
-    colorscale = 'Viridis'
+class MeshTrace:
     label = ''
     name = ''
-    preprocessors = []
-    postprocessors = []
-
-    def __init__(self, array, field=None, **field_kwargs):
-        self.array = array
-        if field is not None:
-            if isinstance(field, type):
-                self.field = field(array, **field_kwargs)
-            else:
-                self.field = field
-        elif hasattr(self, '_field_class'):
-            self.field = self._field_class(array, **field_kwargs)
-
-    def __call__(self, complex_transducer_amplitudes=None):
-        for pp in self.preprocessors:
-            complex_transducer_amplitudes = pp(self, complex_transducer_amplitudes)
-        data = self.field(complex_transducer_amplitudes)
-        for pp in self.postprocessors:
-            data = pp(self, data)
-        return data
 
     @property
     def display_scale(self):
@@ -189,6 +168,9 @@ class FieldTrace:
             return self.visualizer._display_scale
         except AttributeError:
             return 1
+
+    def _update_mesh(self):
+        raise NotImplementedError('Subclasses of `MeshTrace` has to implement `_update_mesh`')
 
     class meshproperty:
         def __set_name__(self, obj, name):
@@ -215,6 +197,32 @@ class FieldTrace:
         def postprocessor(self, fpost):
             return type(self)(self.fpre, fpost)
 
+
+class FieldTrace(MeshTrace):
+    colorscale = 'Viridis'
+    preprocessors = []
+    postprocessors = []
+
+    def __init__(self, array, field=None, **field_kwargs):
+        self.array = array
+        if field is not None:
+            if isinstance(field, type):
+                self.field = field(array, **field_kwargs)
+            else:
+                self.field = field
+        elif hasattr(self, '_field_class'):
+            self.field = self._field_class(array, **field_kwargs)
+        else:
+            raise ValueError('Class {} has no field class, and no field was supplied!'.format(self.__class__.__name__))
+
+    def __call__(self, complex_transducer_amplitudes=None):
+        for pp in self.preprocessors:
+            complex_transducer_amplitudes = pp(self, complex_transducer_amplitudes)
+        data = self.field(complex_transducer_amplitudes)
+        for pp in self.postprocessors:
+            data = pp(self, data)
+        return data
+
     @property
     def mesh(self):
         return self.__mesh
@@ -226,9 +234,6 @@ class FieldTrace:
         # the field will still match the mesh.
         self.__mesh = value
         self.field = self.field @ value
-
-    def _update_mesh(self):
-        raise NotImplementedError('Subclasses of `FieldTrace` has to implement `_update_mesh`')
 
 
 class TransducerTrace(FieldTrace):
@@ -402,16 +407,16 @@ class ScalarFieldSlice(FieldTrace):
         self._in_init = False
         self._update_mesh()
 
-    @FieldTrace.meshproperty
+    @MeshTrace.meshproperty
     def normal(self, value):
         value = np.asarray(value, dtype=float)
         return value / np.sum(value**2)**0.5
 
-    @FieldTrace.meshproperty
+    @MeshTrace.meshproperty
     def intersect(self, value):
         return np.asarray(value, dtype=float)
 
-    @FieldTrace.meshproperty
+    @MeshTrace.meshproperty
     def resolution(self, val):
         return self.array.wavelength / val
 
@@ -419,9 +424,9 @@ class ScalarFieldSlice(FieldTrace):
     def resolution(self, val):
         return self.array.wavelength / val
 
-    xlimits = FieldTrace.meshproperty()
-    ylimits = FieldTrace.meshproperty()
-    zlimits = FieldTrace.meshproperty()
+    xlimits = MeshTrace.meshproperty()
+    ylimits = MeshTrace.meshproperty()
+    zlimits = MeshTrace.meshproperty()
 
     def _update_mesh(self):
         if self._in_init:
@@ -539,7 +544,7 @@ class VectorFieldCones(FieldTrace):
         self._in_init = False
         self._update_mesh()
 
-    @FieldTrace.meshproperty
+    @MeshTrace.meshproperty
     def resolution(self, val):
         return self.array.wavelength / val
 
@@ -547,10 +552,10 @@ class VectorFieldCones(FieldTrace):
     def resolution(self, val):
         return self.array.wavelength / val
 
-    center = FieldTrace.meshproperty()
-    xrange = FieldTrace.meshproperty()
-    yrange = FieldTrace.meshproperty()
-    zrange = FieldTrace.meshproperty()
+    center = MeshTrace.meshproperty()
+    xrange = MeshTrace.meshproperty()
+    yrange = MeshTrace.meshproperty()
+    zrange = MeshTrace.meshproperty()
 
     def _update_mesh(self):
         if self._in_init:
@@ -739,7 +744,7 @@ class ForceDiagram(Visualizer):
             except AttributeError:
                 return False
 
-        @FieldTrace.meshproperty
+        @MeshTrace.meshproperty
         def resolution(self, val):
             return self.array.wavelength / val
 
@@ -747,10 +752,10 @@ class ForceDiagram(Visualizer):
         def resolution(self, val):
             return self.array.wavelength / val
 
-        center = FieldTrace.meshproperty()
-        xrange = FieldTrace.meshproperty()
-        yrange = FieldTrace.meshproperty()
-        zrange = FieldTrace.meshproperty()
+        center = MeshTrace.meshproperty()
+        xrange = MeshTrace.meshproperty()
+        yrange = MeshTrace.meshproperty()
+        zrange = MeshTrace.meshproperty()
 
         def _update_mesh(self):
             if self._in_init:
