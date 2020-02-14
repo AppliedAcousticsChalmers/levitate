@@ -50,6 +50,8 @@ recreate every time. This should probably be kept somewhere, but perhaps not ins
 
 
 class Visualizer(collections.abc.MutableSequence):
+    template = 'plotly_white'
+
     def __init__(self, array, *traces, display_scale='mm'):
         self.array = array
         self.display_scale = display_scale
@@ -72,6 +74,10 @@ class Visualizer(collections.abc.MutableSequence):
     def insert(self, index, value):
         self._traces.insert(index, None)
         self[index] = value
+
+    @property
+    def layout(self):
+        return dict(template=self.template)
 
     @property
     def display_scale(self):
@@ -119,6 +125,10 @@ class ArrayVisualizer(Visualizer):
     def __init__(self, array, **kwargs):
         super().__init__(array, **kwargs)
 
+    @property
+    def layout(self):
+        return dict(super().layout, scene=dict(aspectmode='data'))
+
     def __call__(self, complex_transducer_amplitudes):
         traces = []
         transducer_trace_idx = []
@@ -154,7 +164,7 @@ class ArrayVisualizer(Visualizer):
                 if field_idx > 0:
                     traces[trace_idx]['visible'] = False
             updatemenus.append(dict(active=0, buttons=buttons, type='buttons', direction='down', x=1.02, xanchor='left'))
-        layout = dict(updatemenus=updatemenus, scene=dict(aspectmode='data'))
+        layout = dict(self.layout, updatemenus=updatemenus)
         return go.Figure(data=traces, layout=layout)
 
 
@@ -702,6 +712,7 @@ class ForceDiagram(Visualizer):
         length_unit = r'\text{{ in {}}}'.format(self.display_scale)
         force_unit = '/mg' if self.scale_to_gravity else r'\text{ in N}'
         return dict(
+            super().layout,
             xaxis=dict(title='$x' + length_unit + '$', domain=[0, width], anchor='y3'),
             xaxis2=dict(title='$y' + length_unit + '$', domain=[width + gap, 2 * width + gap], anchor='y3'),
             xaxis3=dict(title='$z' + length_unit + '$', domain=[2 * width + 2 * gap, 1], anchor='y3'),
