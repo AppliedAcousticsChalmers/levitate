@@ -1,7 +1,6 @@
 """Visualization methods based on the plotly graphing library, and some convenience functions."""
 import collections.abc
 import numpy as np
-from .utils import SPL, SVL
 import plotly.graph_objects as go
 import plotly.colors
 
@@ -214,8 +213,6 @@ class MeshTrace:
 
 class FieldTrace(MeshTrace):
     colorscale = 'Viridis'
-    preprocessors = []
-    postprocessors = []
 
     def __init__(self, array, field=None, **field_kwargs):
         self.array = array
@@ -230,12 +227,13 @@ class FieldTrace(MeshTrace):
             raise ValueError('Class {} has no field class, and no field was supplied!'.format(self.__class__.__name__))
 
     def __call__(self, complex_transducer_amplitudes=None):
-        for pp in self.preprocessors:
-            complex_transducer_amplitudes = pp(self, complex_transducer_amplitudes)
-        data = self.field(complex_transducer_amplitudes)
-        for pp in self.postprocessors:
-            data = pp(self, data)
-        return data
+        return self.postprocessing(self.field(self.preprocessing(complex_transducer_amplitudes)))
+
+    def preprocessing(self, complex_transducer_amplitudes):
+        return complex_transducer_amplitudes
+
+    def postprocessing(self, field_data):
+        return field_data
 
     @property
     def mesh(self):
@@ -514,8 +512,9 @@ class ScalarFieldSlice(FieldTrace):
 class PressureSlice(ScalarFieldSlice):
     name = 'Pressure'
     label = 'Sound pressure in dB re. 20 µPa'
-    postprocessors = [lambda self, values: SPL(values)]
     from .fields import Pressure as _field_class
+    from .utils import SPL
+    postprocessing = staticmethod(SPL)
     cmin = 130
     cmax = 170
 
@@ -523,8 +522,9 @@ class PressureSlice(ScalarFieldSlice):
 class VelocitySlice(ScalarFieldSlice):
     name = 'Velocity'
     label = 'Particle velocity in dB re. 50 nm/s'
-    postprocessors = [lambda self, values: SVL(values)]
     from .fields import Velocity as _field_class
+    from .utils import SVL
+    postprocessing = staticmethod(SVL)
     cmin = 130
     cmax = 170
 
@@ -636,7 +636,6 @@ class VectorFieldCones(FieldTrace):
 
 class RadiationForceCones(VectorFieldCones):
     from .fields import RadiationForce as _field_class
-    postprocessors = []
     label = 'Force magnitude in N'
     name = 'Force'
 
@@ -644,12 +643,10 @@ class RadiationForceCones(VectorFieldCones):
         super().__init__(*args, **kwargs)
         self.add_gravity = add_gravity
 
-    def _add_gravity(self, values):
+    def postprocessing(self, field_data):
         if self.add_gravity:
-            values[2] -= self.field.field.mg
-        return values
-
-    postprocessors.append(_add_gravity)
+            field_data[2] -= self.field.field.mg
+        return field_data
 
 
 class SphericalHarmonicsForceCones(RadiationForceCones):
