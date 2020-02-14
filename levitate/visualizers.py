@@ -172,6 +172,10 @@ class MeshTrace:
     label = ''
     name = ''
 
+    def __init__(self, array=None):
+        if array is not None:
+            self.array = array
+
     @property
     def display_scale(self):
         try:
@@ -246,10 +250,8 @@ class FieldTrace(MeshTrace):
         self.field = self.field @ value
 
 
-class TransducerTrace(FieldTrace):
+class TransducerTrace(MeshTrace):
     name = 'Transducers'
-    preprocessors = [lambda self, values=None: np.zeros(self.array.num_transducers)]
-
     radius_ratio = 3 / 2
     height = 5e-3
     num_vertices = 10
@@ -258,33 +260,23 @@ class TransducerTrace(FieldTrace):
     cmin = 0
     cmax = 0
 
-    class _field_class:
-        def __init__(self, array):
-            self.array = array
-
-        def __call__(self, data):
-            return np.repeat(data, self.num_coordinates // len(data))
-
-        def __matmul__(self, other):
-            coordinates, indices = other
-            self.num_faces = indices.shape[1]
-            self.num_coordinates = coordinates.shape[1]
-            self.num_vertices_per_side = self.num_coordinates // 2
-            return self
-
-    def __init__(self, *args, visualize=None, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.vizualise = visualize
         self._update_mesh()
+
+    def data_map(self, complex_transducer_amplitudes=None):
+        return np.zeros(self.array.num_transducers)
 
     def __call__(self, complex_transducer_amplitudes=None):
         coordinates, indices = self.mesh
+        viz_data = self.data_map(complex_transducer_amplitudes)
+        intensity = np.repeat(viz_data, coordinates.shape[1] // len(viz_data))
 
         return dict(
             type='mesh3d',
             x=coordinates[0] / self.display_scale, y=coordinates[1] / self.display_scale, z=coordinates[2] / self.display_scale,
             i=indices[0], j=indices[1], k=indices[2],
-            intensity=super().__call__(complex_transducer_amplitudes),
+            intensity=intensity,
             colorscale=self.colorscale, showscale=self.showscale,
             colorbar={'title': {'text': self.label, 'side': 'right'}, 'x': -0.02, 'xanchor': 'left'},
             cmin=self.cmin, cmax=self.cmax,
@@ -345,7 +337,6 @@ class TransducerTrace(FieldTrace):
 
 
 class TransducerPhase(TransducerTrace):
-    preprocessors = [lambda self, data: np.angle(data) / np.pi]
     cmin = -1
     cmax = 1
     colorscale = 'Phase'
@@ -353,31 +344,33 @@ class TransducerPhase(TransducerTrace):
     label = 'Transducer phase in rad/π'
     showscale = True
 
+    def data_map(self, complex_transducer_amplitudes):
+        return np.angle(complex_transducer_amplitudes) / np.pi
+
 
 class TransducerSignature(TransducerPhase):
     name = 'Signature at '
     label = 'Transducer signature in rad/π'
-
-    preprocessors = [
-        lambda self, data: np.angle(data),
-        lambda self, data: self.array.signature(position=self.position, phases=data),
-        lambda self, data: data / np.pi,
-    ]
 
     def __init__(self, *args, position=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.position = position
         self.name = self.name + str(position)
 
+    def data_map(self, complex_transducer_amplitudes):
+        return self.array.signature(position=self.position, phases=np.angle(complex_transducer_amplitudes)) / np.pi
+
 
 class TransducerAmplitude(TransducerTrace):
-    preprocessors = [lambda self, data: np.abs(data)]
     cmin = 0
     cmax = 1
     colorscale = 'Viridis'
     name = 'Amplitude'
     label = 'Transducer normalized amplitude'
     showscale = True
+
+    def data_map(self, complex_transducer_amplitudes):
+        return np.abs(complex_transducer_amplitudes)
 
 
 class ScalarFieldSlice(FieldTrace):
