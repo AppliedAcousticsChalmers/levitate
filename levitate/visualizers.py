@@ -1,51 +1,8 @@
-"""Visualization methods based on the plotly graphing library, and some convenience functions."""
+"""Visualization classes based on the plotly graphing library."""
 import collections.abc
 import numpy as np
 import plotly.graph_objects as go
 import plotly.colors
-
-
-"""Notes:
-Write individual classes for the types of fields to visualize: one class
-for visualizing slices of scalar fields, e.g. pressure of velocity,
-and a different class to visualize e.g. the force diagrams, or the force vector field.
-
-You should consider creating your own visualizer for force fields, in a similar way
-that you visualize the transducers. Mesh3d plots can have opacity, which might be nice
-for force vector plots.
-
-Create some kind of main class to which the individual field visualizes are appended.
-When called, the main class should return a plotly figure.
-The individual field classes should probably return plotly traces.
-The figure should have all the information already there, so the annoying calls to `selection_figure`
-should not be needed.
-
-We want to visualize
-3d:
-Should have a drop down menu to select what is shown as the field and on the transducers.
-We could allow for showing multiple traces at once. It is not that
-difficult to just deselect one of the traces when selecting one of the other traces.
-We might want to allow naming the traces, defaulting to something useful.
-Should visualizations using multiple sets of complex amplitudes be possible?
-I'm thinking no, just show them in separate figures if needed.
-- Scalar field slices (specify a slice plane, perhaps using the normal and a distance?) -> surface
-- Array geometry + transducer data -> mesh3d
-- Vector fields (specify a meshing method or a given mesh) -> mesh3d
-- Additional objects, e.g. spherical markers or a given radius. -> mesh3d
-
-2d:
-We want to have essentially the same kind of options here, only that the render method needs to be different.
-There is no longer any need to have fancy ways of switching between the plots. This is not primarily for interactive use
-but for publication ready plots. Perhaps this is not really needed that much?
-Only for certain common plots? Write some scripts or something? Don't add this to the package?
-- Scalar field slices -> heatmap (not needed?)
-- Vector fields -> quiver, super annoying to use, perhaps write a script that does this instead and don't have it as part of the package
-
-
-Force diagram. This is the only really useful 2d plot. It is not possible to integrate with any other plots, and it's annoying to
-recreate every time. This should probably be kept somewhere, but perhaps not inside the package if the 3d force visualization turns out nice.
-
-"""
 
 
 class Visualizer(collections.abc.MutableSequence):
@@ -172,6 +129,8 @@ class ArrayVisualizer(Visualizer):
                     trace = TransducerSignature
                 elif trace.find('trans') >= 0:
                     trace = TransducerTrace
+                elif trace.find('path') >= 0:
+                    trace = TrapPath
                 else:
                     raise NotImplementedError('No implemented trace type matching string "{}"'.format(trace))
 
@@ -238,6 +197,33 @@ class Trace:
             return self.visualizer._display_scale
         except AttributeError:
             return 1
+
+
+class TrapPath(Trace):
+    label = 'Trap path'
+    name = 'Trap path'
+
+    _default_args = dict(
+        tolerance=0.1e-3,
+        time_interval=10000,
+        path_points=200,
+    )
+
+    def __init__(self, array, start_position, **kwargs):
+        super().__init__(array)
+        self.start_position = start_position
+        self.kwargs = dict(self._default_args, **kwargs)
+
+    def __call__(self, complex_transducer_amplitudes):
+        from .utils import find_trap
+        path = find_trap(array=self.array, start_position=self.start_position,
+                         complex_transducer_amplitudes=complex_transducer_amplitudes,
+                         **self.kwargs)
+        path /= self.display_scale
+        return dict(
+            type='scatter3d',
+            x=path[0], y=path[1], z=path[2],
+        )
 
 
 class MeshTrace(Trace):
@@ -375,7 +361,7 @@ class TransducerTrace(MeshTrace):
         for t_idx in range(self.array.num_transducers):
             pos = self.array.positions[:, t_idx]
             n = self.array.normals[:, t_idx]
-            n_max = np.argmax(n)
+            n_max = np.argmax(np.abs(n))
             v1 = np.array([1., 1., 1.])
             v1[n_max] = -(np.sum(n) - n[n_max]) / n[n_max]
             v2 = np.cross(v1, n)
@@ -564,7 +550,7 @@ class ScalarFieldSlice(FieldTrace):
             x=np.squeeze(self.mesh[0]) / self.display_scale,
             y=np.squeeze(self.mesh[1]) / self.display_scale,
             z=np.squeeze(self.mesh[2]) / self.display_scale,
-            delaunayaxis='xyz'[np.argmax(self.normal)],
+            delaunayaxis='xyz'[np.argmax(np.abs(self.normal))],
         )
 
 
