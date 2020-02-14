@@ -121,8 +121,66 @@ class Visualizer(collections.abc.MutableSequence):
 
 
 class ArrayVisualizer(Visualizer):
+    """Visualizations of a trandcuer array.
+
+    It is possible to set an item using either just a trace specifier,
+    e.g. "Pressure", which create the appropriate trace with default arguments.
+    If arguments are required or wanted, set the item to a tuple where the
+    first element is the trace specifier, and subsequent elements are the
+    arguments. If the last element in the tuple is a dictionary, it will
+    be used as keyword arguments for the trace type.
+    """
+
     def __init__(self, array, **kwargs):
         super().__init__(array, **kwargs)
+
+    def __setitem__(self, idx, value):
+        if not isinstance(value, Trace):
+            # We did not get an actual trace instance
+            if type(value) is not tuple:
+                # We got just a trace specifier
+                trace = value
+                args = ()
+                kwargs = {}
+            else:
+                # We got a tuple where the first element is the trace specifier
+                trace = value[0]
+                if type(value[-1]) is dict:
+                    # The last element is a dict of keyword arguments
+                    # Intermediate elements are plain arguments
+                    kwargs = value[-1]
+                    args = value[1:-1]
+                else:
+                    # No keyword arguments.
+                    kwargs = {}
+                    args = value[1:]
+
+            if type(trace) is str:
+                # The trace type is specified using a string.
+                trace = trace.lower()
+                if trace == 'pressure':
+                    trace = PressureSlice
+                elif trace == 'velocity':
+                    trace = VelocitySlice
+                elif trace == 'force':
+                    trace = ForceCones
+                elif trace.find('phase') >= 0:
+                    trace = TransducerPhase
+                elif trace.find('amp') >= 0:
+                    trace = TransducerAmplitude
+                elif trace.find('signature') >= 0:
+                    trace = TransducerSignature
+                elif trace.find('trans') >= 0:
+                    trace = TransducerTrace
+                else:
+                    raise NotImplementedError('No implemented trace type matching string "{}"'.format(trace))
+
+            # Instantiate the class with the arguments.
+            # Make sure that it uses the correct array.
+            value = trace(self.array, *args, **kwargs)
+        # Delegate the setting of the element to the superclass.
+        # If we were handed a proper trace instance to begin with, we go directly here.
+        super().__setitem__(idx, value)
 
     @property
     def layout(self):
@@ -167,13 +225,12 @@ class ArrayVisualizer(Visualizer):
         return go.Figure(data=traces, layout=layout)
 
 
-class MeshTrace:
+class Trace:
     label = ''
     name = ''
 
-    def __init__(self, array=None):
-        if array is not None:
-            self.array = array
+    def __init__(self, array):
+        self.array = array
 
     @property
     def display_scale(self):
@@ -182,6 +239,8 @@ class MeshTrace:
         except AttributeError:
             return 1
 
+
+class MeshTrace(Trace):
     def _update_mesh(self):
         raise NotImplementedError('Subclasses of `MeshTrace` has to implement `_update_mesh`')
 
@@ -350,8 +409,8 @@ class TransducerSignature(TransducerPhase):
     name = 'Signature at '
     label = 'Transducer signature in rad/π'
 
-    def __init__(self, *args, position=None, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, array, position, *args, **kwargs):
+        super().__init__(array, *args, **kwargs)
         self.position = position
         self.name = self.name + str(position)
 
