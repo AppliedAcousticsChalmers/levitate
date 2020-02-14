@@ -137,7 +137,7 @@ class ArrayVisualizer(Visualizer):
     def __setitem__(self, idx, value):
         if not isinstance(value, Trace):
             # We did not get an actual trace instance
-            if type(value) is not tuple:
+            if not isinstance(value, (tuple, list)):
                 # We got just a trace specifier
                 trace = value
                 args = ()
@@ -727,6 +727,28 @@ class ForceDiagram(Visualizer):
     def __init__(self, *args, scale_to_gravity=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.scale_to_gravity = scale_to_gravity
+
+    def __setitem__(self, index, value):
+        if type(value) is not ForceDiagram.ForceTrace:
+            if ((isinstance(value, (tuple, list))
+                    and all([isinstance(v, (float, int)) for v in value]))
+               or (isinstance(value, np.ndarray))):
+                # Value is either a list/tuple
+                #   with elements which are all flots or ints
+                # or a numpy array.
+                # I.e. the value is the center position.
+                center = value
+                args = ()
+                kwargs = {}
+            elif type(value[-1]) is dict:
+                center = value[0]
+                args = value[1:-1]
+                kwargs = value[-1]
+            else:
+                center = value[0]
+                args = value[1:]
+            value = self.ForceTrace(self.array, center, *args, **kwargs)
+        super().__setitem__(index, value)
 
     def __call__(self, *complex_transducer_amplitudes, **kwargs):
         colors = plotly.colors.qualitative.Plotly
