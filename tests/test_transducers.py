@@ -158,7 +158,11 @@ def test_PointSource():
 
 
 def test_ReflectingTransducer():
-    transducer = levitate.transducers.TransducerReflector(levitate.transducers.PointSource, plane_distance=0.5, plane_normal=(3, -1, 9), reflection_coefficient=np.exp(1j))
+    plane_distance = 0.5
+    plane_normal = (3, -1, 9)
+    norm = sum([n**2 for n in plane_normal])**0.5
+    plane_intersect = [plane_distance * n / norm for n in plane_normal]
+    transducer = levitate.transducers.TransducerReflector(levitate.transducers.PointSource, plane_intersect=plane_intersect, plane_normal=plane_normal, reflection_coefficient=np.exp(1j))
     expected_result = np.array([-22.81413464 + 10.64739914j, -3.69589556 + 5.43218304j])
     np.testing.assert_allclose(transducer.pressure(source_pos, source_normal, receiver_pos), expected_result)
     expected_result = np.array([

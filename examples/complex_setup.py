@@ -15,7 +15,7 @@ import levitate
 
 transducer = levitate.transducers.TransducerReflector(
     levitate.transducers.CircularPiston, effective_radius=3e-3,
-    plane_distance=0, plane_normal=(0, 0, 1))
+    plane_intersect=(0, 0, 0), plane_normal=(0, 0, 1))
 
 array = levitate.arrays.DoublesidedArray(
     levitate.arrays.RectangularArray, separation=200e-3,

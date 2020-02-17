@@ -470,8 +470,8 @@ class TransducerReflector(TransducerModel):
     transducer : `TrnsducerModel` instance or (sub)class
         The base transducer to reflect. If passed a class it will be instantiated
         with the remaining arguments not used by the reflector.
-    plane_distance : float
-        The distance between the array and the reflector, along the normal.
+    plane_intersect : array_like, default (0, 0, 0)
+        A point which the reflection plane intersects.
     plane_normal : array_like, default (0,0,1)
         3 element vector with the plane normal.
     reflection_coefficient : complex float, default 1
@@ -484,21 +484,21 @@ class TransducerReflector(TransducerModel):
 
     """
 
-    _repr_fmt_spec = '{:%cls(transducer=%transducer_full, plane_distance=%plane_distance, plane_normal=%plane_normal, reflection_coefficient=%reflection_coefficient)}'
-    _str_fmt_spec = '{:%cls(transducer=%transducer, plane_distance=%plane_distance, plane_normal=%plane_normal, reflection_coefficient=%reflection_coefficient)}'
+    _repr_fmt_spec = '{:%cls(transducer=%transducer_full, plane_intersect=%plane_intersect, plane_normal=%plane_normal, reflection_coefficient=%reflection_coefficient)}'
+    _str_fmt_spec = '{:%cls(transducer=%transducer, plane_intersect=%plane_intersect, plane_normal=%plane_normal, reflection_coefficient=%reflection_coefficient)}'
 
-    def __init__(self, transducer, plane_distance, plane_normal=(0, 0, 1), reflection_coefficient=1, *args, **kwargs):
+    def __init__(self, transducer, plane_intersect=(0, 0, 0), plane_normal=(0, 0, 1), reflection_coefficient=1, *args, **kwargs):
         if type(transducer) is type:
             transducer = transducer(*args, **kwargs)
         self._transducer = transducer
-        self.plane_distance = plane_distance
+        self.plane_intersect = np.asarray(plane_intersect, dtype=float)
         self.plane_normal = np.asarray(plane_normal, dtype=float)
         self.plane_normal /= (self.plane_normal**2).sum()**0.5
         self.reflection_coefficient = reflection_coefficient
 
     def __format__(self, fmt_str):
         s_out = fmt_str.replace('%transducer_full', repr(self._transducer)).replace('%transducer', str(self._transducer))
-        s_out = s_out.replace('%plane_distance', str(self.plane_distance)).replace('%plane_normal', str(tuple(self.plane_normal)))
+        s_out = s_out.replace('%plane_intersect', str(self.plane_intersect)).replace('%plane_normal', str(tuple(self.plane_normal)))
         s_out = s_out.replace('%reflection_coefficient', str(self.reflection_coefficient))
         return super().__format__(s_out)
 
@@ -506,7 +506,7 @@ class TransducerReflector(TransducerModel):
         return (
             super().__eq__(other)
             and self._transducer == other._transducer
-            and np.allclose(self.plane_distance, other.plane_distance)
+            and np.allclose(self.plane_intersect, other.plane_intersect)
             and np.allclose(self.plane_normal, other.plane_normal)
             and np.allclose(self.reflection_coefficient, other.reflection_coefficient)
         )
@@ -590,14 +590,15 @@ class TransducerReflector(TransducerModel):
         source_normals = np.asarray(source_normals)
         receiver_positions = np.asarray(receiver_positions)
         plane_normal = self.plane_normal.reshape((3,) + (1,) * (source_positions.ndim - 1))
-        mirror_position = source_positions - 2 * plane_normal * ((source_positions * plane_normal).sum(axis=0) - self.plane_distance)
+        plane_distance = np.sum(self.plane_normal * self.plane_intersect)
+        mirror_position = source_positions - 2 * plane_normal * ((source_positions * plane_normal).sum(axis=0) - plane_distance)
         mirror_normal = source_normals - 2 * plane_normal * (source_normals * plane_normal).sum(axis=0)
 
         direct = func(source_positions, source_normals, receiver_positions, *args, **kwargs)
         reflected = func(mirror_position, mirror_normal, receiver_positions, *args, **kwargs)
 
-        source_side = np.sign((source_positions * plane_normal).sum(axis=0) - self.plane_distance).reshape(source_positions.shape[1:] + (1,) * (receiver_positions.ndim - 1))
-        receiver_side = np.sign(np.einsum('i...,i', receiver_positions, self.plane_normal) - self.plane_distance)
+        source_side = np.sign((source_positions * plane_normal).sum(axis=0) - plane_distance).reshape(source_positions.shape[1:] + (1,) * (receiver_positions.ndim - 1))
+        receiver_side = np.sign(np.einsum('i...,i', receiver_positions, self.plane_normal) - plane_distance)
         # `source_side` and `receiver_side` are zero if the source or receiver is inside the plane.
         # `source_side * receiver_side` will be -1 if they are on different sides, 0 if any of them is in the plane, and 1 otherwise.
         # We should return 0 if the source and receiver is on different sides, otherwise we return the calculated expression.
