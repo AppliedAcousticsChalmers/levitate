@@ -38,12 +38,6 @@ class TransducerArray:
 
     Attributes
     ----------
-    phases : numpy.ndarray
-        The phases of the transducer elements.
-    amplitudes : numpy.ndarray
-        The amplitudes of the transducer elements.
-    complex_amplitudes : numpy.ndarray
-        Transducer element controls on complex form.
     num_transducers : int
         The number of transducers used.
     positions : numpy.ndarray
@@ -87,8 +81,6 @@ class TransducerArray:
 
         self.positions = positions
         self.normals = normals
-        self.amplitudes = np.ones(self.num_transducers)
-        self.phases = np.zeros(self.num_transducers)
 
         self.visualize = type(self).ArrayVisualizer(self, 'Transducers')
 
@@ -162,26 +154,6 @@ class TransducerArray:
         self.transducer.medium = val
 
     @property
-    def complex_amplitudes(self):
-        """Transducer element controls on complex form.
-
-        The complex form of the transducer element controls is a convenience form.
-        The returned value will be calculated from the normal phases and amplitudes.
-
-        Warning
-        -------
-        Do not try to set a single complex element as `array.complex_amplitudes[0] = 1 + 1j`.
-        It will not change the underlying phases and amplitudes, only the temporary complex numpy array.
-
-        """
-        return self.amplitudes * np.exp(1j * self.phases)
-
-    @complex_amplitudes.setter
-    def complex_amplitudes(self, value):
-        self.amplitudes = np.abs(value)
-        self.phases = np.angle(value)
-
-    @property
     def positions(self):
         return self._positions
 
@@ -236,7 +208,7 @@ class TransducerArray:
         phase = np.mod(phase + np.pi, 2 * np.pi) - np.pi  # Wrap phase to [-pi, pi]
         return phase
 
-    def signature(self, position, phases=None, stype=None):
+    def signature(self, position, phases, stype=None):
         """Calculate the phase signature of the array.
 
         The signature of an array if the phase of the transducer elements
@@ -247,9 +219,8 @@ class TransducerArray:
         ----------
         position : array_like
             Three element array with a position for where the signature is relative to.
-        phases : numpy.ndarray, optional
+        phases : numpy.ndarray
             The phases of which to calculate the signature.
-            Will default to the current phases in the array.
 
         Returns
         -------
@@ -259,8 +230,6 @@ class TransducerArray:
         """
         if stype is not None:
             raise NotImplementedError("Unknown phase signature '{}' for array of type `{}`".format(stype, self.__class__.__name__))
-        if phases is None:
-            phases = self.phases
         focus_phases = self.focus_phases(position)
         return np.mod(phases - focus_phases + np.pi, 2 * np.pi) - np.pi
 
@@ -497,7 +466,7 @@ class RectangularArray(TransducerArray):
         normals = np.tile(np.asarray(normal).reshape((3, 1)), (1, positions.shape[1]))
         return positions, normals
 
-    def signature(self, position=None, stype=None, *args, **kwargs):
+    def signature(self, position=None, *args, stype=None, **kwargs):
         """Calculate phase signatures of the array.
 
         The signature of an array if the phase of the transducer elements
@@ -636,7 +605,7 @@ class DoublesidedArray(TransducerArray):
 
         self._array_type = type(array)
 
-    def signature(self, position=None, stype=None, *args, **kwargs):
+    def signature(self, position=None, *args, stype=None, **kwargs):
         """Calculate phase signatures of the array.
 
         The signature of an array if the phase of the transducer elements

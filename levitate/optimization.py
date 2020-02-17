@@ -188,9 +188,9 @@ def minimize(functions, array,
     array : `TransducerArray`
         The array from which the cost functions are created.
     start_values : complex ndarray, optional
-        The start values for the optimization. Will default to the current array
-        settings if not given. Note that the precall for minimization sequences can
-        overrule this value.
+        The start values for the optimization. Will default to 1 for all
+        transducers if not given. Note that the precall for minimization
+        sequences can overrule this value.
     use_real_imag : bool, default False
         Toggles if the optimization should run using the phase-amplitude formulation
         or the real-imag formulation.
@@ -235,7 +235,7 @@ def minimize(functions, array,
 
     """
     if start_values is None:
-        start_values = array.complex_amplitudes.copy()
+        start_values = np.ones(array.num_transducers, dtype=complex)
     else:
         start_values = np.asarray(start_values)
     if constrain_transducers is None or constrain_transducers is False:

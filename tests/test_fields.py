@@ -11,15 +11,15 @@ air.rho = 1.2
 
 large_array = levitate.arrays.RectangularArray(shape=(9, 8))
 pos = np.array([-23, 12, 34.1]) * 1e-3
-large_array.phases = large_array.focus_phases(pos) + large_array.signature(stype='vortex')
+phases = large_array.focus_phases(pos) + large_array.signature(stype='vortex')
+amps_large = levitate.utils.complex(phases)
 
 
 def test_gorkov_differentiations():
-    amps = large_array.complex_amplitudes
     potential = levitate.fields.GorkovPotential(large_array)
     gradient = levitate.fields.GorkovGradient(large_array)
     delta = 1e-9
-    implemented_gradient = gradient(amps, pos)
+    implemented_gradient = gradient(amps_large, pos)
 
     x_plus = pos + np.array([delta, 0, 0])
     x_minus = pos - np.array([delta, 0, 0])
@@ -28,24 +28,23 @@ def test_gorkov_differentiations():
     z_plus = pos + np.array([0, 0, delta])
     z_minus = pos - np.array([0, 0, delta])
 
-    dUdx = (potential(amps, x_plus) - potential(amps, x_minus)) / (2 * delta)
-    dUdy = (potential(amps, y_plus) - potential(amps, y_minus)) / (2 * delta)
-    dUdz = (potential(amps, z_plus) - potential(amps, z_minus)) / (2 * delta)
+    dUdx = (potential(amps_large, x_plus) - potential(amps_large, x_minus)) / (2 * delta)
+    dUdy = (potential(amps_large, y_plus) - potential(amps_large, y_minus)) / (2 * delta)
+    dUdz = (potential(amps_large, z_plus) - potential(amps_large, z_minus)) / (2 * delta)
     np.testing.assert_allclose(implemented_gradient[0], dUdx)
     np.testing.assert_allclose(implemented_gradient[1], dUdy)
     np.testing.assert_allclose(implemented_gradient[2], dUdz)
 
-    implemented_laplacian = levitate.fields.GorkovLaplacian(large_array)(amps, pos)
-    d2Udx2 = (gradient(amps, x_plus)[0] - gradient(amps, x_minus)[0]) / (2 * delta)
-    d2Udy2 = (gradient(amps, y_plus)[1] - gradient(amps, y_minus)[1]) / (2 * delta)
-    d2Udz2 = (gradient(amps, z_plus)[2] - gradient(amps, z_minus)[2]) / (2 * delta)
+    implemented_laplacian = levitate.fields.GorkovLaplacian(large_array)(amps_large, pos)
+    d2Udx2 = (gradient(amps_large, x_plus)[0] - gradient(amps_large, x_minus)[0]) / (2 * delta)
+    d2Udy2 = (gradient(amps_large, y_plus)[1] - gradient(amps_large, y_minus)[1]) / (2 * delta)
+    d2Udz2 = (gradient(amps_large, z_plus)[2] - gradient(amps_large, z_minus)[2]) / (2 * delta)
     np.testing.assert_allclose(implemented_laplacian[0], d2Udx2)
     np.testing.assert_allclose(implemented_laplacian[1], d2Udy2)
     np.testing.assert_allclose(implemented_laplacian[2], d2Udz2)
 
 
 def test_RadiationForce_implementations():
-    amps = large_array.complex_amplitudes
     force = levitate.fields.RadiationForce(large_array)
     stiffness = levitate.fields.RadiationForceStiffness(large_array)
     gradient = levitate.fields.RadiationForceGradient(large_array)
@@ -59,22 +58,21 @@ def test_RadiationForce_implementations():
     z_plus = pos + np.array([0, 0, delta])
     z_minus = pos - np.array([0, 0, delta])
 
-    dFdx = (force(amps, x_plus) - force(amps, x_minus)) / (2 * delta)
-    dFdy = (force(amps, y_plus) - force(amps, y_minus)) / (2 * delta)
-    dFdz = (force(amps, z_plus) - force(amps, z_minus)) / (2 * delta)
+    dFdx = (force(amps_large, x_plus) - force(amps_large, x_minus)) / (2 * delta)
+    dFdy = (force(amps_large, y_plus) - force(amps_large, y_minus)) / (2 * delta)
+    dFdz = (force(amps_large, z_plus) - force(amps_large, z_minus)) / (2 * delta)
 
-    implemented_stiffness = stiffness(amps, pos)
+    implemented_stiffness = stiffness(amps_large, pos)
     np.testing.assert_allclose(implemented_stiffness, [dFdx[0], dFdy[1], dFdz[2]])
 
-    implemented_curl = curl(amps, pos)
+    implemented_curl = curl(amps_large, pos)
     np.testing.assert_allclose(implemented_curl, [dFdy[2] - dFdz[1], dFdz[0] - dFdx[2], dFdx[1] - dFdy[0]])
 
-    implemented_gradient = gradient(amps, pos)
+    implemented_gradient = gradient(amps_large, pos)
     np.testing.assert_allclose(implemented_gradient, np.stack([dFdx, dFdy, dFdz], axis=1))
 
 
 def test_SphericalHarmonicsExpansions():
-    amps = large_array.complex_amplitudes
     orders = 8
     S = levitate.fields.SphericalHarmonicsExpansion(large_array, orders=orders)
     dS = levitate.fields.SphericalHarmonicsExpansionGradient(large_array, orders=orders)
@@ -87,15 +85,14 @@ def test_SphericalHarmonicsExpansions():
     zp = pos + [0, 0, delta]
     zm = pos - [0, 0, delta]
 
-    dSdx = (S(amps, xp) - S(amps, xm)) / (2 * delta)
-    dSdy = (S(amps, yp) - S(amps, ym)) / (2 * delta)
-    dSdz = (S(amps, zp) - S(amps, zm)) / (2 * delta)
+    dSdx = (S(amps_large, xp) - S(amps_large, xm)) / (2 * delta)
+    dSdy = (S(amps_large, yp) - S(amps_large, ym)) / (2 * delta)
+    dSdz = (S(amps_large, zp) - S(amps_large, zm)) / (2 * delta)
 
-    np.testing.assert_allclose(dS(amps, pos), [dSdx, dSdy, dSdz])
+    np.testing.assert_allclose(dS(amps_large, pos), [dSdx, dSdy, dSdz])
 
 
 def test_SphericalHarmonicsForces():
-    amps = large_array.complex_amplitudes
     orders = 9
     radius = 12 * large_array.k
     F = levitate.fields.SphericalHarmonicsForce(large_array, orders=orders, radius=radius)
@@ -105,31 +102,32 @@ def test_SphericalHarmonicsForces():
 
     delta = 1e-7
 
-    dFdx = (F(amps, pos + [delta, 0, 0]) - F(amps, pos - [delta, 0, 0])) / (2 * delta)
-    dFdy = (F(amps, pos + [0, delta, 0]) - F(amps, pos - [0, delta, 0])) / (2 * delta)
-    dFdz = (F(amps, pos + [0, 0, delta]) - F(amps, pos - [0, 0, delta])) / (2 * delta)
+    dFdx = (F(amps_large, pos + [delta, 0, 0]) - F(amps_large, pos - [delta, 0, 0])) / (2 * delta)
+    dFdy = (F(amps_large, pos + [0, delta, 0]) - F(amps_large, pos - [0, delta, 0])) / (2 * delta)
+    dFdz = (F(amps_large, pos + [0, 0, delta]) - F(amps_large, pos - [0, 0, delta])) / (2 * delta)
 
-    dFdx_sep = (F_sep(amps, pos + [delta, 0, 0]) - F_sep(amps, pos - [delta, 0, 0])) / (2 * delta)
-    dFdy_sep = (F_sep(amps, pos + [0, delta, 0]) - F_sep(amps, pos - [0, delta, 0])) / (2 * delta)
-    dFdz_sep = (F_sep(amps, pos + [0, 0, delta]) - F_sep(amps, pos - [0, 0, delta])) / (2 * delta)
+    dFdx_sep = (F_sep(amps_large, pos + [delta, 0, 0]) - F_sep(amps_large, pos - [delta, 0, 0])) / (2 * delta)
+    dFdy_sep = (F_sep(amps_large, pos + [0, delta, 0]) - F_sep(amps_large, pos - [0, delta, 0])) / (2 * delta)
+    dFdz_sep = (F_sep(amps_large, pos + [0, 0, delta]) - F_sep(amps_large, pos - [0, 0, delta])) / (2 * delta)
 
-    np.testing.assert_allclose(dF(amps, pos), np.stack([dFdx, dFdy, dFdz], axis=1), rtol=1e-6)
-    np.testing.assert_allclose(dF_sep(amps, pos), np.stack([dFdx_sep, dFdy_sep, dFdz_sep], axis=1), rtol=1e-6)
-    np.testing.assert_allclose(dF(amps, pos), np.sum(dF_sep(amps, pos), axis=2), rtol=1e-6)
-    np.testing.assert_allclose(F(amps, pos), np.sum(F_sep(amps, pos), axis=1), rtol=1e-6)
+    np.testing.assert_allclose(dF(amps_large, pos), np.stack([dFdx, dFdy, dFdz], axis=1), rtol=1e-6)
+    np.testing.assert_allclose(dF_sep(amps_large, pos), np.stack([dFdx_sep, dFdy_sep, dFdz_sep], axis=1), rtol=1e-6)
+    np.testing.assert_allclose(dF(amps_large, pos), np.sum(dF_sep(amps_large, pos), axis=2), rtol=1e-6)
+    np.testing.assert_allclose(F(amps_large, pos), np.sum(F_sep(amps_large, pos), axis=1), rtol=1e-6)
 
 
 array = levitate.arrays.RectangularArray(shape=(2, 1))
 pos_1 = np.array([0.1, 0.2, 0.3])
 pos_2 = np.array([-0.15, 1.27, 0.001])
 both_pos = np.stack((pos_1, pos_2), axis=1)
-array.phases = array.focus_phases((pos_1 + pos_2) / 2)
+phases = array.focus_phases((pos_1 + pos_2) / 2)
+amps = levitate.utils.complex(phases)
 
 spat_ders = array.pressure_derivs(both_pos, orders=3)
-ind_ders = np.einsum('i, ji...->ji...', array.amplitudes * np.exp(1j * array.phases), spat_ders)
+ind_ders = np.einsum('i, ji...->ji...', amps, spat_ders)
 sum_ders = np.sum(ind_ders, axis=1)
 sph_harm = array.spherical_harmonics(both_pos, orders=15)
-ind_harms = np.einsum('i, ji...->ji...', array.amplitudes * np.exp(1j * array.phases), sph_harm)
+ind_harms = np.einsum('i, ji...->ji...', amps, sph_harm)
 sum_harms = np.sum(ind_harms, axis=1)
 
 requirements = dict(

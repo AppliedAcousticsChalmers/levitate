@@ -7,6 +7,26 @@ num_pressure_derivs = [1, 4, 10, 20]
 """Quick access to the number of spatial derivatives up to and including a certain order."""
 
 
+def complex(phase, magnitude=1.):
+    return np.exp(1j * phase) * magnitude
+
+
+def phase(complex_amplitude):
+    return np.angle(complex_amplitude)
+
+
+def magnitude(complex_amplitude):
+    return np.abs(complex_amplitude)
+
+
+def phase_magnitude(complex_amplitude):
+    return phase(complex_amplitude), magnitude(complex_amplitude)
+
+
+def rms(complex_amplitude):
+    return magnitude(complex_amplitude) * 2**0.5
+
+
 def dB(x, power=False):
     r"""Convert ratio to decibels.
 
