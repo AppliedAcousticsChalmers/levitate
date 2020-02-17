@@ -88,8 +88,8 @@ class ArrayVisualizer(Visualizer):
     be used as keyword arguments for the trace type.
     """
 
-    def __init__(self, array, **kwargs):
-        super().__init__(array, **kwargs)
+    def __init__(self, array, *args, **kwargs):
+        super().__init__(array, *args, **kwargs)
 
     def __setitem__(self, idx, value):
         if not isinstance(value, Trace):
@@ -145,25 +145,41 @@ class ArrayVisualizer(Visualizer):
     def layout(self):
         return dict(super().layout, scene=dict(aspectmode='data'))
 
-    def __call__(self, complex_transducer_amplitudes=None):
+    def __call__(self, *complex_transducer_amplitudes, **kwargs):
         traces = []
         transducer_trace_idx = []
         field_trace_idx = []
-        for trace_idx, trace in enumerate(self):
-            if isinstance(trace, TransducerTrace):
-                transducer_trace_idx.append(trace_idx)
-            elif isinstance(trace, FieldTrace):
-                field_trace_idx.append(trace_idx)
-            traces.append(trace(complex_transducer_amplitudes))
+        if len(complex_transducer_amplitudes) == 0:
+            complex_transducer_amplitudes = [None]
+        elif len(complex_transducer_amplitudes) == 1:
+            button_labels = ['{}']
+        else:
+            if 'labels' in kwargs:
+                button_labels = [kwargs['labels'][idx] + ' | {}' for idx in range(len(complex_transducer_amplitudes))]
+            else:
+                label = kwargs.get('label', 'State')
+                button_labels = [label + ' {} | {{}}'.format(idx) for idx in range(len(complex_transducer_amplitudes))]
+
+        trace_idx = 0
+        for data_idx, data in enumerate(complex_transducer_amplitudes):
+            for self_idx, trace in enumerate(self):
+                if isinstance(trace, TransducerTrace):
+                    transducer_trace_idx.append((data_idx, self_idx, trace_idx))
+                elif isinstance(trace, FieldTrace):
+                    field_trace_idx.append((data_idx, self_idx, trace_idx))
+                traces.append(trace(data))
+                trace_idx += 1
+        del trace_idx
 
         updatemenus = []
         n_trans = len(transducer_trace_idx)
         if n_trans > 1:
             buttons = []
-            for trans_idx, trace_idx in enumerate(transducer_trace_idx):
+            active_on = [idx[2] for idx in transducer_trace_idx]
+            for trans_idx, (data_idx, self_idx, trace_idx) in enumerate(transducer_trace_idx):
                 buttons.append(dict(
-                    method='restyle', label=self[trace_idx].name,
-                    args=[{'visible': trans_idx * [False] + [True] + (n_trans - trans_idx - 1) * [False]}, transducer_trace_idx],
+                    method='restyle', label=button_labels[data_idx].format(self[self_idx].name),
+                    args=[{'visible': trans_idx * [False] + [True] + (n_trans - trans_idx - 1) * [False]}, active_on],
                 ))
                 if trans_idx > 0:
                     traces[trace_idx]['visible'] = False
@@ -172,10 +188,11 @@ class ArrayVisualizer(Visualizer):
         n_fields = len(field_trace_idx)
         if n_fields > 1:
             buttons = []
-            for field_idx, trace_idx in enumerate(field_trace_idx):
+            active_on = [idx[2] for idx in field_trace_idx]
+            for field_idx, (data_idx, self_idx, trace_idx) in enumerate(field_trace_idx):
                 buttons.append(dict(
-                    method='restyle', label=self[trace_idx].name,
-                    args=[{'visible': field_idx * [False] + [True] + (n_fields - field_idx - 1) * [False]}, field_trace_idx],
+                    method='restyle', label=button_labels[data_idx].format(self[self_idx].name),
+                    args=[{'visible': field_idx * [False] + [True] + (n_fields - field_idx - 1) * [False]}, active_on],
                 ))
                 if field_idx > 0:
                     traces[trace_idx]['visible'] = False
