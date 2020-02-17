@@ -141,6 +141,11 @@ class ArrayVisualizer(Visualizer):
         # If we were handed a proper trace instance to begin with, we go directly here.
         super().__setitem__(idx, value)
 
+        if isinstance(value, TransducerTrace):
+            for trace in self:
+                if type(trace) is TransducerTrace and trace is not value:
+                    self.remove(trace)  # We don't need to keep the plain transducer trace around of we add transducer traces with data.
+
     @property
     def layout(self):
         return dict(super().layout, scene=dict(aspectmode='data'))
@@ -164,6 +169,8 @@ class ArrayVisualizer(Visualizer):
         for data_idx, data in enumerate(complex_transducer_amplitudes):
             for self_idx, trace in enumerate(self):
                 if isinstance(trace, TransducerTrace):
+                    if data_idx > 0 and type(trace) is TransducerTrace:
+                        continue  # No reason to show a plain transducer visualization more than once.
                     transducer_trace_idx.append((data_idx, self_idx, trace_idx))
                 elif isinstance(trace, FieldTrace):
                     field_trace_idx.append((data_idx, self_idx, trace_idx))
