@@ -145,7 +145,7 @@ class ArrayVisualizer(Visualizer):
     def layout(self):
         return dict(super().layout, scene=dict(aspectmode='data'))
 
-    def __call__(self, complex_transducer_amplitudes):
+    def __call__(self, complex_transducer_amplitudes=None):
         traces = []
         transducer_trace_idx = []
         field_trace_idx = []
@@ -542,7 +542,7 @@ class ScalarFieldSlice(FieldTrace):
         # Reshift the mesh to the actual coordinates so that it intersects the intersect point.
         self.mesh = mesh[:, idx] + self.intersect.reshape((3, 1))
 
-    def __call__(self, complex_transducer_amplitudes):
+    def __call__(self, complex_transducer_amplitudes=None):
         return dict(
             type='mesh3d', intensity=super().__call__(complex_transducer_amplitudes),
             cmin=self.cmin, cmax=self.cmax, colorscale=self.colorscale,
@@ -618,7 +618,7 @@ class VectorFieldCones(FieldTrace):
 
         self.mesh = np.stack(np.meshgrid(x, y, z, indexing='ij'), axis=0).reshape((3, -1))
 
-    def __call__(self, complex_transducer_amplitudes):
+    def __call__(self, complex_transducer_amplitudes=None):
         field_data = super().__call__(complex_transducer_amplitudes)
         vertex_indices, vertex_coordinates, vertex_intensities = self._generate_vertices(field_data)
         return dict(
