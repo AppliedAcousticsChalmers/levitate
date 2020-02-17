@@ -1,8 +1,11 @@
 """Visualization classes based on the plotly graphing library."""
 import collections.abc
 import numpy as np
-import plotly.graph_objects as go
-import plotly.colors
+try:
+    from plotly.graph_objects import Figure
+except ImportError:
+    def Figure(data=None, layout=None, **kwargs):
+        return dict(data=data, layout=layout, **kwargs)
 
 
 class Visualizer(collections.abc.MutableSequence):
@@ -205,7 +208,7 @@ class ArrayVisualizer(Visualizer):
                     traces[trace_idx]['visible'] = False
             updatemenus.append(dict(active=0, buttons=buttons, type='buttons', direction='down', x=1.02, xanchor='left'))
         layout = dict(self.layout, updatemenus=updatemenus)
-        return go.Figure(data=traces, layout=layout)
+        return Figure(data=traces, layout=layout)
 
 
 class Trace:
@@ -761,7 +764,7 @@ class ForceDiagram(Visualizer):
         super().__setitem__(index, value)
 
     def __call__(self, *complex_transducer_amplitudes, **kwargs):
-        colors = plotly.colors.qualitative.Plotly
+        colors = ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52']
 
         all_traces = []
         if len(complex_transducer_amplitudes) > 1 and len(self) > 1:
@@ -793,7 +796,7 @@ class ForceDiagram(Visualizer):
             all_traces = field(data, line=kwargs['line'] if 'line' in kwargs else dict(color=colors[0]))
             all_traces[0]['showlegend'] = False
 
-        return go.Figure(data=all_traces, layout=self.layout)
+        return Figure(data=all_traces, layout=self.layout)
 
     @property
     def layout(self):
