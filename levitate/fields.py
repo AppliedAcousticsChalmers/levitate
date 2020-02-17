@@ -36,9 +36,6 @@ References
 import numpy as np
 from . import materials, utils
 from ._field_wrappers import FieldImplementation
-from ._algorithms_legacy import gorkov_potential, gorkov_gradient, gorkov_laplacian  # noqa: F401
-from ._algorithms_legacy import second_order_force, second_order_stiffness, second_order_curl, second_order_force_gradient  # noqa: F401
-from ._algorithms_legacy import pressure_squared_magnitude, velocity_squared_magnitude  # noqa: F401
 
 
 class Pressure(FieldImplementation):
