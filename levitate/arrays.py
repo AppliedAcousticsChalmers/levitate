@@ -52,8 +52,6 @@ class TransducerArray:
         As above.
     transducer : TransducerModel
         An instance of a specific transducer model implementation.
-    calculate : PersistentFieldEvaluator
-        Use to perform cashed field calculations.
     freq : float
         Frequency of the transducer model.
     omega : float
@@ -86,8 +84,6 @@ class TransducerArray:
             self.transducer = transducer
         if medium is not None:
             self.medium = medium
-
-        self.calculate = self.PersistentFieldEvaluator(self)
 
         self.positions = positions
         self.normals = normals
@@ -410,114 +406,6 @@ class TransducerArray:
         if len(parsed_requests) > 0:
             raise ValueError('Unevaluated requests: {}'.format(parsed_requests))
         return evaluated_requests
-
-    class PersistentFieldEvaluator:
-        """Implementation of cashed field calculations.
-
-        Parameters
-        ----------
-        array : `TransducerArray`
-            The array of which to calculate the fields.
-
-        """
-
-        from .fields import RadiationForce as _force, RadiationForceStiffness as _stiffness
-
-        def __init__(self, array):
-            self.array = array
-            self._last_positions = None
-            self._pressure_derivs = None
-            self._existing_orders = -1
-
-        def pressure_derivs(self, positions, orders=3):
-            """Cashed wrapper around `TransducerArray.pressure_derivs`."""
-            positions = np.asarray(positions)
-            if (
-                self._pressure_derivs is not None
-                and self._existing_orders >= orders
-                and positions.shape == self._last_positions.shape
-                and np.allclose(positions, self._last_positions)
-            ):
-                return self._pressure_derivs
-
-            self._pressure_derivs = self.array.pressure_derivs(positions, orders)
-            self._existing_orders = orders
-            self._last_positions = positions.copy()  # In case the position is modified externally we need to keep a separate reference
-            return self._pressure_derivs
-
-        def pressure(self, positions, complex_amplitudes=None):
-            """Calculate the pressure field.
-
-            Parameters
-            ----------
-            positions : numpy.ndarray
-                The location(s) at which to calculate the pressure, shape (3, ...).
-                The first dimension must have length 3 and represent the coordinates of the points.
-
-            Returns
-            -------
-            pressure : numpy.ndarray
-                The complex pressure amplitudes, shape (...) as the positions.
-
-            """
-            complex_amplitudes = complex_amplitudes if complex_amplitudes is not None else self.array.complex_amplitudes
-            return np.einsum('i..., i', self.pressure_derivs(positions, orders=0)[0], complex_amplitudes)
-
-        def velocity(self, positions, complex_amplitudes=None):
-            """Calculate the velocity field.
-
-            Parameters
-            ----------
-            positions : numpy.ndarray
-                The location(s) at which to calculate the velocity, shape (3, ...).
-                The first dimension must have length 3 and represent the coordinates of the points.
-
-            Returns
-            -------
-            velocity : numpy.ndarray
-                The complex vector particle velocity, shape (3, ...) as the positions.
-
-            """
-            complex_amplitudes = complex_amplitudes if complex_amplitudes is not None else self.array.complex_amplitudes
-            return np.einsum('ji..., i->j...', self.pressure_derivs(positions, orders=1)[1:4], complex_amplitudes) / (1j * self.array.omega * self.array.medium.rho)
-
-        def force(self, positions, complex_amplitudes=None, **kwargs):
-            """Calculate the force field.
-
-            Parameters
-            ----------
-            positions : numpy.ndarray
-                The location(s) at which to calculate the force, shape (3, ...).
-                The first dimension must have length 3 and represent the coordinates of the points.
-
-            Returns
-            -------
-            force : numpy.ndarray
-                The vector radiation force, shape (3, ...) as the positions.
-
-            """
-            complex_amplitudes = complex_amplitudes if complex_amplitudes is not None else self.array.complex_amplitudes
-            summed_derivs = np.einsum('ji..., i->j...', self.pressure_derivs(positions, orders=2), complex_amplitudes)
-            return TransducerArray.PersistentFieldEvaluator._force(self.array, **kwargs).values(summed_derivs)
-
-        def stiffness(self, positions, complex_amplitudes=None, **kwargs):
-            """Calculate the stiffness field.
-
-            Parameters
-            ----------
-            positions : numpy.ndarray
-                The location(s) at which to calculate the stiffness, shape (3, ...).
-                The first dimension must have length 3 and represent the coordinates of the points.
-
-            Returns
-            -------
-            force : numpy.ndarray
-                The radiation stiffness, shape (...) as the positions.
-
-            """
-            complex_amplitudes = complex_amplitudes if complex_amplitudes is not None else self.array.complex_amplitudes
-            summed_derivs = np.einsum('ji..., i->j...', self.pressure_derivs(positions, orders=3), complex_amplitudes)
-            return TransducerArray.PersistentFieldEvaluator._stiffness(self.array, **kwargs).values(summed_derivs)
 
 
 class RectangularArray(TransducerArray):
