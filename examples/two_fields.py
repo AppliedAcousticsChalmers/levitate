@@ -6,7 +6,6 @@ and a haptics focus point.
 
 import numpy as np
 import levitate
-import plotly.graph_objects as go
 
 array = levitate.arrays.RectangularArray((21, 12))
 trap_pos = np.array([-20e-3, 0, 60e-3])
@@ -41,17 +40,8 @@ haptics_result = levitate.optimization.minimize(
     array, variable_amplitudes=True)
 
 # Visualize the individual fields, as well as the compound field.
-array.complex_amplitudes = trap_result
-trap_trace = array.visualize.pressure()
-array.complex_amplitudes = haptics_result
-haptics_trace = array.visualize.pressure()
-array.complex_amplitudes = haptics_result * 0.3 + trap_result * 0.7
-combined_trace = array.visualize.pressure()
-fig = levitate.visualize.selection_figure(
-    (trap_trace, 'Trap'),
-    (haptics_trace, 'Haptics'),
-    (combined_trace, 'Combined'),
-    additional_traces=[array.visualize.transducers(signature_pos=trap_pos)]
-)
-
-go.Figure(fig).write_html(file='two_fields.html', include_mathjax='cdn')
+array.visualize.append('pressure')
+array.visualize(
+    trap_result, haptics_result, haptics_result * 0.3 + trap_result * 0.7,
+    labels=['Trap', 'Haptics', 'Combined']
+).write_html(file='two_fields.html', include_mathjax='cdn')

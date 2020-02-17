@@ -3,14 +3,14 @@
 #########
 Utilities
 #########
-This page documents four modules, `~levitate.utils`, `~levitate.visualize`, `~levitate.materials`, and `~levitate.hardware`.
+This page documents four modules, `~levitate.utils`, `~levitate.visualizers`, `~levitate.materials`, and `~levitate.hardware`.
 
 .. automodule:: levitate.utils
     :members:
 
 Visualization
 =============
-.. automodule:: levitate.visualize
+.. automodule:: levitate.visualizers
     :members:
 
 Materials

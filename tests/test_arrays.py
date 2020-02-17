@@ -177,13 +177,12 @@ def test_Array_basics():
 
 def test_Array_visualizer():
     array = levitate.arrays.RectangularArray(shape=2)
-    v_trace = array.visualize.velocity()
-    p_trace = array.visualize.pressure()
-    t_trace = array.visualize.transducers()
+    array.visualize()
     pos = np.array([0, 0, 0.05])
     signature = array.signature(angle=np.pi, stype='twin')
     array.phases = array.focus_phases(pos) + signature
-    trap_pos = array.visualize.find_trap(pos)
+    from levitate.utils import find_trap
+    trap_pos = find_trap(array, pos, array.complex_amplitudes)
     np.testing.assert_allclose(pos, trap_pos, atol=0.1e-3)
     np.testing.assert_allclose(signature, array.signature(pos))
 

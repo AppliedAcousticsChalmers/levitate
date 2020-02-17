@@ -6,7 +6,6 @@ A very basic use-case, finding the correct phases to levitate a bead centered
 
 import numpy as np
 import levitate
-import plotly.graph_objects as go
 
 pos = np.array([0, 0, 80e-3])
 array = levitate.arrays.RectangularArray(9)
@@ -18,6 +17,6 @@ results = levitate.optimization.minimize(point@pos, array)
 
 # Visualize the field.
 array.complex_amplitudes = results
-go.Figure(
-    [array.visualize.pressure(), array.visualize.transducers(signature_pos=pos)]
-).write_html(file='basic_trap.html', include_mathjax='cdn')
+array.visualize[0] = ['Signature', pos]
+array.visualize.append('Pressure')
+array.visualize(results).write_html(file='basic_trap.html', include_mathjax='cdn')

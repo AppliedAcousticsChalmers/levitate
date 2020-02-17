@@ -14,7 +14,6 @@ simplify the creation of the transducer positions for common array geometries.
 """
 
 import numpy as np
-from .visualize import Visualizer
 from . import utils
 
 
@@ -68,6 +67,7 @@ class TransducerArray:
 
     _repr_fmt_spec = '{:%cls(transducer=%transducer_full, transducer_size=%transducer_size,\n\tpositions=%positions,\n\tnormals=%normals)}'
     _str_fmt_spec = '{:%cls(transducer=%transducer): %num_transducers transducers}'
+    from .visualizers import ArrayVisualizer
 
     def __init__(self, positions, normals,
                  transducer=None, transducer_size=10e-3, transducer_kwargs=None,
@@ -94,7 +94,7 @@ class TransducerArray:
         self.amplitudes = np.ones(self.num_transducers)
         self.phases = np.zeros(self.num_transducers)
 
-        self.visualize = Visualizer(self)
+        self.visualize = type(self).ArrayVisualizer(self, 'Transducers')
 
     def __format__(self, fmt_spec):
         s_out = fmt_spec

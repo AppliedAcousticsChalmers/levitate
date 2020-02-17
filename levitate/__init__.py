@@ -3,7 +3,7 @@
 The API consists of four main modules, and a few supporting modules.
 The main modules contain models to handle transducers and transducer arrays, in the `~levitate.transducers` and `~levitate.arrays` modules respectively,
 algorithms to calculate physical properties in the `~levitate.fields` module, and some numerical optimization functions in the `~levitate.optimization` module.
-There is also a `~levitate.visualize` module with some convenience function to show various fields, a few utilities in `~levitate.utils`.
+There is also a `~levitate.visualizers` module with some convenience function to show various fields, a few utilities in `~levitate.utils`.
 It is possible to use different materials or material properties from the `~levitate.materials` module.
 
 The `~levitate.hardware` module includes definitions with array geometries corresponding to some physical prototypes,
