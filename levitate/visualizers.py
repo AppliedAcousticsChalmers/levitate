@@ -254,8 +254,29 @@ class TrapPath(Trace):
 
 
 class MeshTrace(Trace):
-    def _update_mesh(self):
-        raise NotImplementedError('Subclasses of `MeshTrace` has to implement `_update_mesh`')
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__mesh_is_outdated = True
+
+    def _generate_mesh(self):
+        raise NotImplementedError('Subclasses of `MeshTrace` has to implement `_generate_mesh`')
+
+    def __update_mesh(self, force=False):
+        if force or self.__mesh_is_outdated:
+            self.mesh = self._generate_mesh()
+
+    def __call__(self):
+        self.__update_mesh()
+
+    @property
+    def mesh(self):
+        self.__update_mesh()
+        return self.__mesh
+
+    @mesh.setter
+    def mesh(self, value):
+        self.__mesh = value
+        self.__mesh_is_outdated = False
 
     class meshproperty:
         def __set_name__(self, obj, name):
@@ -271,7 +292,7 @@ class MeshTrace(Trace):
 
         def __set__(self, obj, value):
             setattr(obj, self.name, self.fpre(obj, value))
-            obj._update_mesh()
+            obj._MeshTrace__mesh_is_outdated = True
 
         def __delete__(self, obj):
             delattr(obj, self.name)
@@ -287,7 +308,7 @@ class FieldTrace(MeshTrace):
     colorscale = 'Viridis'
 
     def __init__(self, array, field=None, **field_kwargs):
-        self.array = array
+        super().__init__(array)
         if field is not None:
             if isinstance(field, type):
                 self.field = field(array, **field_kwargs)
@@ -299,6 +320,7 @@ class FieldTrace(MeshTrace):
             raise ValueError('Class {} has no field class, and no field was supplied!'.format(self.__class__.__name__))
 
     def __call__(self, complex_transducer_amplitudes=None):
+        super().__call__()
         return self.postprocessing(self.field(self.preprocessing(complex_transducer_amplitudes)))
 
     def preprocessing(self, complex_transducer_amplitudes):
@@ -309,15 +331,18 @@ class FieldTrace(MeshTrace):
 
     @property
     def mesh(self):
-        return self.__mesh
+        return super().mesh
 
     @mesh.setter
     def mesh(self, value):
+        # This accesses the setter implemented in the superclass.
+        # It's slightly annoying that there is no really convenient way to
+        # get the setter of a property in the superclass.
+        super(FieldTrace, type(self)).mesh.fset(self, value)
         # Rebind the field to the new mesh.
         # Doing this in a setter makes sure that if the user changes the mesh manually,
         # the field will still match the mesh.
-        self.__mesh = value
-        self.field = self.field @ value
+        self.field = self.field @ self.mesh
 
 
 class TransducerTrace(MeshTrace):
@@ -332,12 +357,12 @@ class TransducerTrace(MeshTrace):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._update_mesh()
 
     def data_map(self, complex_transducer_amplitudes=None):
         return np.zeros(self.array.num_transducers)
 
     def __call__(self, complex_transducer_amplitudes=None):
+        super().__call__()
         coordinates, indices = self.mesh
         viz_data = self.data_map(complex_transducer_amplitudes)
         intensity = np.repeat(viz_data, coordinates.shape[1] // len(viz_data))
@@ -352,7 +377,7 @@ class TransducerTrace(MeshTrace):
             cmin=self.cmin, cmax=self.cmax,
         )
 
-    def _update_mesh(self):
+    def _generate_mesh(self):
         N = self.num_vertices
         # Each transducer coordinates will have first N point in the upper circle, then N points in the lower circle
         i = []
@@ -403,7 +428,7 @@ class TransducerTrace(MeshTrace):
 
         indices = np.concatenate(indices, axis=1)
         coordinates = np.concatenate(coordinates, axis=1)
-        self.mesh = (coordinates, indices)
+        return (coordinates, indices)
 
 
 class TransducerPhase(TransducerTrace):
@@ -449,7 +474,6 @@ class ScalarFieldSlice(FieldTrace):
 
     def __init__(self, array, xlimits=None, ylimits=None, zlimits=None, normal=None, intersect=None, resolution=10, **kwargs):
         super().__init__(array, **kwargs)
-        self._in_init = True
 
         self.resolution = resolution
         self.normal = normal if normal is not None else (0, 1, 0)
@@ -477,9 +501,6 @@ class ScalarFieldSlice(FieldTrace):
         self.ylimits = ylimits
         self.zlimits = zlimits
 
-        self._in_init = False
-        self._update_mesh()
-
     @MeshTrace.meshproperty
     def normal(self, value):
         value = np.asarray(value, dtype=float)
@@ -501,9 +522,7 @@ class ScalarFieldSlice(FieldTrace):
     ylimits = MeshTrace.meshproperty()
     zlimits = MeshTrace.meshproperty()
 
-    def _update_mesh(self):
-        if self._in_init:
-            return
+    def _generate_mesh(self):
         # Find two vectors that span the plane
         v1 = np.array([1., 1., 1.])
         n_max = np.argmax(np.abs(self.normal))
@@ -567,7 +586,7 @@ class ScalarFieldSlice(FieldTrace):
         )
 
         # Reshift the mesh to the actual coordinates so that it intersects the intersect point.
-        self.mesh = mesh[:, idx] + self.intersect.reshape((3, 1))
+        return mesh[:, idx] + self.intersect.reshape((3, 1))
 
     def __call__(self, complex_transducer_amplitudes=None):
         return dict(
@@ -603,21 +622,19 @@ class VelocitySlice(ScalarFieldSlice):
 
 class VectorFieldCones(FieldTrace):
     opacity = 0.5
-    cone_length = 0.8
+    cone_length = 0.75
     cone_vertices = 10
     cone_ratio = 3
 
     def __init__(self, array, center, resolution=5,
                  xrange=None, yrange=None, zrange=None, **kwargs):
         super().__init__(array, **kwargs)
-        self._in_init = True
+
         self.center = center
         self.resolution = resolution
         self.xrange = xrange if xrange is not None else self.array.wavelength
         self.yrange = yrange if yrange is not None else self.array.wavelength
         self.zrange = zrange if zrange is not None else self.array.wavelength
-        self._in_init = False
-        self._update_mesh()
 
     @MeshTrace.meshproperty
     def resolution(self, val):
@@ -632,9 +649,7 @@ class VectorFieldCones(FieldTrace):
     yrange = MeshTrace.meshproperty()
     zrange = MeshTrace.meshproperty()
 
-    def _update_mesh(self):
-        if self._in_init:
-            return
+    def _generate_mesh(self):
         nx = int(2 * np.ceil(self.xrange / self._resolution) + 1)
         ny = int(2 * np.ceil(self.yrange / self._resolution) + 1)
         nz = int(2 * np.ceil(self.zrange / self._resolution) + 1)
@@ -643,7 +658,7 @@ class VectorFieldCones(FieldTrace):
         y = np.linspace(-self.yrange, self.yrange, ny) + self.center[1]
         z = np.linspace(-self.zrange, self.zrange, nz) + self.center[2]
 
-        self.mesh = np.stack(np.meshgrid(x, y, z, indexing='ij'), axis=0).reshape((3, -1))
+        return np.stack(np.meshgrid(x, y, z, indexing='ij'), axis=0).reshape((3, -1))
 
     def __call__(self, complex_transducer_amplitudes=None):
         field_data = super().__call__(complex_transducer_amplitudes)
@@ -834,14 +849,11 @@ class ForceDiagram(Visualizer):
             if name is not None:
                 self.name = name
 
-            self._in_init = True
             self.center = center
             self.resolution = resolution
             self.xrange = xrange if xrange is not None else self.array.wavelength
             self.yrange = yrange if yrange is not None else self.array.wavelength
             self.zrange = zrange if zrange is not None else self.array.wavelength
-            self._in_init = False
-            self._update_mesh()
 
         @property
         def scale_to_gravity(self):
@@ -863,9 +875,7 @@ class ForceDiagram(Visualizer):
         yrange = MeshTrace.meshproperty()
         zrange = MeshTrace.meshproperty()
 
-        def _update_mesh(self):
-            if self._in_init:
-                return
+        def _generate_mesh(self):
             nx = int(2 * np.ceil(self.xrange / self._resolution) + 1)
             ny = int(2 * np.ceil(self.yrange / self._resolution) + 1)
             nz = int(2 * np.ceil(self.zrange / self._resolution) + 1)
@@ -882,7 +892,7 @@ class ForceDiagram(Visualizer):
             Y = np.stack([np.repeat(self.center[0], ny), y, np.repeat(self.center[2], ny)], axis=0)
             Z = np.stack([np.repeat(self.center[0], nz), np.repeat(self.center[1], nz), z], axis=0)
 
-            self.mesh = np.concatenate([X, Y, Z], axis=1)
+            return np.concatenate([X, Y, Z], axis=1)
 
         def __call__(self, complex_transducer_amplitudes, **kwargs):
             force = super().__call__(complex_transducer_amplitudes)

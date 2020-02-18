@@ -59,7 +59,7 @@ class TransducerArray:
 
     _repr_fmt_spec = '{:%cls(transducer=%transducer_full, transducer_size=%transducer_size,\n\tpositions=%positions,\n\tnormals=%normals)}'
     _str_fmt_spec = '{:%cls(transducer=%transducer): %num_transducers transducers}'
-    from .visualizers import ArrayVisualizer
+    from .visualizers import ArrayVisualizer, ForceDiagram
 
     def __init__(self, positions, normals,
                  transducer=None, transducer_size=10e-3, transducer_kwargs=None,
@@ -83,6 +83,7 @@ class TransducerArray:
         self.normals = normals
 
         self.visualize = type(self).ArrayVisualizer(self, 'Transducers')
+        self.force_diagram = type(self).ForceDiagram(self)
 
     def __format__(self, fmt_spec):
         s_out = fmt_spec
