@@ -577,6 +577,88 @@ class RectangularArray(NormalTransducerArray):
         return super().signature(position, stype=stype, *args, **kwargs)
 
 
+class SphericalCapArray(NormalTransducerArray):
+    """Transducer array implementation for spherical caps.
+
+    The transducers will be placed on a virtual spherical surface, i.e. on the same
+    distance from a given point in space. Control the overall shape of the array
+    with the `radius`, `rings`, and `spead` parameters.
+    See `NormalTransdcerArray` for details on the overall placement of the array,
+    e.g. rotations and offsets.
+
+    There are many ways to pack transdcuers on a spherical surface.
+    The 'radius' model will place the transducers on concentric rings where
+    the distance between each ring is pre-determined. Each ring will have as
+    many transducers as possible for the given ring size. This will typically
+    pack the transducers densely, and the outer dimentions of the array is
+    quite consistent.
+    The 'count' model will use a pre-determined number of transducers in each ring,
+    with 6 additional transducers for each successive ring. The inter-ring distance
+    will be set to fit the requested number of transducers. This model will deliver
+    a pre-determined number of transducers, but will not be as dense.
+    If too many rings are requested, the 'count' model will fill a half-spere with
+    transducers and then stop. The 'distance' model can fill the entire sphere with
+    transducers.
+
+    Parameters
+    ----------
+    radius : float
+        The curvature of the spherical cap, i.e. how for away the focus is.
+    rings : int
+        Number of consecutive rings of transducers in the array.
+    packing_model : str, default 'distance'
+        Controlls which packing model is used. One of 'distance' or 'count', see above.
+    spread : float, default 10e-3
+        Controls the minimum spacing between individual transducers.
+    """
+
+    _str_fmt_spec = '{:%cls(transducer=%transducer, radius=%radius, rings=%rings, packing_model=%packing_model, offset=%offset, normal=%normal, rotation=%rotation)}'
+
+    def __init__(self, radius, rings, spread=10e-3, packing_model='distance', **kwargs):
+        focus = np.array([0, 0, 1]) * radius
+        positions = []
+        normals = []
+        positions.append(np.array([0, 0, 0]))
+        normals.append(np.array([0, 0, 1]))
+        if packing_model == 'distance':
+            for ring in range(1, rings + 1):
+                inclination = np.pi - ring * 2 * np.arcsin(spread / 2 / radius)
+                if inclination < 0:
+                    # This means that we have filled the entire sphere.
+                    break
+                num_trans = int(np.sin(inclination) * radius * 2 * np.pi / spread)
+                azimuth = np.arange(num_trans) / num_trans * 2 * np.pi
+                position = radius * np.stack([
+                    np.sin(inclination) * np.cos(azimuth),
+                    np.sin(inclination) * np.sin(azimuth),
+                    np.cos(inclination) * np.ones(num_trans)
+                ], 1) + focus
+                normal = focus - position
+                positions.extend(position)
+                normals.extend(normal)
+        elif packing_model == 'count':
+            for ring in range(1, rings + 1):
+                azimuth = np.arange(6 * ring) / (6 * ring) * np.pi * 2
+                axial_radius = spread / 2 / np.sin(np.pi / 6 / ring)
+                if axial_radius > radius:
+                    # We have filled the half-sphere, no possibility of fitting more transducers.
+                    break
+                height = radius - (radius**2 - axial_radius**2)**0.5
+                position = np.stack([
+                    axial_radius * np.cos(azimuth),
+                    axial_radius * np.sin(azimuth),
+                    np.ones_like(azimuth) * height], 1)
+                normal = focus - position
+                positions.extend(position)
+                normals.extend(normal)
+        kwargs.setdefault('transducer_size', spread)
+        positions = np.stack(positions, 1)
+        normals = np.stack(normals, 1)
+        normals /= np.sum(normals**2, axis=0)**0.5
+        super().__init__(positions=positions, normals=normals, **kwargs)
+        self._extra_print_args.update(radius=radius, rings=rings, packing_model=packing_model, spread=spread)
+
+
 class DoublesidedArray(TransducerArray):
     """TransducerArray implementation for doublesided arrays.
 
