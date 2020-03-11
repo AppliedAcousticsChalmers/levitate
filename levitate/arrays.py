@@ -7,6 +7,7 @@ simplify the creation of the transducer positions for common array geometries.
     :nosignatures:
 
     TransducerArray
+    NormalTransducerArray
     RectangularArray
     DoublesidedArray
     DragonflyArray
@@ -378,42 +379,42 @@ class TransducerArray:
         return evaluated_requests
 
 
-class RectangularArray(TransducerArray):
-    """TransducerArray implementation for rectangular arrays.
+class NormalTransducerArray(TransducerArray):
+    """Transducer array with a clearly defined normal.
 
-    Defines the locations and normals of elements (transducers) in an array.
-    For rotated arrays, the rotation is as follows:
-
-        1) A grid of the correct layout is crated in the xy-plane
-        2) The grid is rotated to the desired plane, as defined by the normal.
-        3) The grid is rotated around the normal.
-
-    The rotation to the desired plane is around the line where the desired
-    plane intersects with the xy-plane.
+    This is mostly intended as a base class for other implementations.
+    The advantage is that a simple arrangement can be created assuming a normal
+    along the z-axis, which is then rotated and moved to the desired orientation.
+    The positions and normals of the transducers should be input assuming that
+    the overall normal for the array is along the z-axis. The positions and normals
+    will be rotated around the origin to give the desired overall normal.
+    This rotation will take place along the intersection line of the plane specificed
+    by the desired normal, and the xy-plane.
+    If rotation is desired, the positions are further rotated using the normal
+    as the rotation axis. Finally an offset is applied to the entire array.
 
     Parameters
     ----------
-    shape : int or (int, int), default 16
-        The number of transducer elements. Passing a single int will create a square array.
-    spread : float, default 10e-3
-        The distance between the array elements.
+    positions : numpy.ndarray
+        The positions of the transducer elements in the array, shape 3xN.
+    normals : numpy.ndarray
+        The normals of the transducer elements in the array, shape 3xN (or 3 elements which will broadcast).
     offset : 3 element array_like, default (0, 0, 0)
         The location of the center of the array.
     normal : 3 element array_like, default (0, 0, 1)
-        The normal of all elements in the array.
+        The normal of the overall array.
     rotation : float, default 0
         The in-plane rotation of the array around the normal.
 
     """
 
-    _str_fmt_spec = '{:%cls(transducer=%transducer, shape=%shape, spread=%spread, offset=%offset, normal=%normal, rotation=%rotation)}'
-
-    def __init__(self, shape=16, spread=10e-3, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
-        extra_print_args = {'shape': shape, 'spread': spread, 'offset': offset, 'normal': normal, 'rotation': rotation}
+    def __init__(self, positions, normals, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
+        extra_print_args = {'offset': offset, 'normal': normal, 'rotation': rotation}
         normal = np.asarray(normal, dtype=float)
         normal /= (normal**2).sum()**0.5
-        positions, normals = self._grid_generator(shape=shape, spread=spread, normal=normal, **kwargs)
-
+        self._overall_normal = normal
+        self._overall_offset = offset
+        self._overall_rotation = rotation
         if normal[0] != 0 or normal[1] != 0:
             # We need to rotate the grid to get the correct normal
             rotation_vector = np.cross(normal, (0, 0, 1))
@@ -435,16 +436,45 @@ class RectangularArray(TransducerArray):
             rotation_matrix = (cos * np.eye(3) + sin * cross_product_matrix + (1 - cos) * np.outer(normal, normal)).dot(rotation_matrix)
 
         positions = rotation_matrix.dot(positions)
-        positions += np.asarray(offset).reshape([3] + (positions.ndim - 1) * [1])
+        positions[0] += offset[0]
+        positions[1] += offset[1]
+        positions[2] += offset[2]
+        normals = rotation_matrix.dot(normals)
 
-        kwargs.setdefault('transducer_size', spread)
         kwargs.setdefault('positions', positions)
         kwargs.setdefault('normals', normals)
         super().__init__(**kwargs)
-        self._extra_print_args.update(extra_print_args)
+        self._extra_print_args.update(offset=offset, normal=normal, rotation=rotation)
+
+
+class RectangularArray(NormalTransducerArray):
+    """TransducerArray implementation for rectangular arrays.
+
+    Defines the locations and normals of elements (transducers) in an array.
+    See `NormaltransducerArray` for documentation of roration and transslation options.
+
+    Parameters
+    ----------
+    shape : int or (int, int), default 16
+        The number of transducer elements. Passing a single int will create a square array.
+    spread : float, default 10e-3
+        The distance between the array elements.
+
+    """
+
+    _str_fmt_spec = '{:%cls(transducer=%transducer, shape=%shape, spread=%spread, offset=%offset, normal=%normal, rotation=%rotation)}'
+
+    def __init__(self, shape=16, spread=10e-3, **kwargs):
+        positions = self._grid_generator(shape=shape, spread=spread)
+
+        kwargs.setdefault('transducer_size', spread)
+        kwargs.setdefault('positions', positions)
+        kwargs.setdefault('normals', [0, 0, 1])
+        super().__init__(**kwargs)
+        self._extra_print_args.update(shape=shape, spread=spread)
 
     @classmethod
-    def _grid_generator(cls, shape=None, spread=None, normal=(0, 0, 1), **kwargs):
+    def _grid_generator(cls, shape, spread):
         """Create a grid with positions and normals.
 
         See `RectangularArray` for parameters and description.
@@ -464,8 +494,7 @@ class RectangularArray(TransducerArray):
 
         X, Y, Z = np.meshgrid(x, y, 0)
         positions = np.stack((X.flatten(), Y.flatten(), Z.flatten()))
-        normals = np.tile(np.asarray(normal).reshape((3, 1)), (1, positions.shape[1]))
-        return positions, normals
+        return positions
 
     def signature(self, position=None, *args, stype=None, **kwargs):
         """Calculate phase signatures of the array.
@@ -666,4 +695,4 @@ class DragonflyArray(RectangularArray):
     @classmethod
     def _grid_generator(cls, **kwargs):
         from .hardware import dragonfly_grid
-        return dragonfly_grid
+        return dragonfly_grid[0]
