@@ -587,7 +587,7 @@ class ScalarFieldSlice(FieldTrace):
     cmin = None
     cmax = None
 
-    def __init__(self, array, xlimits=None, ylimits=None, zlimits=None, normal=None, intersect=None, resolution=10, **kwargs):
+    def __init__(self, array, intersect=None, normal=None, xlimits=None, ylimits=None, zlimits=None, resolution=10, **kwargs):
         super().__init__(array, **kwargs)
 
         self.resolution = resolution
@@ -740,6 +740,8 @@ class VectorFieldCones(FieldTrace):
     cone_length = 0.75
     cone_vertices = 10
     cone_ratio = 3
+    cmin = None
+    cmax = None
 
     def __init__(self, array, center, resolution=5,
                  xrange=None, yrange=None, zrange=None, **kwargs):
@@ -782,7 +784,7 @@ class VectorFieldCones(FieldTrace):
             type='mesh3d',
             x=vertex_coordinates[0], y=vertex_coordinates[1], z=vertex_coordinates[2],
             i=vertex_indices[0], j=vertex_indices[1], k=vertex_indices[2],
-            intensity=vertex_intensities, opacity=self.opacity, colorscale=self.colorscale,
+            intensity=vertex_intensities, opacity=self.opacity, colorscale=self.colorscale, cmin=self.cmin, cmax=self.cmax,
             colorbar={'title': {'text': _string_formatter(self.label, self.string_format), 'side': 'right'}, 'x': 1.02, 'xanchor': 'right'},
         )
 
@@ -951,13 +953,13 @@ class ForceDiagram(Visualizer):
 
         def __init__(self, array, center, *args,
                      resolution=25, xrange=None, yrange=None, zrange=None,
-                     force_calculator=None, name=None, **kwargs):
-            if force_calculator is None:
+                     field=None, name=None, **kwargs):
+            if field is None:
                 if 'radius' in kwargs:
-                    from .fields import SphericalHarmonicsForce as force_calculator
+                    from .fields import SphericalHarmonicsForce as field
                 else:
-                    from .fields import RadiationForce as force_calculator
-            super().__init__(array, *args, field=force_calculator, **kwargs)
+                    from .fields import RadiationForce as field
+            super().__init__(array, *args, field=field, **kwargs)
             self._trace_id = self._trace_objects
             self._trace_objects += 1
             self._trace_calls = 0
