@@ -569,17 +569,17 @@ class SphericalCapArray(NormalTransducerArray):
     e.g. rotations and offsets.
 
     There are many ways to pack transdcuers on a spherical surface.
-    The 'radius' model will place the transducers on concentric rings where
+    The 'distance' method will place the transducers on concentric rings where
     the distance between each ring is pre-determined. Each ring will have as
     many transducers as possible for the given ring size. This will typically
     pack the transducers densely, and the outer dimentions of the array is
     quite consistent.
-    The 'count' model will use a pre-determined number of transducers in each ring,
+    The 'count' method will use a pre-determined number of transducers in each ring,
     with 6 additional transducers for each successive ring. The inter-ring distance
-    will be set to fit the requested number of transducers. This model will deliver
+    will be set to fit the requested number of transducers. This method will deliver
     a pre-determined number of transducers, but will not be as dense.
-    If too many rings are requested, the 'count' model will fill a half-spere with
-    transducers and then stop. The 'distance' model can fill the entire sphere with
+    If too many rings are requested, the 'count' method will fill a half-spere with
+    transducers and then stop. The 'distance' method can fill the entire sphere with
     transducers.
 
     Parameters
@@ -588,21 +588,21 @@ class SphericalCapArray(NormalTransducerArray):
         The curvature of the spherical cap, i.e. how for away the focus is.
     rings : int
         Number of consecutive rings of transducers in the array.
-    packing_model : str, default 'distance'
-        Controlls which packing model is used. One of 'distance' or 'count', see above.
+    packing : str, default 'distance'
+        Controlls which packing method is used. One of 'distance' or 'count', see above.
     spread : float, default 10e-3
         Controls the minimum spacing between individual transducers.
     """
 
-    _str_fmt_spec = '{:%cls(transducer=%transducer, radius=%radius, rings=%rings, packing_model=%packing_model, offset=%offset, normal=%normal, rotation=%rotation)}'
+    _str_fmt_spec = '{:%cls(transducer=%transducer, radius=%radius, rings=%rings, packing=%packing, offset=%offset, normal=%normal, rotation=%rotation)}'
 
-    def __init__(self, radius, rings, spread=10e-3, packing_model='distance', **kwargs):
+    def __init__(self, radius, rings, spread=10e-3, packing='distance', **kwargs):
         focus = np.array([0, 0, 1]) * radius
         positions = []
         normals = []
         positions.append(np.array([0., 0., 0.]))
         normals.append(np.array([0., 0., 1.]))
-        if packing_model == 'distance':
+        if packing == 'distance':
             for ring in range(1, rings + 1):
                 inclination = np.pi - ring * 2 * np.arcsin(spread / 2 / radius)
                 if inclination < 0:
@@ -618,7 +618,7 @@ class SphericalCapArray(NormalTransducerArray):
                 normal = focus - position
                 positions.extend(position)
                 normals.extend(normal)
-        elif packing_model == 'count':
+        elif packing == 'count':
             for ring in range(1, rings + 1):
                 azimuth = np.arange(6 * ring) / (6 * ring) * np.pi * 2
                 axial_radius = spread / 2 / np.sin(np.pi / 6 / ring)
@@ -638,7 +638,7 @@ class SphericalCapArray(NormalTransducerArray):
         normals = np.stack(normals, 1)
         normals /= np.sum(normals**2, axis=0)**0.5
         super().__init__(positions=positions, normals=normals, **kwargs)
-        self._extra_print_args.update(radius=radius, rings=rings, packing_model=packing_model, spread=spread)
+        self._extra_print_args.update(radius=radius, rings=rings, packing=packing, spread=spread)
 
 
 class DoublesidedArray(TransducerArray):

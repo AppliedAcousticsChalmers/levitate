@@ -1,6 +1,7 @@
 import levitate.arrays
 import levitate.hardware
 import numpy as np
+import pytest
 
 # Tests created with these air properties
 from levitate.materials import air
@@ -50,6 +51,13 @@ def test_rectangular_grid():
     np.testing.assert_allclose(array.normals, expected_normals)
 
 
+def test_dragonfly():
+    pos, norm = levitate.hardware.dragonfly_grid
+    array = levitate.arrays.DragonflyArray()
+    np.testing.assert_allclose(array.positions, pos)
+    np.testing.assert_allclose(array.normals, norm)
+
+
 def test_array_offset():
     array = levitate.arrays.RectangularArray(shape=(4, 2), offset=(0.1, -0.2, 1.4))
     expected_positions = np.array([
@@ -72,6 +80,33 @@ def test_array_offset():
         [0., 0., 1.]]).T
     np.testing.assert_allclose(array.positions, expected_positions)
     np.testing.assert_allclose(array.normals, expected_normals)
+
+
+@pytest.mark.parametrize('offset', [(0., 0., 0.), (1.85194e-3, 28.2839e-3, 35.2830e-3)])
+@pytest.mark.parametrize('radius', [0.4, 0.05])
+@pytest.mark.parametrize('rings', [4, 15])
+@pytest.mark.parametrize('normal', [(0., 0., 1.), (-2., 5., 4.37)])
+@pytest.mark.parametrize('packing', ['distance', 'count'])
+@pytest.mark.parametrize('spread', [10e-3, 5e-3])
+def test_spherical_cap(radius, rings, normal, offset, packing, spread):
+    normal, offset = np.asarray(normal), np.asarray(offset)
+    array = levitate.arrays.SphericalCapArray(radius=radius, rings=rings, spread=spread, packing=packing, normal=normal, offset=offset)
+    focus = normal / np.sum(normal**2)**0.5 * radius + offset
+    diff = focus[:, None] - array.positions
+    dist = np.sum(diff**2, 0)**0.5
+    np.testing.assert_allclose(dist, radius)
+    np.testing.assert_allclose(np.sum(diff * array.normals, 0) / dist, 1.)
+
+    array = levitate.arrays.DoublesidedArray(
+        levitate.arrays.SphericalCapArray(
+            radius=radius, rings=rings, spread=spread, packing=packing, normal=normal
+        ),
+        separation=radius * 2, normal=normal, offset=offset
+    )
+    diff = offset[:, None] - array.positions
+    dist = np.sum(diff**2, 0)**0.5
+    np.testing.assert_allclose(dist, radius)
+    np.testing.assert_allclose(np.sum(diff * array.normals, 0) / dist, 1.)
 
 
 def test_array_normal():
