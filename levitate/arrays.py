@@ -7,6 +7,7 @@ simplify the creation of the transducer positions for common array geometries.
     :nosignatures:
 
     TransducerArray
+    NormalTransducerArray
     RectangularArray
     DoublesidedArray
     DragonflyArray
@@ -59,7 +60,7 @@ class TransducerArray:
 
     _repr_fmt_spec = '{:%cls(transducer=%transducer_full, transducer_size=%transducer_size,\n\tpositions=%positions,\n\tnormals=%normals)}'
     _str_fmt_spec = '{:%cls(transducer=%transducer): %num_transducers transducers}'
-    from .visualizers import ArrayVisualizer
+    from .visualizers import ArrayVisualizer, ForceDiagram
 
     def __init__(self, positions, normals,
                  transducer=None, transducer_size=10e-3, transducer_kwargs=None,
@@ -83,6 +84,7 @@ class TransducerArray:
         self.normals = normals
 
         self.visualize = type(self).ArrayVisualizer(self, 'Transducers')
+        self.force_diagram = type(self).ForceDiagram(self)
 
     def __format__(self, fmt_spec):
         s_out = fmt_spec
@@ -377,42 +379,41 @@ class TransducerArray:
         return evaluated_requests
 
 
-class RectangularArray(TransducerArray):
-    """TransducerArray implementation for rectangular arrays.
+class NormalTransducerArray(TransducerArray):
+    """Transducer array with a clearly defined normal.
 
-    Defines the locations and normals of elements (transducers) in an array.
-    For rotated arrays, the rotation is as follows:
-
-        1) A grid of the correct layout is crated in the xy-plane
-        2) The grid is rotated to the desired plane, as defined by the normal.
-        3) The grid is rotated around the normal.
-
-    The rotation to the desired plane is around the line where the desired
-    plane intersects with the xy-plane.
+    This is mostly intended as a base class for other implementations.
+    The advantage is that a simple arrangement can be created assuming a normal
+    along the z-axis, which is then rotated and moved to the desired orientation.
+    The positions and normals of the transducers should be input assuming that
+    the overall normal for the array is along the z-axis. The positions and normals
+    will be rotated around the origin to give the desired overall normal.
+    This rotation will take place along the intersection line of the plane specificed
+    by the desired normal, and the xy-plane.
+    If rotation is desired, the positions are further rotated using the normal
+    as the rotation axis. Finally an offset is applied to the entire array.
 
     Parameters
     ----------
-    shape : int or (int, int), default 16
-        The number of transducer elements. Passing a single int will create a square array.
-    spread : float, default 10e-3
-        The distance between the array elements.
+    positions : numpy.ndarray
+        The positions of the transducer elements in the array, shape 3xN.
+    normals : numpy.ndarray
+        The normals of the transducer elements in the array, shape 3xN (or 3 elements which will broadcast).
     offset : 3 element array_like, default (0, 0, 0)
         The location of the center of the array.
     normal : 3 element array_like, default (0, 0, 1)
-        The normal of all elements in the array.
+        The normal of the overall array.
     rotation : float, default 0
         The in-plane rotation of the array around the normal.
 
     """
 
-    _str_fmt_spec = '{:%cls(transducer=%transducer, shape=%shape, spread=%spread, offset=%offset, normal=%normal, rotation=%rotation)}'
-
-    def __init__(self, shape=16, spread=10e-3, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
-        extra_print_args = {'shape': shape, 'spread': spread, 'offset': offset, 'normal': normal, 'rotation': rotation}
+    def __init__(self, positions, normals, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
         normal = np.asarray(normal, dtype=float)
         normal /= (normal**2).sum()**0.5
-        positions, normals = self._grid_generator(shape=shape, spread=spread, normal=normal, **kwargs)
-
+        self._overall_normal = normal
+        self._overall_offset = offset
+        self._overall_rotation = rotation
         if normal[0] != 0 or normal[1] != 0:
             # We need to rotate the grid to get the correct normal
             rotation_vector = np.cross(normal, (0, 0, 1))
@@ -434,37 +435,15 @@ class RectangularArray(TransducerArray):
             rotation_matrix = (cos * np.eye(3) + sin * cross_product_matrix + (1 - cos) * np.outer(normal, normal)).dot(rotation_matrix)
 
         positions = rotation_matrix.dot(positions)
-        positions += np.asarray(offset).reshape([3] + (positions.ndim - 1) * [1])
+        positions[0] += offset[0]
+        positions[1] += offset[1]
+        positions[2] += offset[2]
+        normals = rotation_matrix.dot(normals)
 
-        kwargs.setdefault('transducer_size', spread)
         kwargs.setdefault('positions', positions)
         kwargs.setdefault('normals', normals)
         super().__init__(**kwargs)
-        self._extra_print_args.update(extra_print_args)
-
-    @classmethod
-    def _grid_generator(cls, shape=None, spread=None, normal=(0, 0, 1), **kwargs):
-        """Create a grid with positions and normals.
-
-        See `RectangularArray` for parameters and description.
-
-        Returns
-        -------
-        positions : numpy.ndarray
-            The positions of the array elements, shape 3xN.
-        normals : numpy.ndarray
-            The normals of the array elements, shape 3xN.
-
-        """
-        if not hasattr(shape, '__len__') or len(shape) == 1:
-            shape = (shape, shape)
-        x = np.linspace(-(shape[0] - 1) / 2, (shape[0] - 1) / 2, shape[0]) * spread
-        y = np.linspace(-(shape[1] - 1) / 2, (shape[1] - 1) / 2, shape[1]) * spread
-
-        X, Y, Z = np.meshgrid(x, y, 0)
-        positions = np.stack((X.flatten(), Y.flatten(), Z.flatten()))
-        normals = np.tile(np.asarray(normal).reshape((3, 1)), (1, positions.shape[1]))
-        return positions, normals
+        self._extra_print_args.update(offset=offset, normal=normal, rotation=rotation)
 
     def signature(self, position=None, *args, stype=None, **kwargs):
         """Calculate phase signatures of the array.
@@ -547,6 +526,121 @@ class RectangularArray(TransducerArray):
         return super().signature(position, stype=stype, *args, **kwargs)
 
 
+class RectangularArray(NormalTransducerArray):
+    """TransducerArray implementation for rectangular arrays.
+
+    Defines the locations and normals of elements (transducers) in an array.
+    See `NormaltransducerArray` for documentation of roration and transslation options.
+
+    Parameters
+    ----------
+    shape : int or (int, int), default 16
+        The number of transducer elements. Passing a single int will create a square array.
+    spread : float, default 10e-3
+        The distance between the array elements.
+
+    """
+
+    _str_fmt_spec = '{:%cls(transducer=%transducer, shape=%shape, spread=%spread, offset=%offset, normal=%normal, rotation=%rotation)}'
+
+    def __init__(self, shape=16, spread=10e-3, **kwargs):
+        if not hasattr(shape, '__len__') or len(shape) == 1:
+            shape = (shape, shape)
+        x = np.linspace(-(shape[0] - 1) / 2, (shape[0] - 1) / 2, shape[0]) * spread
+        y = np.linspace(-(shape[1] - 1) / 2, (shape[1] - 1) / 2, shape[1]) * spread
+
+        X, Y, Z = np.meshgrid(x, y, 0)
+        positions = np.stack((X.flatten(), Y.flatten(), Z.flatten()))
+
+        kwargs.setdefault('transducer_size', spread)
+        kwargs.setdefault('positions', positions)
+        kwargs.setdefault('normals', [0, 0, 1])
+        super().__init__(**kwargs)
+        self._extra_print_args.update(shape=shape, spread=spread)
+
+
+class SphericalCapArray(NormalTransducerArray):
+    """Transducer array implementation for spherical caps.
+
+    The transducers will be placed on a virtual spherical surface, i.e. on the same
+    distance from a given point in space. Control the overall shape of the array
+    with the `radius`, `rings`, and `spead` parameters.
+    See `NormalTransdcerArray` for details on the overall placement of the array,
+    e.g. rotations and offsets.
+
+    There are many ways to pack transdcuers on a spherical surface.
+    The 'distance' method will place the transducers on concentric rings where
+    the distance between each ring is pre-determined. Each ring will have as
+    many transducers as possible for the given ring size. This will typically
+    pack the transducers densely, and the outer dimentions of the array is
+    quite consistent.
+    The 'count' method will use a pre-determined number of transducers in each ring,
+    with 6 additional transducers for each successive ring. The inter-ring distance
+    will be set to fit the requested number of transducers. This method will deliver
+    a pre-determined number of transducers, but will not be as dense.
+    If too many rings are requested, the 'count' method will fill a half-spere with
+    transducers and then stop. The 'distance' method can fill the entire sphere with
+    transducers.
+
+    Parameters
+    ----------
+    radius : float
+        The curvature of the spherical cap, i.e. how for away the focus is.
+    rings : int
+        Number of consecutive rings of transducers in the array.
+    packing : str, default 'distance'
+        Controlls which packing method is used. One of 'distance' or 'count', see above.
+    spread : float, default 10e-3
+        Controls the minimum spacing between individual transducers.
+    """
+
+    _str_fmt_spec = '{:%cls(transducer=%transducer, radius=%radius, rings=%rings, packing=%packing, offset=%offset, normal=%normal, rotation=%rotation)}'
+
+    def __init__(self, radius, rings, spread=10e-3, packing='distance', **kwargs):
+        focus = np.array([0, 0, 1]) * radius
+        positions = []
+        normals = []
+        positions.append(np.array([0., 0., 0.]))
+        normals.append(np.array([0., 0., 1.]))
+        if packing == 'distance':
+            for ring in range(1, rings + 1):
+                inclination = np.pi - ring * 2 * np.arcsin(spread / 2 / radius)
+                if inclination < 0:
+                    # This means that we have filled the entire sphere.
+                    break
+                num_trans = int(np.sin(inclination) * radius * 2 * np.pi / spread)
+                azimuth = np.arange(num_trans) / num_trans * 2 * np.pi
+                position = radius * np.stack([
+                    np.sin(inclination) * np.cos(azimuth),
+                    np.sin(inclination) * np.sin(azimuth),
+                    np.cos(inclination) * np.ones(num_trans)
+                ], 1) + focus
+                normal = focus - position
+                positions.extend(position)
+                normals.extend(normal)
+        elif packing == 'count':
+            for ring in range(1, rings + 1):
+                azimuth = np.arange(6 * ring) / (6 * ring) * np.pi * 2
+                axial_radius = spread / 2 / np.sin(np.pi / 6 / ring)
+                if axial_radius > radius:
+                    # We have filled the half-sphere, no possibility of fitting more transducers.
+                    break
+                height = radius - (radius**2 - axial_radius**2)**0.5
+                position = np.stack([
+                    axial_radius * np.cos(azimuth),
+                    axial_radius * np.sin(azimuth),
+                    np.ones_like(azimuth) * height], 1)
+                normal = focus - position
+                positions.extend(position)
+                normals.extend(normal)
+        kwargs.setdefault('transducer_size', spread)
+        positions = np.stack(positions, 1)
+        normals = np.stack(normals, 1)
+        normals /= np.sum(normals**2, axis=0)**0.5
+        super().__init__(positions=positions, normals=normals, **kwargs)
+        self._extra_print_args.update(radius=radius, rings=rings, packing=packing, spread=spread)
+
+
 class DoublesidedArray(TransducerArray):
     """TransducerArray implementation for doublesided arrays.
 
@@ -591,7 +685,6 @@ class DoublesidedArray(TransducerArray):
         normal /= (normal**2).sum()**0.5
         offset = np.asarray(offset).copy()
         lower_positions = array.positions - 0.5 * separation * normal[:, None]
-        lower_positions -= np.mean(array.positions, axis=1)[:, None]
         upper_positions = lower_positions - 2 * np.sum(lower_positions * normal[:, None], axis=0) * normal[:, None]
         lower_normals = array.normals.copy()
         normal_proj = np.sum(lower_normals * normal[:, None], axis=0) * normal[:, None]
@@ -652,7 +745,7 @@ class DoublesidedArray(TransducerArray):
         return super().signature(self, position, stype=stype, *args, **kwargs)
 
 
-class DragonflyArray(RectangularArray):
+class DragonflyArray(NormalTransducerArray):
     """Rectangular array with Ultrahaptics Dragonfly U5 layout.
 
     This is a 16x16 element array where the order of the transducer elements
@@ -662,7 +755,7 @@ class DragonflyArray(RectangularArray):
 
     _str_fmt_spec = '{:%cls(transducer=%transducer, offset=%offset, normal=%normal, rotation=%rotation)}'
 
-    @classmethod
-    def _grid_generator(cls, **kwargs):
+    def __init__(self, **kwargs):
         from .hardware import dragonfly_grid
-        return dragonfly_grid
+        kwargs.update(transducer_size=10e-3, positions=dragonfly_grid[0], normals=dragonfly_grid[1])
+        super().__init__(**kwargs)

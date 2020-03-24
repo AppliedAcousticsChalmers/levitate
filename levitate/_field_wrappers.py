@@ -206,7 +206,7 @@ class FieldImplementation(metaclass=FieldImplementationMeta):
 
     """
 
-    def __init__(self, array, *args, **kwargs):  # noqa: D205, D400
+    def __init__(self, array):  # noqa: D205, D400
         """
         Parameters
         ----------
@@ -394,6 +394,9 @@ class FieldBase(metaclass=FieldMeta):
 
     def __rmul__(self, weight):
         return self.__mul__(weight)
+
+    def __truediv__(self, value):
+        return self * (1 / value)
 
     def __str__(self, not_api_call=True):
         return self._str_format_spec.format(self)

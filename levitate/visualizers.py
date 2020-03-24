@@ -1,4 +1,5 @@
 """Visualization classes based on the plotly graphing library."""
+# DOCS: This entire module needs documentation...
 import collections.abc
 import numpy as np
 try:
@@ -8,8 +9,60 @@ except ImportError:
         return dict(data=data, layout=layout, **kwargs)
 
 
+def _string_formatter(string, format_type):
+    if callable(format_type):
+            return format_type(string)
+    format_type = format_type.lower()
+    if format_type == 'html':
+        # **...**
+        parts = string.split('**')
+        parts[1::2] = map('<b>{}</b>'.format, parts[1::2])
+        string = ''.join(parts)
+        # _{...}
+        parts = string.split('_{')
+        parts[1:] = map(lambda s: '<sub>' + s.replace('}', '</sub>', 1), parts[1:])
+        string = ''.join(parts)
+        # _
+        parts = string.split('_')
+        parts[1:] = map(lambda s: '<sub>' + s[0] + '</sub>' + s[1:], parts[1:])
+        string = ''.join(parts)
+        # ^{...}
+        parts = string.split('^{')
+        parts[1:] = map(lambda s: '<sup>' + s.replace('}', '</sup>', 1), parts[1:])
+        string = ''.join(parts)
+        # ^
+        parts = string.split('^')
+        parts[1:] = map(lambda s: '<sup>' + s[0] + '</sup>' + s[1:], parts[1:])
+        string = ''.join(parts)
+        # $...$
+        parts = string.split('$')
+        parts[1::2] = map('<i>{}</i>'.format, parts[1::2])
+        string = ''.join(parts)
+        # multiplication dots
+        string = string.replace('*', u'\u2219')
+        return string
+    if format_type == 'latex':
+        string = string.replace('*', ' \\cdot ')
+        string_parts = string.split('$')
+        string_parts[::2] = map('\\text{{{}}}'.format, string_parts[::2])
+        return '$' + ''.join(string_parts) + '$'
+    return string
+
+
+def _deepupdate(original, update):
+    if not isinstance(original, collections.abc.Mapping):
+        return update
+    for key, value in update.items():
+        if isinstance(value, collections.abc.Mapping):
+            original[key] = _deepupdate(original.get(key, {}), value)
+        else:
+            original[key] = value
+    return original
+
+
 class Visualizer(collections.abc.MutableSequence):
     template = 'plotly_white'
+    string_format = 'html'
 
     def __init__(self, array, *traces, display_scale='mm'):
         self.array = array
@@ -36,7 +89,7 @@ class Visualizer(collections.abc.MutableSequence):
 
     @property
     def layout(self):
-        return dict(template=self.template)
+        return dict(template=self.template, font=dict(family='CMU Serif, Latin Modern, Times New Roman'))
 
     @property
     def display_scale(self):
@@ -151,7 +204,52 @@ class ArrayVisualizer(Visualizer):
 
     @property
     def layout(self):
-        return dict(super().layout, scene=dict(aspectmode='data'))
+        return _deepupdate(
+            super().layout, dict(scene=dict(
+                aspectmode='data',
+                xaxis=dict(title=_string_formatter('$x$ in ' + self.display_scale, self.string_format)),
+                yaxis=dict(title=_string_formatter('$y$ in ' + self.display_scale, self.string_format)),
+                zaxis=dict(title=_string_formatter('$z$ in ' + self.display_scale, self.string_format))
+            )))
+
+    def projection_layout(self, plane='xz', scale=None, layout=None):
+        scale = 1 if scale is None else scale
+        new = {'scene': {'aspectmode': 'manual', 'camera': {'projection': {'type': 'orthographic'}}}}
+        if plane == 'xy':
+            new['scene']['zaxis'] = {'visible': False}
+            new['scene']['camera']['eye'] = dict(x=0, y=0, z=1)
+            new['scene']['camera']['up'] = dict(x=0, y=1, z=0)
+            new['scene']['aspectratio'] = dict(x=scale, y=scale, z=1)
+        elif plane == 'yx':
+            new['scene']['zaxis'] = {'visible': False}
+            new['scene']['camera']['eye'] = dict(x=0, y=0, z=-1)
+            new['scene']['camera']['up'] = dict(x=1, y=0, z=0)
+            new['scene']['aspectratio'] = dict(x=scale, y=scale, z=1)
+        elif plane == 'xz':
+            new['scene']['yaxis'] = {'visible': False}
+            new['scene']['camera']['eye'] = dict(x=0, y=-1, z=0)
+            new['scene']['camera']['up'] = dict(x=0, y=0, z=1)
+            new['scene']['aspectratio'] = dict(x=scale, y=1, z=scale)
+        elif plane == 'zx':
+            new['scene']['yaxis'] = {'visible': False}
+            new['scene']['camera']['eye'] = dict(x=0, y=1, z=0)
+            new['scene']['camera']['up'] = dict(x=1, y=0, z=0)
+            new['scene']['aspectratio'] = dict(x=scale, y=1, z=scale)
+        elif plane == 'yz':
+            new['scene']['xaxis'] = {'visible': False}
+            new['scene']['camera']['eye'] = dict(x=1, y=0, z=0)
+            new['scene']['camera']['up'] = dict(x=0, y=0, z=1)
+            new['scene']['aspectratio'] = dict(x=1, y=scale, z=scale)
+        elif plane == 'zy':
+            new['scene']['xaxis'] = {'visible': False}
+            new['scene']['camera']['eye'] = dict(x=-1, y=0, z=0)
+            new['scene']['camera']['up'] = dict(x=0, y=1, z=0)
+            new['scene']['aspectratio'] = dict(x=1, y=scale, z=scale)
+        else:
+            raise ValueError('Unknown projection plane `{}`'.format(plane))
+        # TODO: Handle plotly Layout objects, plotly Figures, and dicts corresponding to figures.
+        # The difficulty is that Layout objects and Figures doesn't have a setdefault method.
+        return _deepupdate({} if layout is None else layout, new)
 
     def __call__(self, *complex_transducer_amplitudes, **kwargs):
         traces = []
@@ -163,9 +261,10 @@ class ArrayVisualizer(Visualizer):
             button_labels = ['{}']
         else:
             if 'labels' in kwargs:
-                button_labels = [kwargs['labels'][idx] + ' | {}' for idx in range(len(complex_transducer_amplitudes))]
+                labels = kwargs.pop('labels')
+                button_labels = [labels[idx] + ' | {}' for idx in range(len(complex_transducer_amplitudes))]
             else:
-                label = kwargs.get('label', 'State')
+                label = kwargs.pop('label', 'State')
                 button_labels = [label + ' {} | {{}}'.format(idx) for idx in range(len(complex_transducer_amplitudes))]
 
         trace_idx = 0
@@ -207,7 +306,9 @@ class ArrayVisualizer(Visualizer):
                 if field_idx > 0:
                     traces[trace_idx]['visible'] = False
             updatemenus.append(dict(active=0, buttons=buttons, type='buttons', direction='down', x=1.02, xanchor='left'))
-        layout = dict(self.layout, updatemenus=updatemenus)
+        layout = _deepupdate(self.layout, {'updatemenus': updatemenus})
+        if 'projection' in kwargs:
+            self.projection_layout(layout=layout, plane=kwargs.pop('projection'), scale=kwargs.pop('scale', None))
         return Figure(data=traces, layout=layout)
 
 
@@ -224,6 +325,20 @@ class Trace:
             return self.visualizer._display_scale
         except AttributeError:
             return 1
+
+    @property
+    def string_format(self):
+        try:
+            return self._stirng_format
+        except AttributeError:
+            try:
+                return self.visualizer.string_format
+            except AttributeError:
+                return Visualizer.stirng_format
+
+    @string_format.setter
+    def string_format(self, val):
+        self._string_format = val
 
 
 class TrapPath(Trace):
@@ -254,8 +369,29 @@ class TrapPath(Trace):
 
 
 class MeshTrace(Trace):
-    def _update_mesh(self):
-        raise NotImplementedError('Subclasses of `MeshTrace` has to implement `_update_mesh`')
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__mesh_is_outdated = True
+
+    def _generate_mesh(self):
+        raise NotImplementedError('Subclasses of `MeshTrace` has to implement `_generate_mesh`')
+
+    def __update_mesh(self, force=False):
+        if force or self.__mesh_is_outdated:
+            self.mesh = self._generate_mesh()
+
+    def __call__(self):
+        self.__update_mesh()
+
+    @property
+    def mesh(self):
+        self.__update_mesh()
+        return self.__mesh
+
+    @mesh.setter
+    def mesh(self, value):
+        self.__mesh = value
+        self.__mesh_is_outdated = False
 
     class meshproperty:
         def __set_name__(self, obj, name):
@@ -271,7 +407,7 @@ class MeshTrace(Trace):
 
         def __set__(self, obj, value):
             setattr(obj, self.name, self.fpre(obj, value))
-            obj._update_mesh()
+            obj._MeshTrace__mesh_is_outdated = True
 
         def __delete__(self, obj):
             delattr(obj, self.name)
@@ -287,7 +423,7 @@ class FieldTrace(MeshTrace):
     colorscale = 'Viridis'
 
     def __init__(self, array, field=None, **field_kwargs):
-        self.array = array
+        super().__init__(array)
         if field is not None:
             if isinstance(field, type):
                 self.field = field(array, **field_kwargs)
@@ -299,6 +435,7 @@ class FieldTrace(MeshTrace):
             raise ValueError('Class {} has no field class, and no field was supplied!'.format(self.__class__.__name__))
 
     def __call__(self, complex_transducer_amplitudes=None):
+        super().__call__()
         return self.postprocessing(self.field(self.preprocessing(complex_transducer_amplitudes)))
 
     def preprocessing(self, complex_transducer_amplitudes):
@@ -309,15 +446,18 @@ class FieldTrace(MeshTrace):
 
     @property
     def mesh(self):
-        return self.__mesh
+        return super().mesh
 
     @mesh.setter
     def mesh(self, value):
+        # This accesses the setter implemented in the superclass.
+        # It's slightly annoying that there is no really convenient way to
+        # get the setter of a property in the superclass.
+        super(FieldTrace, type(self)).mesh.fset(self, value)
         # Rebind the field to the new mesh.
         # Doing this in a setter makes sure that if the user changes the mesh manually,
         # the field will still match the mesh.
-        self.__mesh = value
-        self.field = self.field @ value
+        self.field = self.field @ self.mesh
 
 
 class TransducerTrace(MeshTrace):
@@ -332,12 +472,12 @@ class TransducerTrace(MeshTrace):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._update_mesh()
 
     def data_map(self, complex_transducer_amplitudes=None):
         return np.zeros(self.array.num_transducers)
 
     def __call__(self, complex_transducer_amplitudes=None):
+        super().__call__()
         coordinates, indices = self.mesh
         viz_data = self.data_map(complex_transducer_amplitudes)
         intensity = np.repeat(viz_data, coordinates.shape[1] // len(viz_data))
@@ -348,11 +488,11 @@ class TransducerTrace(MeshTrace):
             i=indices[0], j=indices[1], k=indices[2],
             intensity=intensity,
             colorscale=self.colorscale, showscale=self.showscale,
-            colorbar={'title': {'text': self.label, 'side': 'right'}, 'x': -0.02, 'xanchor': 'left'},
+            colorbar={'title': {'text': _string_formatter(self.label, self.string_format), 'side': 'right'}, 'x': -0.02, 'xanchor': 'left'},
             cmin=self.cmin, cmax=self.cmax,
         )
 
-    def _update_mesh(self):
+    def _generate_mesh(self):
         N = self.num_vertices
         # Each transducer coordinates will have first N point in the upper circle, then N points in the lower circle
         i = []
@@ -403,7 +543,7 @@ class TransducerTrace(MeshTrace):
 
         indices = np.concatenate(indices, axis=1)
         coordinates = np.concatenate(coordinates, axis=1)
-        self.mesh = (coordinates, indices)
+        return (coordinates, indices)
 
 
 class TransducerPhase(TransducerTrace):
@@ -447,9 +587,8 @@ class ScalarFieldSlice(FieldTrace):
     cmin = None
     cmax = None
 
-    def __init__(self, array, xlimits=None, ylimits=None, zlimits=None, normal=None, intersect=None, resolution=10, **kwargs):
+    def __init__(self, array, intersect=None, normal=None, xlimits=None, ylimits=None, zlimits=None, resolution=10, **kwargs):
         super().__init__(array, **kwargs)
-        self._in_init = True
 
         self.resolution = resolution
         self.normal = normal if normal is not None else (0, 1, 0)
@@ -477,9 +616,6 @@ class ScalarFieldSlice(FieldTrace):
         self.ylimits = ylimits
         self.zlimits = zlimits
 
-        self._in_init = False
-        self._update_mesh()
-
     @MeshTrace.meshproperty
     def normal(self, value):
         value = np.asarray(value, dtype=float)
@@ -501,9 +637,7 @@ class ScalarFieldSlice(FieldTrace):
     ylimits = MeshTrace.meshproperty()
     zlimits = MeshTrace.meshproperty()
 
-    def _update_mesh(self):
-        if self._in_init:
-            return
+    def _generate_mesh(self):
         # Find two vectors that span the plane
         v1 = np.array([1., 1., 1.])
         n_max = np.argmax(np.abs(self.normal))
@@ -567,13 +701,13 @@ class ScalarFieldSlice(FieldTrace):
         )
 
         # Reshift the mesh to the actual coordinates so that it intersects the intersect point.
-        self.mesh = mesh[:, idx] + self.intersect.reshape((3, 1))
+        return mesh[:, idx] + self.intersect.reshape((3, 1))
 
     def __call__(self, complex_transducer_amplitudes=None):
         return dict(
             type='mesh3d', intensity=super().__call__(complex_transducer_amplitudes),
             cmin=self.cmin, cmax=self.cmax, colorscale=self.colorscale,
-            colorbar={'title': {'text': self.label, 'side': 'right'}, 'x': 1.02, 'xanchor': 'right'},
+            colorbar={'title': {'text': _string_formatter(self.label, self.string_format), 'side': 'right'}, 'x': 1.02, 'xanchor': 'right'},
             x=np.squeeze(self.mesh[0]) / self.display_scale,
             y=np.squeeze(self.mesh[1]) / self.display_scale,
             z=np.squeeze(self.mesh[2]) / self.display_scale,
@@ -603,21 +737,21 @@ class VelocitySlice(ScalarFieldSlice):
 
 class VectorFieldCones(FieldTrace):
     opacity = 0.5
-    cone_length = 0.8
+    cone_length = 0.75
     cone_vertices = 10
     cone_ratio = 3
+    cmin = None
+    cmax = None
 
     def __init__(self, array, center, resolution=5,
                  xrange=None, yrange=None, zrange=None, **kwargs):
         super().__init__(array, **kwargs)
-        self._in_init = True
+
         self.center = center
         self.resolution = resolution
         self.xrange = xrange if xrange is not None else self.array.wavelength
         self.yrange = yrange if yrange is not None else self.array.wavelength
         self.zrange = zrange if zrange is not None else self.array.wavelength
-        self._in_init = False
-        self._update_mesh()
 
     @MeshTrace.meshproperty
     def resolution(self, val):
@@ -632,9 +766,7 @@ class VectorFieldCones(FieldTrace):
     yrange = MeshTrace.meshproperty()
     zrange = MeshTrace.meshproperty()
 
-    def _update_mesh(self):
-        if self._in_init:
-            return
+    def _generate_mesh(self):
         nx = int(2 * np.ceil(self.xrange / self._resolution) + 1)
         ny = int(2 * np.ceil(self.yrange / self._resolution) + 1)
         nz = int(2 * np.ceil(self.zrange / self._resolution) + 1)
@@ -643,7 +775,7 @@ class VectorFieldCones(FieldTrace):
         y = np.linspace(-self.yrange, self.yrange, ny) + self.center[1]
         z = np.linspace(-self.zrange, self.zrange, nz) + self.center[2]
 
-        self.mesh = np.stack(np.meshgrid(x, y, z, indexing='ij'), axis=0).reshape((3, -1))
+        return np.stack(np.meshgrid(x, y, z, indexing='ij'), axis=0).reshape((3, -1))
 
     def __call__(self, complex_transducer_amplitudes=None):
         field_data = super().__call__(complex_transducer_amplitudes)
@@ -652,8 +784,8 @@ class VectorFieldCones(FieldTrace):
             type='mesh3d',
             x=vertex_coordinates[0], y=vertex_coordinates[1], z=vertex_coordinates[2],
             i=vertex_indices[0], j=vertex_indices[1], k=vertex_indices[2],
-            intensity=vertex_intensities, opacity=self.opacity, colorscale=self.colorscale,
-            colorbar={'title': {'text': self.label, 'side': 'right'}, 'x': 1.02, 'xanchor': 'right'},
+            intensity=vertex_intensities, opacity=self.opacity, colorscale=self.colorscale, cmin=self.cmin, cmax=self.cmax,
+            colorbar={'title': {'text': _string_formatter(self.label, self.string_format), 'side': 'right'}, 'x': 1.02, 'xanchor': 'right'},
         )
 
     def _generate_vertices(self, field_data):
@@ -730,7 +862,7 @@ class ForceCones(VectorFieldCones):
     def label(self):
         try:
             if self.scale_to_gravity:
-                return "$|F|/mg$"
+                return "|$F$|$/mg$"
         except AttributeError:
             pass
         return 'Force magnitude in N'
@@ -779,7 +911,7 @@ class ForceDiagram(Visualizer):
             for idx, data in enumerate(complex_transducer_amplitudes):
                 this_state_traces = field(
                     data, line=kwargs['line'][idx] if 'line' in kwargs else dict(color=colors[idx % len(colors)]),
-                    name=kwargs['name'][idx] if 'name' in kwargs else 'Data {}'.format(idx),
+                    name=_string_formatter(kwargs['name'][idx] if 'name' in kwargs else 'Data {}'.format(idx), self.string_format),
                 )
                 all_traces.extend(this_state_traces)
         elif len(self) > 1:
@@ -787,7 +919,7 @@ class ForceDiagram(Visualizer):
             for idx, field in enumerate(self):
                 this_field_traces = field(
                     data, line=kwargs['line'][idx] if 'line' in kwargs else dict(color=colors[idx % len(colors)]),
-                    name=kwargs['name'][idx] if 'name' in kwargs else field.name if field.name is not '' else 'Force {}'.format(idx),
+                    name=_string_formatter(kwargs['name'][idx] if 'name' in kwargs else field.name if field.name is not '' else 'Force {}'.format(idx), self.string_format),
                 )
                 all_traces.extend(this_field_traces)
         else:
@@ -804,44 +936,41 @@ class ForceDiagram(Visualizer):
         total_pieces = layout_gap_ratio * 3 + 2
         width = layout_gap_ratio / total_pieces
         gap = 1 / total_pieces
-        length_unit = r'\text{{ in {}}}'.format(self.display_scale)
-        force_unit = '/mg' if self.scale_to_gravity else r'\text{ in N}'
-        return dict(
-            super().layout,
-            xaxis=dict(title='$x' + length_unit + '$', domain=[0, width], anchor='y3'),
-            xaxis2=dict(title='$y' + length_unit + '$', domain=[width + gap, 2 * width + gap], anchor='y3'),
-            xaxis3=dict(title='$z' + length_unit + '$', domain=[2 * width + 2 * gap, 1], anchor='y3'),
-            yaxis=dict(title='$F_x' + force_unit + '$', domain=[2 * width + 2 * gap, 1]),
-            yaxis2=dict(title='$F_y' + force_unit + '$', domain=[width + gap, 2 * width + gap]),
-            yaxis3=dict(title='$F_z' + force_unit + '$', domain=[0, width]),
-        )
+        length_unit = ' in {}'.format(self.display_scale)
+        force_unit = '$/mg$' if self.scale_to_gravity else ' in N'
+        return _deepupdate(
+            super().layout, dict(
+                xaxis=dict(title=_string_formatter('$x$' + length_unit, self.string_format), domain=[0, width], anchor='y3'),
+                xaxis2=dict(title=_string_formatter('$y$' + length_unit, self.string_format), domain=[width + gap, 2 * width + gap], anchor='y3'),
+                xaxis3=dict(title=_string_formatter('$z$' + length_unit, self.string_format), domain=[2 * width + 2 * gap, 1], anchor='y3'),
+                yaxis=dict(title=_string_formatter('$F_x$' + force_unit, self.string_format), domain=[2 * width + 2 * gap, 1]),
+                yaxis2=dict(title=_string_formatter('$F_y$' + force_unit, self.string_format), domain=[width + gap, 2 * width + gap]),
+                yaxis3=dict(title=_string_formatter('$F_z$' + force_unit, self.string_format), domain=[0, width]),
+            ))
 
     class ForceTrace(FieldTrace):
         _trace_objects = 0
 
         def __init__(self, array, center, *args,
                      resolution=25, xrange=None, yrange=None, zrange=None,
-                     force_calculator=None, name=None, **kwargs):
-            if force_calculator is None:
+                     field=None, name=None, **kwargs):
+            if field is None:
                 if 'radius' in kwargs:
-                    from .fields import SphericalHarmonicsForce as force_calculator
+                    from .fields import SphericalHarmonicsForce as field
                 else:
-                    from .fields import RadiationForce as force_calculator
-            super().__init__(array, *args, field=force_calculator, **kwargs)
+                    from .fields import RadiationForce as field
+            super().__init__(array, *args, field=field, **kwargs)
             self._trace_id = self._trace_objects
             self._trace_objects += 1
             self._trace_calls = 0
             if name is not None:
                 self.name = name
 
-            self._in_init = True
             self.center = center
             self.resolution = resolution
             self.xrange = xrange if xrange is not None else self.array.wavelength
             self.yrange = yrange if yrange is not None else self.array.wavelength
             self.zrange = zrange if zrange is not None else self.array.wavelength
-            self._in_init = False
-            self._update_mesh()
 
         @property
         def scale_to_gravity(self):
@@ -863,9 +992,7 @@ class ForceDiagram(Visualizer):
         yrange = MeshTrace.meshproperty()
         zrange = MeshTrace.meshproperty()
 
-        def _update_mesh(self):
-            if self._in_init:
-                return
+        def _generate_mesh(self):
             nx = int(2 * np.ceil(self.xrange / self._resolution) + 1)
             ny = int(2 * np.ceil(self.yrange / self._resolution) + 1)
             nz = int(2 * np.ceil(self.zrange / self._resolution) + 1)
@@ -882,7 +1009,7 @@ class ForceDiagram(Visualizer):
             Y = np.stack([np.repeat(self.center[0], ny), y, np.repeat(self.center[2], ny)], axis=0)
             Z = np.stack([np.repeat(self.center[0], nz), np.repeat(self.center[1], nz), z], axis=0)
 
-            self.mesh = np.concatenate([X, Y, Z], axis=1)
+            return np.concatenate([X, Y, Z], axis=1)
 
         def __call__(self, complex_transducer_amplitudes, **kwargs):
             force = super().__call__(complex_transducer_amplitudes)
