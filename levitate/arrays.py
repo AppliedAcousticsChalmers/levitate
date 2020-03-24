@@ -618,8 +618,8 @@ class SphericalCapArray(NormalTransducerArray):
         focus = np.array([0, 0, 1]) * radius
         positions = []
         normals = []
-        positions.append(np.array([0, 0, 0]))
-        normals.append(np.array([0, 0, 1]))
+        positions.append(np.array([0., 0., 0.]))
+        normals.append(np.array([0., 0., 1.]))
         if packing_model == 'distance':
             for ring in range(1, rings + 1):
                 inclination = np.pi - ring * 2 * np.arcsin(spread / 2 / radius)
@@ -703,7 +703,6 @@ class DoublesidedArray(TransducerArray):
         normal /= (normal**2).sum()**0.5
         offset = np.asarray(offset).copy()
         lower_positions = array.positions - 0.5 * separation * normal[:, None]
-        lower_positions -= np.mean(array.positions, axis=1)[:, None]
         upper_positions = lower_positions - 2 * np.sum(lower_positions * normal[:, None], axis=0) * normal[:, None]
         lower_normals = array.normals.copy()
         normal_proj = np.sum(lower_normals * normal[:, None], axis=0) * normal[:, None]
