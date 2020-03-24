@@ -737,7 +737,7 @@ class CircularPiston(PointSource):
         dots = np.einsum('i...,i...', diff, source_normals)
         norm1 = np.einsum('i...,i...', source_normals, source_normals)**0.5
         norm2 = np.einsum('i...,i...', diff, diff)**0.5
-        cos_angle = dots / norm2 / norm1
+        cos_angle = np.clip(dots / norm2 / norm1, -1, 1)  # Clip needed because numrical precicion sometimes give a value slightly outside the reasonable range.
         sin_angle = (1 - cos_angle**2)**0.5
         ka = self.k * self.effective_radius
 
@@ -808,7 +808,7 @@ class CircularRing(PointSource):
         dots = np.einsum('i...,i...', diff, source_normals)
         norm1 = np.einsum('i...,i...', source_normals, source_normals)**0.5
         norm2 = np.einsum('i...,i...', diff, diff)**0.5
-        cos_angle = dots / norm2 / norm1
+        cos_angle = np.clip(dots / norm2 / norm1, -1, 1)  # Clip needed because numrical precicion sometimes give a value slightly outside the reasonable range.
         sin_angle = (1 - cos_angle**2)**0.5
         ka = self.k * self.effective_radius
         return j0(ka * sin_angle)
@@ -848,7 +848,7 @@ class CircularRing(PointSource):
         r = np.sum(diff**2, axis=0)**0.5
         n = source_normals
         norm = np.einsum('i...,i...', n, n)**0.5
-        cos = dot / r / norm
+        cos = np.clip(dot / r / norm, -1, 1)  # Clip needed because numrical precicion sometimes give a value slightly outside the reasonable range.
         sin = (1 - cos**2)**0.5
         ka = self.k * self.effective_radius
         ka_sin = ka * sin
