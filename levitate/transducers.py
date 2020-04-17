@@ -963,6 +963,11 @@ class RectangularCylinderModes(TransducerModel):
         # =====================================================================
 
         damping = 0.01
+        nx_max = np.floor(4 * self.freq * self.Lx / self.medium.c).astype(int)  # DEBUG
+        ny_max = np.floor(4 * self.freq * self.Ly / self.medium.c).astype(int)  # DEBUG
+        nz_max = np.floor(4 * self.freq * self.Lz / self.medium.c).astype(int)  # DEBUG
+        modal_derivatives = np.zeros((nx_max + 1, ny_max + 1, nz_max + 1, utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[1:], dtype=np.complex128)  # DEBUG
+        modal_frequencies = np.zeros((nx_max + 1, ny_max + 1, nz_max + 1))  # DEBUG
         nx = 0
         while self.medium.c / 2 * nx / self.Lx <= 2 * self.freq:
             ny = 0
@@ -986,35 +991,42 @@ class RectangularCylinderModes(TransducerModel):
 
                     constant = source_modeshape / (Lambda * ((omega_mode**2 - self.omega**2) + 2 * 1j * omega_mode * damping))
 
-                    derivatives[0] += constant * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                    this_mode_derivatives = np.empty((utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[1:], dtype=np.complex128)  # DEBUG
+                    this_mode_derivatives[0] = constant * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
 
                     if orders > 0:
-                        derivatives[1] += - constant * fact_x * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        derivatives[2] += - constant * fact_y * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        derivatives[3] += - constant * fact_z * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[1] = - constant * fact_x * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[2] = - constant * fact_y * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[3] = - constant * fact_z * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
                     if orders > 1:
-                        derivatives[4] += - constant * fact_x**2 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        derivatives[5] += - constant * fact_y**2 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        derivatives[6] += - constant * fact_z**2 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        derivatives[7] += constant * fact_x * fact_y * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        derivatives[8] += constant * fact_x * fact_z * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
-                        derivatives[9] += constant * fact_y * fact_z * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[4] = - constant * fact_x**2 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[5] = - constant * fact_y**2 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[6] = - constant * fact_z**2 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[7] = constant * fact_x * fact_y * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[8] = constant * fact_x * fact_z * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[9] = constant * fact_y * fact_z * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
                     if orders > 2:
-                        derivatives[10] += constant * fact_x**3 * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        derivatives[11] += constant * fact_y**3 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        derivatives[12] += constant * fact_z**3 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
-                        derivatives[13] += constant * fact_x**2 * fact_y * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        derivatives[14] += constant * fact_x**2 * fact_z * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
-                        derivatives[15] += constant * fact_y**2 * fact_x * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        derivatives[16] += constant * fact_y**2 * fact_z * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
-                        derivatives[17] += constant * fact_z**2 * fact_x * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        derivatives[18] += constant * fact_z**2 * fact_y * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        derivatives[19] += - constant * fact_x * fact_y * fact_z * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[10] = constant * fact_x**3 * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[11] = constant * fact_y**3 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[12] = constant * fact_z**3 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[13] = constant * fact_x**2 * fact_y * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[14] = constant * fact_x**2 * fact_z * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[15] = constant * fact_y**2 * fact_x * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[16] = constant * fact_y**2 * fact_z * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[17] = constant * fact_z**2 * fact_x * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[18] = constant * fact_z**2 * fact_y * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                        this_mode_derivatives[19] = - constant * fact_x * fact_y * fact_z * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
 
+                    modal_derivatives[nx, ny, nz] = this_mode_derivatives  # DEBUG
+                    modal_frequencies[nx, ny, nz] = omega_mode / 2 / np.pi  # DEBUG
+                    derivatives += this_mode_derivatives  # DEBUG: Add in place instead?
                     nz += 1
                 ny += 1
             nx += 1
+            self.modal_derivatives = modal_derivatives  # DEBUG
+            self.modal_frequencies = modal_frequencies  # DEBUG
 
+        self.modal_derivatives *= 1j * self.omega * self.medium.rho * self.medium.c**2 / (self.Lx * self.Ly * self.Lz)
         derivatives *= 1j * self.omega * self.medium.rho * self.medium.c**2 / (self.Lx * self.Ly * self.Lz)
 
         return derivatives
