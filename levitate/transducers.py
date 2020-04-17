@@ -921,8 +921,11 @@ class CircularRing(PointSource):
 
 
 class RectangularCylinderModes(TransducerModel):
+    # TODO: Cleaup of comments.
+    # DOCS: Needed!
 
     def __init__(self, Lx, Ly, Lz, *args, **kwargs):
+        # TODO: Better specification of size. Length + center? (side, side)?
 
         super().__init__(*args, **kwargs)
         # This deals with the TransducerModel superclass
@@ -962,6 +965,8 @@ class RectangularCylinderModes(TransducerModel):
 
         # =====================================================================
 
+        # TODO: Check the conventions for the complex exponential. The jw might stem from d/ts -> jw, but with our conventions we have d/dt -> -iw. There's two j's I could find that might be relevant, one in the damping term, and one in the overall scaling.
+        # IDEA: Include proper material based modelling of the damping coefficient?
         damping = 0.01
         nx_max = np.floor(4 * self.freq * self.Lx / self.medium.c).astype(int)  # DEBUG
         ny_max = np.floor(4 * self.freq * self.Ly / self.medium.c).astype(int)  # DEBUG
@@ -1026,7 +1031,26 @@ class RectangularCylinderModes(TransducerModel):
             self.modal_derivatives = modal_derivatives  # DEBUG
             self.modal_frequencies = modal_frequencies  # DEBUG
 
+        # TODO: Make sure that the scaling makes sense!
+        # We need a volume velocity! From Williams 1999, (6.71, p.198) pressure from a monopole:
+        #   p = -i rho_0 c k / (4 pi) Q_s exp(ikr) / r
+        #   Units: Pa = kg/m^3 m/s 1/m [Q] 1/m = kg/m^4/s [Q] => [Q] = Pa m^4 s / kg = N m^2 s/kg = kg m/s^2 m^2 s/kg = m^3 / s
+        #   [Q] = m^3 / s, i.e. volume per second.
+        # Our corresponding expression is:
+        #   p = p_0 exp(ikr) / r
+        # So p_0 = -i rho_0 c k / (4 pi) Q_s => Q_s =  4 pi p_0 / (i rho_0 c k) = 4 pi p_0 / (i w rho_0)
+        # The expression
+        #   jw rho_0 c^2 U / V = jw rho_0 c^2 (4 pi p_0 / (i w rho_0)) / V
+        #   = ± 4 pi c^2 p_0 / V
+        # Unit check: Pa = m^2/s^2 (Pa m) 1/m^3 sum s^2 = Pa. Ok!
         self.modal_derivatives *= 1j * self.omega * self.medium.rho * self.medium.c**2 / (self.Lx * self.Ly * self.Lz)
         derivatives *= 1j * self.omega * self.medium.rho * self.medium.c**2 / (self.Lx * self.Ly * self.Lz)
+        # derivatives *= 4 * np.pi * self.p0 * self.medium.c**2 / (self.Lx * self.Ly * self.Lz)  # This might be correct?
 
         return derivatives
+
+        # Can this be generalized somehow to create a mode-shape transducer superclass?
+        # Create separate functions for modeshape (+derivatives), modal frequency, modal amplitude.
+        # Will be somewhat difficult since different geometries will have different number of indices for the modes.
+        # Unless we choose to store them linearly and add indexing + generator methods somewhere?
+        # Disadvantage: Storing all the values per mode takes several thousand times more memory, so a single transducer seems to need 2 GB of ram for just the pressure in a small slice...
