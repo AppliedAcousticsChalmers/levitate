@@ -948,7 +948,7 @@ class RectangularCylinderModes(TransducerModel):
         # diff = receiver_positions.reshape((3,) + (1,) * (source_positions.ndim - 1) + receiver_positions.shape[1:]) - source_positions.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
         # Empty numpy array to hold the results. Have a look at `levitate.utils.pressure_derivs_order` to see in which order they should be stored.
 
-        derivatives = np.empty((utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[1:], dtype=np.complex128)
+        derivatives = np.zeros((utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[1:], dtype=np.complex128)
 
         # =====================================================================
 
