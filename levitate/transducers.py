@@ -986,7 +986,7 @@ class RectangularCylinderModes(TransducerModel):
 
                     constant = source_modeshape / (Lambda * ((omega_mode**2 - self.omega**2) + 2 * 1j * omega_mode * damping))
 
-                    derivatives[0] += np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                    derivatives[0] += constant * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
 
                     if orders > 0:
                         derivatives[1] += - constant * fact_x * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
