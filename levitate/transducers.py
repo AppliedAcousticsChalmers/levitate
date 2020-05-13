@@ -928,42 +928,23 @@ class RectangularCylinderModes(TransducerModel):
         # TODO: Better specification of size. Length + center? (side, side)?
 
         super().__init__(*args, **kwargs)
-        # This deals with the TransducerModel superclass
-
-        # Save the geometry of the cavity
-
-        # Add more parameters if needed.
 
         self.Lx, self.Ly, self.Lz = Lx, Ly, Lz
 
     def pressure_derivs(self, source_positions, source_normals, receiver_positions, orders=3):
 
-        # A good easy example is the implementation in PlaneWaveTransducer, line 611 in transducers
-
         shift = np.array([self.Lx / 2, self.Ly / 2, 0])
 
         source_positions = np.asarray(source_positions)
-        # source_positions = source_positions.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
-
         receiver_positions = np.asarray(receiver_positions)
-        # receiver_positions = receiver_positions.reshape((3,) + (1,) * (source_positions.ndim - 1) + receiver_positions.shape[1:])
-        # Diff will contain [dx, dy, dz] in the first axis, the indices of the sources in the second axis, and the indices of the receivers in the remaining axes.
-        # diff = receiver_positions.reshape((3,) + (1,) * (source_positions.ndim - 1) + receiver_positions.shape[1:]) - source_positions.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
-        # Empty numpy array to hold the results. Have a look at `levitate.utils.pressure_derivs_order` to see in which order they should be stored.
 
-        derivatives = np.zeros((utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[1:], dtype=np.complex128)
+        if receiver_positions.shape[1:] == ():
+            receiver_positions = receiver_positions.reshape((3,) + (1,))
 
-        # =====================================================================
+        source_positions = source_positions.reshape(source_positions.shape[:2] + (1,))
+        receiver_positions = receiver_positions.reshape((3,) + (1,) + receiver_positions.shape[1:])
 
-        # Calculate the pressure and spatial derivatives here. Fill the
-
-        # `derivatives` array with the values. If it turns out to be too
-
-        # difficult to do the math for the derivatives, let me know and we
-
-        # will solve it numerically instead.
-
-        # =====================================================================
+        derivatives = np.zeros((utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[2:], dtype=np.complex128)
 
         # TODO: Check the conventions for the complex exponential. The jw might stem from d/ts -> jw, but with our conventions we have d/dt -> -iw. There's two j's I could find that might be relevant, one in the damping term, and one in the overall scaling.
         # IDEA: Include proper material based modelling of the damping coefficient?
@@ -971,8 +952,9 @@ class RectangularCylinderModes(TransducerModel):
         nx_max = np.floor(4 * self.freq * self.Lx / self.medium.c).astype(int)  # DEBUG
         ny_max = np.floor(4 * self.freq * self.Ly / self.medium.c).astype(int)  # DEBUG
         nz_max = np.floor(4 * self.freq * self.Lz / self.medium.c).astype(int)  # DEBUG
-        modal_derivatives = np.zeros((nx_max + 1, ny_max + 1, nz_max + 1, utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[1:], dtype=np.complex128)  # DEBUG
-        modal_frequencies = np.zeros((nx_max + 1, ny_max + 1, nz_max + 1))  # DEBUG
+        # modal_derivatives = np.zeros((nx_max + 1, ny_max + 1, nz_max + 1, utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[2:], dtype=np.complex128)  # DEBUG
+        # modal_frequencies = np.zeros((nx_max + 1, ny_max + 1, nz_max + 1))  # DEBUG
+
         nx = 0
         while self.medium.c / 2 * nx / self.Lx <= 2 * self.freq:
             ny = 0
@@ -994,9 +976,9 @@ class RectangularCylinderModes(TransducerModel):
                     omega_mode = self.medium.c * np.sqrt((nx * np.pi / self.Lx)**2 + (ny * np.pi / self.Ly)**2 + (nz * np.pi / self.Lz)**2)
                     source_modeshape = np.cos(fact_x * (source_positions[0] + shift[0])) * np.cos(fact_y * (source_positions[1] + shift[1])) * np.cos(fact_z * (source_positions[2] + shift[2]))
 
-                    constant = source_modeshape / (Lambda * ((omega_mode**2 - self.omega**2) + 2 * 1j * omega_mode * damping))
+                    constant = source_modeshape / (Lambda * (omega_mode**2 - self.omega**2 + 2 * 1j * omega_mode * damping))
 
-                    this_mode_derivatives = np.empty((utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[1:], dtype=np.complex128)  # DEBUG
+                    this_mode_derivatives = np.zeros((utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[2:], dtype=np.complex128)  # DEBUG
                     this_mode_derivatives[0] = constant * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
 
                     if orders > 0:
@@ -1022,14 +1004,14 @@ class RectangularCylinderModes(TransducerModel):
                         this_mode_derivatives[18] = constant * fact_z**2 * fact_y * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
                         this_mode_derivatives[19] = - constant * fact_x * fact_y * fact_z * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
 
-                    modal_derivatives[nx, ny, nz] = this_mode_derivatives  # DEBUG
-                    modal_frequencies[nx, ny, nz] = omega_mode / 2 / np.pi  # DEBUG
-                    derivatives += this_mode_derivatives  # DEBUG: Add in place instead?
+                    # modal_derivatives[nx, ny, nz] = this_mode_derivatives  # DEBUG
+                    # modal_frequencies[nx, ny, nz] = omega_mode / 2 / np.pi  # DEBUG
+                    derivatives += this_mode_derivatives # DEBUG: Add in place instead?
                     nz += 1
                 ny += 1
             nx += 1
-            self.modal_derivatives = modal_derivatives  # DEBUG
-            self.modal_frequencies = modal_frequencies  # DEBUG
+            # self.modal_derivatives = modal_derivatives  # DEBUG
+            # self.modal_frequencies = modal_frequencies  # DEBUG
 
         # TODO: Make sure that the scaling makes sense!
         # We need a volume velocity! From Williams 1999, (6.71, p.198) pressure from a monopole:
@@ -1043,9 +1025,9 @@ class RectangularCylinderModes(TransducerModel):
         #   jw rho_0 c^2 U / V = jw rho_0 c^2 (4 pi p_0 / (i w rho_0)) / V
         #   = ± 4 pi c^2 p_0 / V
         # Unit check: Pa = m^2/s^2 (Pa m) 1/m^3 sum s^2 = Pa. Ok!
-        self.modal_derivatives *= 1j * self.omega * self.medium.rho * self.medium.c**2 / (self.Lx * self.Ly * self.Lz)
-        derivatives *= 1j * self.omega * self.medium.rho * self.medium.c**2 / (self.Lx * self.Ly * self.Lz)
-        # derivatives *= 4 * np.pi * self.p0 * self.medium.c**2 / (self.Lx * self.Ly * self.Lz)  # This might be correct?
+        # self.modal_derivatives *= 1j * self.omega * self.medium.rho * self.medium.c**2 / (self.Lx * self.Ly * self.Lz)
+        # derivatives *= 1j * self.omega * self.medium.rho * self.medium.c**2 / (self.Lx * self.Ly * self.Lz)
+        derivatives *= 4 * np.pi * self.p0 * self.medium.c**2 / (self.Lx * self.Ly * self.Lz)  # This might be correct?
 
         return derivatives
 
