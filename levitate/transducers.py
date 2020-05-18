@@ -924,12 +924,12 @@ class RectangularCylinderModes(TransducerModel):
     # TODO: Cleaup of comments.
     # DOCS: Needed!
 
-    def __init__(self, Lx, Ly, Lz, *args, **kwargs):
+    def __init__(self, Lx, Ly, Lz, dB_limit=(), selected_modes=(), *args, **kwargs):
         # TODO: Better specification of size. Length + center? (side, side)?
 
         super().__init__(*args, **kwargs)
 
-        self.Lx, self.Ly, self.Lz = Lx, Ly, Lz
+        self.Lx, self.Ly, self.Lz, self.dB_limit, self.selected_modes = Lx, Ly, Lz, dB_limit, selected_modes
 
     def pressure_derivs(self, source_positions, source_normals, receiver_positions, orders=3):
 
@@ -949,67 +949,68 @@ class RectangularCylinderModes(TransducerModel):
         # TODO: Check the conventions for the complex exponential. The jw might stem from d/ts -> jw, but with our conventions we have d/dt -> -iw. There's two j's I could find that might be relevant, one in the damping term, and one in the overall scaling.
         # IDEA: Include proper material based modelling of the damping coefficient?
         damping = 0.01
-        nx_max = np.floor(4 * self.freq * self.Lx / self.medium.c).astype(int)  # DEBUG
-        ny_max = np.floor(4 * self.freq * self.Ly / self.medium.c).astype(int)  # DEBUG
-        nz_max = np.floor(4 * self.freq * self.Lz / self.medium.c).astype(int)  # DEBUG
+
         # modal_derivatives = np.zeros((nx_max + 1, ny_max + 1, nz_max + 1, utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[2:], dtype=np.complex128)  # DEBUG
         # modal_frequencies = np.zeros((nx_max + 1, ny_max + 1, nz_max + 1))  # DEBUG
 
-        nx = 0
-        while self.medium.c / 2 * nx / self.Lx <= 2 * self.freq:
-            ny = 0
-            while self.medium.c / 2 * np.sqrt((nx / self.Lx)**2 + (ny / self.Ly)**2) <= 2 * self.freq:
-                nz = 0
-                while self.medium.c / 2 * np.sqrt((nx / self.Lx)**2 + (ny / self.Ly)**2 + (nz / self.Lz)**2) <= 2 * self.freq:
+        if self.selected_modes == ():
+            self.selected_modes = self.modes_selection()
 
-                    fact_x = nx * np.pi / self.Lx
-                    fact_y = ny * np.pi / self.Ly
-                    fact_z = nz * np.pi / self.Lz
+        if np.ndim(self.selected_modes) == 1:
+            self.selected_modes = np.asarray(self.selected_modes).reshape((1,) + (3,))
 
-                    if nx != 0 and ny != 0 and nz != 0:
-                        Lambda = 1 / 8
-                    elif (nx != 0 and ny != 0) or (nx != 0 and nz != 0) or (ny != 0 and nz != 0):
-                        Lambda = 1 / 4
-                    else:
-                        Lambda = 1 / 2
+        for ii in range(len(self.selected_modes)):
 
-                    omega_mode = self.medium.c * np.sqrt((nx * np.pi / self.Lx)**2 + (ny * np.pi / self.Ly)**2 + (nz * np.pi / self.Lz)**2)
-                    source_modeshape = np.cos(fact_x * (source_positions[0] + shift[0])) * np.cos(fact_y * (source_positions[1] + shift[1])) * np.cos(fact_z * (source_positions[2] + shift[2]))
+            nx = self.selected_modes[ii][0]
+            ny = self.selected_modes[ii][1]
+            nz = self.selected_modes[ii][2]
 
-                    constant = source_modeshape / (Lambda * (omega_mode**2 - self.omega**2 + 2 * 1j * omega_mode * damping))
+            fact_x = nx * np.pi / self.Lx
+            fact_y = ny * np.pi / self.Ly
+            fact_z = nz * np.pi / self.Lz
 
-                    this_mode_derivatives = np.zeros((utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[2:], dtype=np.complex128)  # DEBUG
-                    this_mode_derivatives[0] = constant * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+            if nx != 0 and ny != 0 and nz != 0:
+                Lambda = 1 / 8
+            elif (nx != 0 and ny != 0) or (nx != 0 and nz != 0) or (ny != 0 and nz != 0):
+                Lambda = 1 / 4
+            else:
+                Lambda = 1 / 2
 
-                    if orders > 0:
-                        this_mode_derivatives[1] = - constant * fact_x * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        this_mode_derivatives[2] = - constant * fact_y * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        this_mode_derivatives[3] = - constant * fact_z * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
-                    if orders > 1:
-                        this_mode_derivatives[4] = - constant * fact_x**2 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        this_mode_derivatives[5] = - constant * fact_y**2 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        this_mode_derivatives[6] = - constant * fact_z**2 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        this_mode_derivatives[7] = constant * fact_x * fact_y * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        this_mode_derivatives[8] = constant * fact_x * fact_z * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
-                        this_mode_derivatives[9] = constant * fact_y * fact_z * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
-                    if orders > 2:
-                        this_mode_derivatives[10] = constant * fact_x**3 * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        this_mode_derivatives[11] = constant * fact_y**3 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        this_mode_derivatives[12] = constant * fact_z**3 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
-                        this_mode_derivatives[13] = constant * fact_x**2 * fact_y * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        this_mode_derivatives[14] = constant * fact_x**2 * fact_z * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
-                        this_mode_derivatives[15] = constant * fact_y**2 * fact_x * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        this_mode_derivatives[16] = constant * fact_y**2 * fact_z * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
-                        this_mode_derivatives[17] = constant * fact_z**2 * fact_x * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        this_mode_derivatives[18] = constant * fact_z**2 * fact_y * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
-                        this_mode_derivatives[19] = - constant * fact_x * fact_y * fact_z * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
+            omega_mode = self.medium.c * np.sqrt((nx * np.pi / self.Lx)**2 + (ny * np.pi / self.Ly)**2 + (nz * np.pi / self.Lz)**2)
+            source_modeshape = np.cos(fact_x * (source_positions[0] + shift[0])) * np.cos(fact_y * (source_positions[1] + shift[1])) * np.cos(fact_z * (source_positions[2] + shift[2]))
 
-                    # modal_derivatives[nx, ny, nz] = this_mode_derivatives  # DEBUG
-                    # modal_frequencies[nx, ny, nz] = omega_mode / 2 / np.pi  # DEBUG
-                    derivatives += this_mode_derivatives # DEBUG: Add in place instead?
-                    nz += 1
-                ny += 1
-            nx += 1
+            constant = source_modeshape / (Lambda * (omega_mode**2 - self.omega**2 + 2 * 1j * omega_mode * damping))
+
+            this_mode_derivatives = np.zeros((utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[2:], dtype=np.complex128)  # DEBUG
+            this_mode_derivatives[0] = constant * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+
+            if orders > 0:
+                this_mode_derivatives[1] = - constant * fact_x * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                this_mode_derivatives[2] = - constant * fact_y * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                this_mode_derivatives[3] = - constant * fact_z * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
+            if orders > 1:
+                this_mode_derivatives[4] = - constant * fact_x**2 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                this_mode_derivatives[5] = - constant * fact_y**2 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                this_mode_derivatives[6] = - constant * fact_z**2 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                this_mode_derivatives[7] = constant * fact_x * fact_y * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                this_mode_derivatives[8] = constant * fact_x * fact_z * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
+                this_mode_derivatives[9] = constant * fact_y * fact_z * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
+            if orders > 2:
+                this_mode_derivatives[10] = constant * fact_x**3 * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                this_mode_derivatives[11] = constant * fact_y**3 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                this_mode_derivatives[12] = constant * fact_z**3 * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
+                this_mode_derivatives[13] = constant * fact_x**2 * fact_y * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                this_mode_derivatives[14] = constant * fact_x**2 * fact_z * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
+                this_mode_derivatives[15] = constant * fact_y**2 * fact_x * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                this_mode_derivatives[16] = constant * fact_y**2 * fact_z * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
+                this_mode_derivatives[17] = constant * fact_z**2 * fact_x * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.cos(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                this_mode_derivatives[18] = constant * fact_z**2 * fact_y * np.cos(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.cos(fact_z * (receiver_positions[2] + shift[2]))
+                this_mode_derivatives[19] = - constant * fact_x * fact_y * fact_z * np.sin(fact_x * (receiver_positions[0] + shift[0])) * np.sin(fact_y * (receiver_positions[1] + shift[1])) * np.sin(fact_z * (receiver_positions[2] + shift[2]))
+
+            # modal_derivatives[nx, ny, nz] = this_mode_derivatives  # DEBUG
+            # modal_frequencies[nx, ny, nz] = omega_mode / 2 / np.pi  # DEBUG
+            derivatives += this_mode_derivatives # DEBUG: Add in place instead?
+
             # self.modal_derivatives = modal_derivatives  # DEBUG
             # self.modal_frequencies = modal_frequencies  # DEBUG
 
@@ -1036,3 +1037,48 @@ class RectangularCylinderModes(TransducerModel):
         # Will be somewhat difficult since different geometries will have different number of indices for the modes.
         # Unless we choose to store them linearly and add indexing + generator methods somewhere?
         # Disadvantage: Storing all the values per mode takes several thousand times more memory, so a single transducer seems to need 2 GB of ram for just the pressure in a small slice...
+
+    def modes_selection(self):
+
+        damping = 0.01
+
+        modal_amplitude = ()
+        modes_list = ()
+        selection = ()
+
+        nx = 0
+        nx_max = np.floor(4 * self.freq * self.Lx / self.medium.c).astype(int)  # DEBUG
+        while nx <= nx_max:
+            ny = 0
+            ny_max = np.floor(self.Ly * np.sqrt((4 * self.freq / self.medium.c) ** 2 - (nx / self.Lx) ** 2)).astype(int)  # DEBUG
+            while ny <= ny_max:
+                nz = 0
+                nz_max = np.floor(self.Lz * np.sqrt((4 * self.freq / self.medium.c) ** 2 - (nx / self.Lx) ** 2 - (ny / self.Ly) ** 2)).astype(int)  # DEBUG
+                while nz <= nz_max:
+
+                    if nx != 0 and ny != 0 and nz != 0:
+                        Lambda = 1 / 8
+                    elif (nx != 0 and ny != 0) or (nx != 0 and nz != 0) or (ny != 0 and nz != 0):
+                        Lambda = 1 / 4
+                    else:
+                        Lambda = 1 / 2
+
+                    omega_mode = self.medium.c * np.sqrt((nx * np.pi / self.Lx) ** 2 + (ny * np.pi / self.Ly) ** 2 + (nz * np.pi / self.Lz) ** 2)
+
+                    modal_amplitude += (1 / (Lambda * (omega_mode ** 2 - self.omega ** 2 + 2 * 1j * omega_mode * damping)),)
+                    modes_list += ((nx, ny, nz),)
+
+                    nz += 1
+                ny += 1
+            nx += 1
+
+        if self.dB_limit == ():
+            selection = modes_list
+        else:
+            modal_amplitude_max = 20 * np.log10(max(np.absolute(modal_amplitude)))
+            for ii in range(0, len(modal_amplitude)-1):
+                if modal_amplitude_max - 20*np.log10(np.absolute(modal_amplitude[ii])) <= self.dB_limit:
+                    selection += (modes_list[ii],)
+
+        print(str(len(selection)) + " modes used")
+        return selection
