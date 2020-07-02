@@ -64,7 +64,7 @@ class TransducerArray:
 
     def __init__(self, positions, normals,
                  transducer=None, transducer_size=10e-3, transducer_kwargs=None,
-                 medium=None, **kwargs
+                 medium=None
                  ):
         self.transducer_size = transducer_size
         transducer_kwargs = transducer_kwargs or {}
