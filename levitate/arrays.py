@@ -672,15 +672,17 @@ class DoublesidedArray(TransducerArray):
         The placement of the center between the two arrays.
     normal : array_like, 3 elements
         The normal of the reflection plane.
+    twist : float, default 0
+        By how much the two halves are rotated compared to each other, in radians.
 
     """
 
-    _str_fmt_spec = '{:%cls(%array, separation=%separation, normal=%normal, offset=%offset)}'
+    _str_fmt_spec = '{:%cls(%array, separation=%separation, normal=%normal, offset=%offset, twist=%twist)}'
 
-    def __init__(self, array, separation, normal=(0, 0, 1), offset=(0, 0, 0), **kwargs):
+    def __init__(self, array, separation, normal=(0, 0, 1), offset=(0, 0, 0), twist=0, **kwargs):
         if type(array) is type:
             array = array(normal=normal, **kwargs)
-        extra_print_args = {'separation': separation, 'normal': normal, 'offset': offset, 'array': str(array)}
+        extra_print_args = {'separation': separation, 'normal': normal, 'offset': offset, 'array': str(array), 'twist': twist}
         normal = np.asarray(normal, dtype=float).copy()
         normal /= (normal**2).sum()**0.5
         offset = np.asarray(offset).copy()
@@ -689,6 +691,17 @@ class DoublesidedArray(TransducerArray):
         lower_normals = array.normals.copy()
         normal_proj = np.sum(lower_normals * normal[:, None], axis=0) * normal[:, None]
         upper_normals = lower_normals - 2 * normal_proj
+
+        if twist != 0:
+            cross_product_matrix = np.array([[0, normal[2], -normal[1]],
+                                             [-normal[2], 0, normal[0]],
+                                             [normal[1], -normal[0], 0]])
+            cos = np.cos(-twist)
+            sin = np.sin(-twist)
+            rotation_matrix = (cos * np.eye(3) + sin * cross_product_matrix + (1 - cos) * np.outer(normal, normal))
+            upper_positions = rotation_matrix.dot(upper_positions)
+            upper_normals = rotation_matrix.dot(upper_normals)
+
         super().__init__(
             positions=np.concatenate([lower_positions, upper_positions], axis=1) + offset[:, None],
             normals=np.concatenate([lower_normals, upper_normals], axis=1),
