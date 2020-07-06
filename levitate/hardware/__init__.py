@@ -1,19 +1,19 @@
 """Hardware related classes and functions.
 
-Various classes and functions to interface with Ultrahaptics
-hardware.
+Various classes and functions to simulate and interface with physical hardware.
 
 .. admonition:: Disclaimer
 
-    This module is not related to Ultrahaptics as a company, and it not part of their
+    This module is not related to Ultraleap as a company, and it not part of their
     SDK. It is simply a non-programmer's way around testing everything in C++.
+    Similarly for the other implemented arrays.
 
     **Use at your own risk!**
 
 .. autosummary::
     :nosignatures:
 
-    TCPArray
+    DragonflyArray
     data_to_cpp
     data_from_cpp
 """
@@ -21,8 +21,7 @@ hardware.
 import os
 import numpy as np
 
-from ._dragonfly import DragonflyArray
-from ._TCPArray import TCPArray
+from ._ultraleap import DragonflyArray
 
 
 def data_to_cpp(complex_values, filename):
