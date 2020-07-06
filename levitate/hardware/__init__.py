@@ -21,7 +21,7 @@ hardware.
 import os
 import numpy as np
 
-from ._dragonfly import dragonfly_grid
+from ._dragonfly import DragonflyArray
 from ._TCPArray import TCPArray
 
 

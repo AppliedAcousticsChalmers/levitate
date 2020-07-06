@@ -52,10 +52,11 @@ def test_rectangular_grid():
 
 
 def test_dragonfly():
-    pos, norm = levitate.hardware.dragonfly_grid
-    array = levitate.arrays.DragonflyArray()
-    np.testing.assert_allclose(array.positions, pos)
-    np.testing.assert_allclose(array.normals, norm)
+    dragonfly = levitate.hardware.DragonflyArray()
+    for idx, (x, y, _) in enumerate(zip(*dragonfly.positions)):
+        y_idx, x_idx = np.argwhere(dragonfly.grid_indices == idx)[0]
+        np.testing.assert_allclose(x / dragonfly.spread + 7.5, x_idx)
+        np.testing.assert_allclose(7.5 - y / dragonfly.spread, y_idx)
 
 
 def test_array_offset():
@@ -185,7 +186,7 @@ def test_double_sided_grid():
 
 
 def test_Array_basics():
-    pos, norm = levitate.hardware.dragonfly_grid
+    pos, norm = np.random.normal(size=(2, 3, 8))
     array = levitate.arrays.TransducerArray(pos, norm)
     array.omega = 200000
     np.testing.assert_allclose(2 * np.pi * array.freq, array.omega)

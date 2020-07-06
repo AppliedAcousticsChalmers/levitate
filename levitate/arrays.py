@@ -756,19 +756,3 @@ class DoublesidedArray(TransducerArray):
             if str(e) != 'super(type, obj): obj must be an instance or subtype of type':
                 raise
         return super().signature(self, position, stype=stype, *args, **kwargs)
-
-
-class DragonflyArray(NormalTransducerArray):
-    """Rectangular array with Ultrahaptics Dragonfly U5 layout.
-
-    This is a 16x16 element array where the order of the transducer elements
-    are the same as the iteration order in the Ultrahaptics SDK. Otherwise
-    behaves exactly like a `RectangularArray`.
-    """
-
-    _str_fmt_spec = '{:%cls(transducer=%transducer, offset=%offset, normal=%normal, rotation=%rotation)}'
-
-    def __init__(self, **kwargs):
-        from .hardware import dragonfly_grid
-        kwargs.update(transducer_size=10e-3, positions=dragonfly_grid[0], normals=dragonfly_grid[1])
-        super().__init__(**kwargs)
