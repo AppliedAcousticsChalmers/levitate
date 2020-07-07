@@ -32,10 +32,10 @@ class TransducerArray:
         The normals of the transducer elements in the array, shape 3xN.
     transducer
         An object of `levitate.transducers.TransducerModel` or a subclass. If passed a class it will create a new instance.
-    transducer_size : float
-        Fallback transducer size if no transducer model object is given, or if no grid is given.
-    transducer_kwargs : dict
-        Extra keyword arguments used when instantiating a new transducer model.
+    **kwargs :
+        All additional keyword arguments will be passed to the a transducer class
+        used when instantiating a new transducer model. Note that this will have
+        no effect on already instantiated transducer models.
 
     Attributes
     ----------
@@ -58,23 +58,22 @@ class TransducerArray:
 
     """
 
-    _repr_fmt_spec = '{:%cls(transducer=%transducer_full, transducer_size=%transducer_size,\n\tpositions=%positions,\n\tnormals=%normals)}'
+    _repr_fmt_spec = '{:%cls(transducer=%transducer_full,\n\tpositions=%positions,\n\tnormals=%normals)}'
     _str_fmt_spec = '{:%cls(transducer=%transducer): %num_transducers transducers}'
     from .visualizers import ArrayVisualizer, ForceDiagram
 
     def __init__(self, positions, normals,
-                 transducer=None, transducer_size=10e-3, transducer_kwargs=None,
-                 medium=None
+                 transducer=None, medium=None,
+                 **kwargs
                  ):
-        self.transducer_size = transducer_size
-        transducer_kwargs = transducer_kwargs or {}
+        if 'transducer_size' in kwargs:
+            kwargs.setdefault('physical_size', kwargs.pop('transducer_size'))
         self._extra_print_args = {}
 
         if transducer is None:
-            from .transducers import PointSource
-            self.transducer = PointSource(**transducer_kwargs)
-        elif type(transducer) is type:
-            self.transducer = transducer(**transducer_kwargs)
+            from .transducers import PointSource as transducer
+        if type(transducer) is type:
+            self.transducer = transducer(**kwargs)
         else:
             self.transducer = transducer
         if medium is not None:
@@ -154,6 +153,14 @@ class TransducerArray:
     @medium.setter
     def medium(self, val):
         self.transducer.medium = val
+
+    @property
+    def transducer_size(self):
+        return self.transducer.physical_size
+
+    @transducer_size.setter
+    def transducer_size(self, value):
+        self.transducer.physical_size = value
 
     @property
     def positions(self):

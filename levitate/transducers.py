@@ -39,6 +39,9 @@ class TransducerModel:
         Note: This is not an rms value!
     medium : Material
         The medium in which the array is operating.
+    physical_size : float, default 10e-3
+        The physical dimentions of the transducer. Mainly used for visualization
+        and some geometrical assumptions.
 
     Attributes
     ----------
@@ -53,18 +56,19 @@ class TransducerModel:
 
     """
 
-    _repr_fmt_spec = '{:%cls(freq=%freq, p0=%p0, medium=%mediumfull)}'
+    _repr_fmt_spec = '{:%cls(freq=%freq, p0=%p0, medium=%mediumfull, physical_size=%physical_size)}'
     _str_fmt_spec = '{:%cls(freq=%freq, p0=%p0, medium=%medium)}'
 
-    def __init__(self, freq=40e3, p0=6, medium=air):
+    def __init__(self, freq=40e3, p0=6, medium=air, physical_size=10e-3):
         self.medium = medium
         self.freq = freq
         self.p0 = p0
+        self.physical_size = physical_size
         # The murata transducers are measured to 85 dB SPL at 1 V at 1 m, which corresponds to ~6 Pa at 20 V
         # The datasheet specifies 120 dB SPL @ 0.3 m, which corresponds to ~6 Pa @ 1 m
 
     def __format__(self, fmt_spec):
-        return fmt_spec.replace('%cls', self.__class__.__name__).replace('%freq', str(self.freq)).replace('%p0', str(self.p0)).replace('%mediumfull', repr(self.medium)).replace('%medium', str(self.medium))
+        return fmt_spec.replace('%cls', self.__class__.__name__).replace('%freq', str(self.freq)).replace('%p0', str(self.p0)).replace('%mediumfull', repr(self.medium)).replace('%medium', str(self.medium)).replace('%physical_size', str(self.physical_size))
 
     def __str__(self):
         return self._str_fmt_spec.format(self)
@@ -82,6 +86,7 @@ class TransducerModel:
             and np.allclose(self.omega, other.omega)
             and np.allclose(self.k, other.k)
             and self.medium == other.medium
+            and self.physical_size == other.physical_size
         )
 
     @property
