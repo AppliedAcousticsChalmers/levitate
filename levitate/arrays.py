@@ -105,6 +105,22 @@ class TransducerArray:
             and self.transducer == other.transducer
         )
 
+    def __add__(self, other):
+        if isinstance(other, TransducerArray) and self.transducer == other.transducer:
+            positions = np.concatenate([self.positions, other.positions], axis=1)
+            normals = np.concatenate([self.normals, other.normals], axis=1)
+            return TransducerArray(positions=positions, normals=normals, transducer=self.transducer)
+        else:
+            return NotImplemented
+
+    def __iadd__(self, other):
+        if isinstance(other, TransducerArray) and self.transducer == other.transducer:
+            self.positions = np.concatenate([self.positions, other.positions], axis=1)
+            self.normals = np.concatenate([self.normals, other.normals], axis=1)
+            return self
+        else:
+            return NotImplemented
+
     def __repr__(self):
         return self._repr_fmt_spec.format(self)
 
@@ -431,6 +447,9 @@ class NormalTransducerArray(TransducerArray):
             cos = normal[2]
             sin = (1 - cos**2)**0.5
             rotation_matrix = (cos * np.eye(3) + sin * cross_product_matrix + (1 - cos) * np.outer(rotation_vector, rotation_vector))
+        elif normal[2] == -1:
+            rotation_matrix = np.zeros((3, 3))
+            rotation_matrix[[0, 1, 2], [0, 1, 2]] = [-1, 1, -1]
         else:
             rotation_matrix = np.eye(3)
         if rotation != 0:
@@ -644,7 +663,9 @@ class SphericalCapArray(NormalTransducerArray):
         positions = np.stack(positions, 1)
         normals = np.stack(normals, 1)
         normals /= np.sum(normals**2, axis=0)**0.5
-        super().__init__(positions=positions, normals=normals, **kwargs)
+        kwargs.setdefault('positions', positions)
+        kwargs.setdefault('normals', normals)
+        super().__init__(**kwargs)
         self._extra_print_args.update(radius=radius, rings=rings, packing=packing, spread=spread)
 
 
