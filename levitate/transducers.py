@@ -924,12 +924,13 @@ class RectangularCylinderModes(TransducerModel):
     # TODO: Cleaup of comments.
     # DOCS: Needed!
 
-    def __init__(self, Lx, Ly, Lz, dB_limit=(), selected_modes=(), *args, **kwargs):
+    def __init__(self, Lx, Ly, Lz, dB_limit=(), selected_modes=(), damping=0.01, *args, **kwargs):
         # TODO: Better specification of size. Length + center? (side, side)?
 
         super().__init__(*args, **kwargs)
 
         self.Lx, self.Ly, self.Lz, self.dB_limit, self.selected_modes = Lx, Ly, Lz, dB_limit, selected_modes
+        self.damping = damping
 
     def pressure_derivs(self, source_positions, source_normals, receiver_positions, orders=3):
 
@@ -948,7 +949,7 @@ class RectangularCylinderModes(TransducerModel):
 
         # TODO: Check the conventions for the complex exponential. The jw might stem from d/ts -> jw, but with our conventions we have d/dt -> -iw. There's two j's I could find that might be relevant, one in the damping term, and one in the overall scaling.
         # IDEA: Include proper material based modelling of the damping coefficient?
-        damping = 0.01
+        damping = self.damping
 
         # modal_derivatives = np.zeros((nx_max + 1, ny_max + 1, nz_max + 1, utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[2:], dtype=np.complex128)  # DEBUG
         # modal_frequencies = np.zeros((nx_max + 1, ny_max + 1, nz_max + 1))  # DEBUG
@@ -1040,11 +1041,11 @@ class RectangularCylinderModes(TransducerModel):
 
     def modes_selection(self):
 
-        damping = 0.01
+        damping = self.damping
 
-        modal_amplitude = ()
-        modes_list = ()
-        selection = ()
+        modal_amplitude = []
+        modes_list = []
+        selection = []
 
         nx = 0
         nx_max = np.floor(4 * self.freq * self.Lx / self.medium.c).astype(int)  # DEBUG
@@ -1065,8 +1066,8 @@ class RectangularCylinderModes(TransducerModel):
 
                     omega_mode = self.medium.c * np.sqrt((nx * np.pi / self.Lx) ** 2 + (ny * np.pi / self.Ly) ** 2 + (nz * np.pi / self.Lz) ** 2)
 
-                    modal_amplitude += (1 / (Lambda * (omega_mode ** 2 - self.omega ** 2 + 2 * 1j * omega_mode * damping)),)
-                    modes_list += ((nx, ny, nz),)
+                    modal_amplitude.append(1 / (Lambda * (omega_mode ** 2 - self.omega ** 2 + 2 * 1j * omega_mode * damping)))
+                    modes_list.append((nx, ny, nz))
 
                     nz += 1
                 ny += 1
@@ -1078,7 +1079,7 @@ class RectangularCylinderModes(TransducerModel):
             modal_amplitude_max = 20 * np.log10(max(np.absolute(modal_amplitude)))
             for ii in range(0, len(modal_amplitude)-1):
                 if modal_amplitude_max - 20*np.log10(np.absolute(modal_amplitude[ii])) <= self.dB_limit:
-                    selection += (modes_list[ii],)
+                    selection.append(modes_list[ii])
 
         print(str(len(selection)) + " modes used")
         return selection
@@ -1087,12 +1088,13 @@ class CylinderModes(TransducerModel):
     # TODO: Cleaup of comments.
     # DOCS: Needed!
 
-    def __init__(self, radius, height, dB_limit=(), selected_modes=(), *args, **kwargs):
+    def __init__(self, radius, height, dB_limit=(), selected_modes=(), damping=0.01, *args, **kwargs):
         # TODO: Better specification of size. Length + center? (side, side)?
 
         super().__init__(*args, **kwargs)
 
         self.radius, self.height, self.dB_limit, self.selected_modes = radius, height, dB_limit, selected_modes
+        self.damping = damping
 
     def pressure_derivs(self, source_positions, source_normals, receiver_positions, orders=3):
 
@@ -1120,7 +1122,7 @@ class CylinderModes(TransducerModel):
 
         # TODO: Check the conventions for the complex exponential. The jw might stem from d/ts -> jw, but with our conventions we have d/dt -> -iw. There's two j's I could find that might be relevant, one in the damping term, and one in the overall scaling.
         # IDEA: Include proper material based modelling of the damping coefficient?
-        damping = 0.01
+        damping = self.damping
 
         # modal_derivatives = np.zeros((nx_max + 1, ny_max + 1, nz_max + 1, utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[2:], dtype=np.complex128)  # DEBUG
         # modal_frequencies = np.zeros((nx_max + 1, ny_max + 1, nz_max + 1))  # DEBUG
@@ -1221,11 +1223,11 @@ class CylinderModes(TransducerModel):
         source_positions_cyl[1] = np.arctan2(source_positions[1], source_positions[0])
         source_positions_cyl[2] = source_positions[2]
 
-        damping = 0.01
+        damping = self.damping
 
-        modal_amplitude = ()
-        modes_list = ()
-        selection = ()
+        modal_amplitude = []
+        modes_list = []
+        selection = []
 
         n = 0
         k_n1 = jnp_zeros(0, 1)[-1]
@@ -1248,8 +1250,8 @@ class CylinderModes(TransducerModel):
                     omega_mode = self.medium.c * np.sqrt((k_ns / self.radius)**2 + (m * np.pi / self.height)**2)
                     source_modeshape = jv(n, k_ns * source_positions_cyl[0] / self.radius) * np.e ** (1j * n * source_positions_cyl[1]) * np.cos((m * np.pi / self.height) * source_positions[2])
 
-                    modal_amplitude += (source_modeshape / (Lambda * (omega_mode ** 2 - self.omega ** 2 + 2 * 1j * omega_mode * damping)),)
-                    modes_list += ((n, k_ns, m),)
+                    modal_amplitude.append(source_modeshape / (Lambda * (omega_mode ** 2 - self.omega ** 2 + 2 * 1j * omega_mode * damping)))
+                    modes_list.append((n, k_ns, m))
 
                     m += 1
                 s += 1
@@ -1260,10 +1262,12 @@ class CylinderModes(TransducerModel):
         if self.dB_limit == ():
             selection = modes_list
         else:
-            modal_amplitude_max = 20 * np.log10(max(map(max, np.absolute(modal_amplitude))))
+            # modal_amplitude_max = 20 * np.log10(max(map(max, np.absolute(modal_amplitude))))
+            modal_levels = 20 * np.log10(np.max(np.abs(modal_amplitude), 1))
+            modal_level_max = np.max(modal_levels)
             for ii in range(0, len(modal_amplitude)-1):
-                if np.any((modal_amplitude_max - 20*np.log10(np.absolute(modal_amplitude[ii]))) <= self.dB_limit):
-                    selection += (modes_list[ii],)
+                if np.any((modal_level_max - modal_levels[ii]) <= self.dB_limit):
+                    selection.append(modes_list[ii])
 
         print(str(len(selection)) + " modes used")
         return selection
