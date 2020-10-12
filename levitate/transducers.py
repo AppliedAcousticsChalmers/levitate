@@ -646,6 +646,7 @@ class PlaneWaveTransducer(TransducerModel):
         receiver_positions = np.asarray(receiver_positions)
         source_normals = np.asarray(source_normals, dtype=np.float64)
         source_normals /= (source_normals**2).sum(axis=0)**0.5
+        source_normals = source_normals.reshape(source_normals.shape[:2] + (receiver_positions.ndim - 1) * (1,))
         diff = receiver_positions.reshape((3,) + (1,) * (source_positions.ndim - 1) + receiver_positions.shape[1:]) - source_positions.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
         x_dot_n = np.einsum('i..., i...', diff, source_normals)
 

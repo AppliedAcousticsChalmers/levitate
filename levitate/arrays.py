@@ -430,6 +430,7 @@ class NormalTransducerArray(TransducerArray):
         The in-plane rotation of the array around the normal.
 
     """
+    _str_fmt_spec = '{:%cls(transducer=%transducer, offset=%offset, normal=%normal, rotation=%rotation)}'
 
     def __init__(self, positions, normals, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
         normal = np.asarray(normal, dtype=float)

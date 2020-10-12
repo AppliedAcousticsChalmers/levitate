@@ -22,6 +22,7 @@ import os
 import numpy as np
 
 from ._ultraleap import DragonflyArray
+from ._interactlab import AcoustophoreticBoard
 
 
 def data_to_cpp(complex_values, filename):
