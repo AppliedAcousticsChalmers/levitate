@@ -25,19 +25,19 @@ class UltraleapArray:
         See `UltraleapArray.TCPconnection` for more details.
 
         """
-        self.physical_array = DragonflyArray.TCPconnection(*args, **kwargs)
+        self.connection = UltraleapArray.TCPconnection(*args, **kwargs)
 
     @property
-    def physical_array(self):
+    def connection(self):
         try:
-            return self._physical_array
+            return self._connection
         except AttributeError:
             self.connect()
-            return self._physical_array
+            return self._connection
 
-    @physical_array.setter
-    def physical_array(self, value):
-        self._physical_array = value
+    @connection.setter
+    def connection(self, value):
+        self._connection = value
 
     class TCPconnection:
         """Communicate with a Ultraleap array via TCP.
@@ -299,6 +299,7 @@ class UltraleapArray:
             """
             self._send('file ' + filename)
 
+
 class DragonflyArray(NormalTransducerArray, UltraleapArray):
     """Rectangular array with Ultraleap Dragonfly U5 layout.
 
@@ -307,7 +308,6 @@ class DragonflyArray(NormalTransducerArray, UltraleapArray):
     behaves exactly like a `RectangularArray`.
     """
 
-    _str_fmt_spec = '{:%cls(transducer=%transducer, offset=%offset, normal=%normal, rotation=%rotation)}'
     spread = 10.47e-3
     grid_indices = np.array([
         [95, 94, 93, 92, 111, 110, 109, 108, 159, 158, 157, 156, 175, 174, 173, 172],
@@ -329,8 +329,9 @@ class DragonflyArray(NormalTransducerArray, UltraleapArray):
     ])
 
     def __init__(self, **kwargs):
-        positions = np.zeros((3, self.grid_indices.size), float)
+        ny, nx = self.grid_indices.shape
+        positions = np.zeros((3, nx * ny), float)
         positions[:, self.grid_indices] = np.stack(
             np.meshgrid(np.arange(16) - 7.5, 7.5 - np.arange(16), 0, indexing='xy'),
-            axis=0).squeeze() * self.spread
+            axis=0).reshape((3, ny, nx)) * self.spread
         super().__init__(positions=positions, normals=[0, 0, 1], transducer_size=10e-3, **kwargs)

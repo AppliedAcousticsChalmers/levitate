@@ -51,12 +51,25 @@ def test_rectangular_grid():
     np.testing.assert_allclose(array.normals, expected_normals)
 
 
-def test_dragonfly():
-    dragonfly = levitate.hardware.DragonflyArray()
-    for idx, (x, y, _) in enumerate(zip(*dragonfly.positions)):
-        y_idx, x_idx = np.argwhere(dragonfly.grid_indices == idx)[0]
-        np.testing.assert_allclose(x / dragonfly.spread + 7.5, x_idx)
-        np.testing.assert_allclose(7.5 - y / dragonfly.spread, y_idx)
+@pytest.mark.parametrize('rectangular_class, shape, spread', [
+    (levitate.hardware.DragonflyArray, (16, 16), 10.47e-3),
+    (levitate.hardware.AcoustophoreticBoard, (16, 16), 10.47e-3),
+])
+def test_rectangular_variants(rectangular_class, shape, spread):
+    # Check that we do place all the indices.
+    all_indices = np.sort(rectangular_class.grid_indices.flatten())
+    np.testing.assert_equal(all_indices, list(range(np.prod(shape))))
+    array = rectangular_class()
+    # Test that every element is where it should be
+    for idx, (x, y, _) in enumerate(zip(*array.positions)):
+        y_idx, x_idx = np.argwhere(array.grid_indices == idx)[0]
+        np.testing.assert_allclose(x / array.spread + 7.5, x_idx)
+        np.testing.assert_allclose(7.5 - y / array.spread, y_idx)
+    # Test that this is indeed a 16x16 rectangular array with spread 10.47 mm
+    rectangular = levitate.arrays.RectangularArray(shape=shape, spread=spread)
+    differences = rectangular.positions[:, :, None] - array.positions[:, None, :]
+    distances = np.sum(differences**2, axis=0)
+    assert all([(np.min(distances, axis=axis) == 0).all() for axis in range(distances.ndim)])
 
 
 def test_array_offset():
