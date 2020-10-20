@@ -1128,10 +1128,13 @@ class CylinderModes(TransducerModel):
         # modal_frequencies = np.zeros((nx_max + 1, ny_max + 1, nz_max + 1))  # DEBUG
 
         if self.selected_modes == ():
-            self.selected_modes = self.modes_selection(source_positions)
-        elif isinstance(self.selected_modes[0][1], int):
-            for ii in range(len(self.selected_modes)):
-                self.selected_modes[ii][1] = jnp_zeros(self.selected_modes[ii][0], self.selected_modes[ii][1])[-1]
+            self.selected_modes = self.modes_selection()
+        else:
+            for ii in range(len(self.selected_modes)): # DEBUG
+                if isinstance(self.selected_modes[ii][1], int) and self.selected_modes[ii][1] != 0:
+                    self.selected_modes[ii][1] = jnp_zeros(self.selected_modes[ii][0], self.selected_modes[ii][1])[-1]
+                elif not isinstance(self.selected_modes[ii][1], int):
+                    break
 
         if np.ndim(self.selected_modes) == 1:
             self.selected_modes = np.asarray(self.selected_modes).reshape((1,) + (3,))
@@ -1147,7 +1150,10 @@ class CylinderModes(TransducerModel):
             else:
                 e_m = 2
 
-            Lambda = np.pi * self.radius**2 * self.height * (1 - (n / k_ns)**2) * jv(n, k_ns)**2 / e_m
+            if k_ns == 0 and n == 0:
+                Lambda = 2 * np.pi * self.radius * self.height / e_m
+            else:
+                Lambda = np.pi * self.radius**2 * self.height * (1 - (n / k_ns)**2) * jv(n, k_ns)**2 / e_m
 
             omega_mode = self.medium.c * np.sqrt((k_ns / self.radius)**2 + (m * np.pi / self.height)**2)
             source_modeshape = jv(n, k_ns * source_positions_cyl[0] / self.radius) * np.e ** (1j * n * source_positions_cyl[1]) * np.cos((m*np.pi/self.height) * source_positions[2])
@@ -1211,17 +1217,7 @@ class CylinderModes(TransducerModel):
         # Unless we choose to store them linearly and add indexing + generator methods somewhere?
         # Disadvantage: Storing all the values per mode takes several thousand times more memory, so a single transducer seems to need 2 GB of ram for just the pressure in a small slice...
 
-    def modes_selection(self, source_positions):
-
-        source_positions = np.asarray(source_positions)
-
-        source_positions = source_positions.reshape(source_positions.shape[:2] + (1,))
-
-        source_positions_cyl = np.zeros(source_positions.shape)
-
-        source_positions_cyl[0] = np.sqrt(source_positions[0] ** 2 + source_positions[1] ** 2)
-        source_positions_cyl[1] = np.arctan2(source_positions[1], source_positions[0])
-        source_positions_cyl[2] = source_positions[2]
+    def modes_selection(self):
 
         damping = self.damping
 
@@ -1233,8 +1229,14 @@ class CylinderModes(TransducerModel):
         k_n1 = jnp_zeros(0, 1)[-1]
         k_ns_max = np.floor(2*self.omega / self.medium.c * self.radius).astype(int)  # DEBUG
         while k_n1 <= k_ns_max:
-            s = 1
-            k_ns = k_n1
+
+            if n == 0:
+                s = 0
+                k_ns = 0
+            else:
+                s = 1
+                k_ns = k_n1
+
             while k_ns <= k_ns_max:
                 m = 0
                 m_max = np.floor(self.radius * np.sqrt((2*self.omega / self.medium.c) ** 2 - (m *np.pi / self.height) ** 2)).astype(int)  # DEBUG
@@ -1245,12 +1247,14 @@ class CylinderModes(TransducerModel):
                     else:
                         e_m = 2
 
-                    Lambda = np.pi * self.radius**2 * self.height * (1 - (n/k_ns)**2) * jv(n, k_ns)**2 / e_m
+                    if s == 0:
+                        Lambda = 2 * np.pi * self.radius * self.height / e_m
+                    else:
+                        Lambda = np.pi * self.radius**2 * self.height * (1 - (n/k_ns)**2) * jv(n, k_ns)**2 / e_m
 
                     omega_mode = self.medium.c * np.sqrt((k_ns / self.radius)**2 + (m * np.pi / self.height)**2)
-                    source_modeshape = jv(n, k_ns * source_positions_cyl[0] / self.radius) * np.e ** (1j * n * source_positions_cyl[1]) * np.cos((m * np.pi / self.height) * source_positions[2])
 
-                    modal_amplitude.append(source_modeshape / (Lambda * (omega_mode ** 2 - self.omega ** 2 + 2 * 1j * omega_mode * damping)))
+                    modal_amplitude.append(1 / (Lambda * (omega_mode ** 2 - self.omega ** 2 + 2 * 1j * omega_mode * damping)))
                     modes_list.append((n, k_ns, m))
 
                     m += 1
@@ -1262,8 +1266,7 @@ class CylinderModes(TransducerModel):
         if self.dB_limit == ():
             selection = modes_list
         else:
-            # modal_amplitude_max = 20 * np.log10(max(map(max, np.absolute(modal_amplitude))))
-            modal_levels = 20 * np.log10(np.max(np.abs(modal_amplitude), 1))
+            modal_levels = 20 * np.log10(np.abs(modal_amplitude))
             modal_level_max = np.max(modal_levels)
             for ii in range(0, len(modal_amplitude)-1):
                 if np.any((modal_level_max - modal_levels[ii]) <= self.dB_limit):
