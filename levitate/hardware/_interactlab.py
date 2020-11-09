@@ -1,7 +1,7 @@
 import numpy as np
 try:
     import serial
-except ImportError as e:
+except ModuleNotFoundError as e:
     _serial_import_error = e
 
 from ..arrays import NormalTransducerArray

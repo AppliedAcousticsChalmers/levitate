@@ -4,7 +4,7 @@ import collections.abc
 import numpy as np
 try:
     from plotly.graph_objects import Figure
-except ImportError:
+except ModuleNotFoundError:
     def Figure(data=None, layout=None, **kwargs):
         return dict(data=data, layout=layout, **kwargs)
 
