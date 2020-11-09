@@ -548,6 +548,14 @@ class TransducerReflector(TransducerModel):
     def p0(self, val):
         self._transducer.p0 = val
 
+    @property
+    def physical_size(self):
+        return self._transducer.physical_size
+
+    @physical_size.setter
+    def physical_size(self, val):
+        self._transducer.physical_size = val
+
     def pressure_derivs(self, source_positions, source_normals, receiver_positions, *args, **kwargs):
         """Calculate the spatial derivatives of the greens function.
 
