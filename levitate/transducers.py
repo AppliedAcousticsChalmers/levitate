@@ -1151,9 +1151,9 @@ class CylinderModes(TransducerModel):
                 e_m = 2
 
             if k_ns == 0 and n == 0:
-                Lambda = 2 * np.pi * self.radius * self.height / e_m
+                Lambda = 1 / e_m
             else:
-                Lambda = np.pi * self.radius**2 * self.height * (1 - (n / k_ns)**2) * jv(n, k_ns)**2 / e_m
+                Lambda = (1 - (n / k_ns)**2) * jv(n, k_ns)**2 / e_m
 
             omega_mode = self.medium.c * np.sqrt((k_ns / self.radius)**2 + (m * np.pi / self.height)**2)
             source_modeshape = jv(n, k_ns * source_positions_cyl[0] / self.radius) * np.e ** (1j * n * source_positions_cyl[1]) * np.cos((m*np.pi/self.height) * source_positions[2])
@@ -1207,7 +1207,7 @@ class CylinderModes(TransducerModel):
         # Unit check: Pa = m^2/s^2 (Pa m) 1/m^3 sum s^2 = Pa. Ok!
         # self.modal_derivatives *= 1j * self.omega * self.medium.rho * self.medium.c**2 / (self.Lx * self.Ly * self.Lz)
         # derivatives *= 1j * self.omega * self.medium.rho * self.medium.c**2 / (self.Lx * self.Ly * self.Lz)
-        derivatives *= 4 * np.pi * self.p0 * self.medium.c**2 / (np.pi * self.radius**2 * self.height)  # This might be correct?
+        derivatives *= self.p0 * self.medium.c**2 / (np.pi * self.radius**2 * self.height)  # This might be correct?
 
         return derivatives
 
@@ -1248,9 +1248,9 @@ class CylinderModes(TransducerModel):
                         e_m = 2
 
                     if s == 0:
-                        Lambda = 2 * np.pi * self.radius * self.height / e_m
+                        Lambda = 1 / e_m
                     else:
-                        Lambda = np.pi * self.radius**2 * self.height * (1 - (n/k_ns)**2) * jv(n, k_ns)**2 / e_m
+                        Lambda = (1 - (n/k_ns)**2) * jv(n, k_ns)**2 / e_m
 
                     omega_mode = self.medium.c * np.sqrt((k_ns / self.radius)**2 + (m * np.pi / self.height)**2)
 
@@ -1271,6 +1271,8 @@ class CylinderModes(TransducerModel):
             for ii in range(0, len(modal_amplitude)-1):
                 if np.any((modal_level_max - modal_levels[ii]) <= self.dB_limit):
                     selection.append(modes_list[ii])
+                    if modes_list[ii][0] != 0:
+                        selection.append((-modes_list[ii][0], modes_list[ii][1], modes_list[ii][2]))
 
         print(str(len(selection)) + " modes used")
         return selection
