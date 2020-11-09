@@ -32,10 +32,10 @@ class TransducerArray:
         The normals of the transducer elements in the array, shape 3xN.
     transducer
         An object of `levitate.transducers.TransducerModel` or a subclass. If passed a class it will create a new instance.
-    transducer_size : float
-        Fallback transducer size if no transducer model object is given, or if no grid is given.
-    transducer_kwargs : dict
-        Extra keyword arguments used when instantiating a new transducer model.
+    **kwargs :
+        All additional keyword arguments will be passed to the a transducer class
+        used when instantiating a new transducer model. Note that this will have
+        no effect on already instantiated transducer models.
 
     Attributes
     ----------
@@ -58,23 +58,22 @@ class TransducerArray:
 
     """
 
-    _repr_fmt_spec = '{:%cls(transducer=%transducer_full, transducer_size=%transducer_size,\n\tpositions=%positions,\n\tnormals=%normals)}'
+    _repr_fmt_spec = '{:%cls(transducer=%transducer_full,\n\tpositions=%positions,\n\tnormals=%normals)}'
     _str_fmt_spec = '{:%cls(transducer=%transducer): %num_transducers transducers}'
     from .visualizers import ArrayVisualizer, ForceDiagram
 
     def __init__(self, positions, normals,
-                 transducer=None, transducer_size=10e-3, transducer_kwargs=None,
-                 medium=None
+                 transducer=None, medium=None,
+                 **kwargs
                  ):
-        self.transducer_size = transducer_size
-        transducer_kwargs = transducer_kwargs or {}
+        if 'transducer_size' in kwargs:
+            kwargs.setdefault('physical_size', kwargs.pop('transducer_size'))
         self._extra_print_args = {}
 
         if transducer is None:
-            from .transducers import PointSource
-            self.transducer = PointSource(**transducer_kwargs)
-        elif type(transducer) is type:
-            self.transducer = transducer(**transducer_kwargs)
+            from .transducers import PointSource as transducer
+        if type(transducer) is type:
+            self.transducer = transducer(**kwargs)
         else:
             self.transducer = transducer
         if medium is not None:
@@ -105,6 +104,22 @@ class TransducerArray:
             and np.allclose(self.normals, other.normals)
             and self.transducer == other.transducer
         )
+
+    def __add__(self, other):
+        if isinstance(other, TransducerArray) and self.transducer == other.transducer:
+            positions = np.concatenate([self.positions, other.positions], axis=1)
+            normals = np.concatenate([self.normals, other.normals], axis=1)
+            return TransducerArray(positions=positions, normals=normals, transducer=self.transducer)
+        else:
+            return NotImplemented
+
+    def __iadd__(self, other):
+        if isinstance(other, TransducerArray) and self.transducer == other.transducer:
+            self.positions = np.concatenate([self.positions, other.positions], axis=1)
+            self.normals = np.concatenate([self.normals, other.normals], axis=1)
+            return self
+        else:
+            return NotImplemented
 
     def __repr__(self):
         return self._repr_fmt_spec.format(self)
@@ -154,6 +169,14 @@ class TransducerArray:
     @medium.setter
     def medium(self, val):
         self.transducer.medium = val
+
+    @property
+    def transducer_size(self):
+        return self.transducer.physical_size
+
+    @transducer_size.setter
+    def transducer_size(self, value):
+        self.transducer.physical_size = value
 
     @property
     def positions(self):
@@ -407,6 +430,7 @@ class NormalTransducerArray(TransducerArray):
         The in-plane rotation of the array around the normal.
 
     """
+    _str_fmt_spec = '{:%cls(transducer=%transducer, offset=%offset, normal=%normal, rotation=%rotation)}'
 
     def __init__(self, positions, normals, offset=(0, 0, 0), normal=(0, 0, 1), rotation=0, **kwargs):
         normal = np.asarray(normal, dtype=float)
@@ -424,6 +448,9 @@ class NormalTransducerArray(TransducerArray):
             cos = normal[2]
             sin = (1 - cos**2)**0.5
             rotation_matrix = (cos * np.eye(3) + sin * cross_product_matrix + (1 - cos) * np.outer(rotation_vector, rotation_vector))
+        elif normal[2] == -1:
+            rotation_matrix = np.zeros((3, 3))
+            rotation_matrix[[0, 1, 2], [0, 1, 2]] = [-1, 1, -1]
         else:
             rotation_matrix = np.eye(3)
         if rotation != 0:
@@ -637,7 +664,9 @@ class SphericalCapArray(NormalTransducerArray):
         positions = np.stack(positions, 1)
         normals = np.stack(normals, 1)
         normals /= np.sum(normals**2, axis=0)**0.5
-        super().__init__(positions=positions, normals=normals, **kwargs)
+        kwargs.setdefault('positions', positions)
+        kwargs.setdefault('normals', normals)
+        super().__init__(**kwargs)
         self._extra_print_args.update(radius=radius, rings=rings, packing=packing, spread=spread)
 
 
@@ -756,19 +785,3 @@ class DoublesidedArray(TransducerArray):
             if str(e) != 'super(type, obj): obj must be an instance or subtype of type':
                 raise
         return super().signature(self, position, stype=stype, *args, **kwargs)
-
-
-class DragonflyArray(NormalTransducerArray):
-    """Rectangular array with Ultrahaptics Dragonfly U5 layout.
-
-    This is a 16x16 element array where the order of the transducer elements
-    are the same as the iteration order in the Ultrahaptics SDK. Otherwise
-    behaves exactly like a `RectangularArray`.
-    """
-
-    _str_fmt_spec = '{:%cls(transducer=%transducer, offset=%offset, normal=%normal, rotation=%rotation)}'
-
-    def __init__(self, **kwargs):
-        from .hardware import dragonfly_grid
-        kwargs.update(transducer_size=10e-3, positions=dragonfly_grid[0], normals=dragonfly_grid[1])
-        super().__init__(**kwargs)
