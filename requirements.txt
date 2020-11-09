@@ -1,6 +1,6 @@
 numpy
 scipy
-pytest>=3.6
+pytest>=4.6
 pytest-cov
 flake8
 sphinx

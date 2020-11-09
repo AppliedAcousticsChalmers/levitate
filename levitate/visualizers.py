@@ -4,14 +4,14 @@ import collections.abc
 import numpy as np
 try:
     from plotly.graph_objects import Figure
-except ImportError:
+except ModuleNotFoundError:
     def Figure(data=None, layout=None, **kwargs):
         return dict(data=data, layout=layout, **kwargs)
 
 
 def _string_formatter(string, format_type):
     if callable(format_type):
-            return format_type(string)
+        return format_type(string)
     format_type = format_type.lower()
     if format_type == 'html':
         # **...**
@@ -481,6 +481,7 @@ class TransducerTrace(MeshTrace):
         coordinates, indices = self.mesh
         viz_data = self.data_map(complex_transducer_amplitudes)
         intensity = np.repeat(viz_data, coordinates.shape[1] // len(viz_data))
+        customdata = np.repeat(np.stack([np.arange(self.array.num_transducers), *(self.array.positions / self.display_scale), *self.array.normals], axis=1), coordinates.shape[1] // len(viz_data), axis=0)
 
         return dict(
             type='mesh3d',
@@ -490,6 +491,18 @@ class TransducerTrace(MeshTrace):
             colorscale=self.colorscale, showscale=self.showscale,
             colorbar={'title': {'text': _string_formatter(self.label, self.string_format), 'side': 'right'}, 'x': -0.02, 'xanchor': 'left'},
             cmin=self.cmin, cmax=self.cmax,
+            customdata=customdata, hoverlabel=dict(bgcolor='green'), hovertemplate=(
+                'idx: %{customdata[0]:.0f}<br>'
+                + 'x: %{customdata[1]:.3f}<br>'
+                + 'y: %{customdata[2]:.3f}<br>'
+                + 'z: %{customdata[3]:.3f}<br>'
+                + '<extra>'
+                + '%{intensity: .3f}<br>'
+                + 'nx: %{customdata[4]:.2f}<br>'
+                + 'ny: %{customdata[5]:.2f}<br>'
+                + 'nz: %{customdata[6]:.2f}<br>'
+                + '</extra>'
+            ),
         )
 
     def _generate_mesh(self):
