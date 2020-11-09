@@ -1,5 +1,9 @@
 import numpy as np
-import serial
+try:
+    import serial
+except ImportError as e:
+    _serial_import_error = e
+
 from ..arrays import NormalTransducerArray
 
 
@@ -74,7 +78,7 @@ class AcoustophoreticBoard(NormalTransducerArray):
 
     _amplitude_calibration = {}
 
-    def __init__(self, id=None, linearize_amplitude=True, compensate_phase=True, normalize=True, use_phase_calibration=True, use_amplitude_calibration=False, **kwargs):
+    def __init__(self, id=None, linearize_amplitude=True, compensate_phase=True, normalize=False, use_phase_calibration=True, use_amplitude_calibration=False, **kwargs):
         # Setup for virtual array
         nx = self.grid_indices.shape[1]
         ny = self.grid_indices.shape[0]
@@ -99,6 +103,10 @@ class AcoustophoreticBoard(NormalTransducerArray):
         self._connection = {}
 
     def connect(self):
+        try:
+            serial
+        except NameError:
+            raise NameError("Module 'serial' not imported. This is needed to control the hardware from InteractLab. \nTry running `pip install serial` in your environment install the package.") from _serial_import_error
         for id in self.id:
             if id not in self._ports:
                 raise ConnectionError(f'The interact lab array with id `{self.id}` has no listed port!')
