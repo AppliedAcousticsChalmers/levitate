@@ -316,8 +316,10 @@ class Trace:
     label = ''
     name = ''
 
-    def __init__(self, array):
+    def __init__(self, array, name=None):
         self.array = array
+        if name is not None:
+            self.name = name
 
     @property
     def display_scale(self):
@@ -757,7 +759,7 @@ class VectorFieldCones(FieldTrace):
     cmax = None
 
     def __init__(self, array, center, resolution=5,
-                 xrange=None, yrange=None, zrange=None, **kwargs):
+                 xrange=None, yrange=None, zrange=None, exclude_center=True, **kwargs):
         super().__init__(array, **kwargs)
 
         self.center = center
@@ -765,6 +767,7 @@ class VectorFieldCones(FieldTrace):
         self.xrange = xrange if xrange is not None else self.array.wavelength
         self.yrange = yrange if yrange is not None else self.array.wavelength
         self.zrange = zrange if zrange is not None else self.array.wavelength
+        self.exclude_center = exclude_center
 
     @MeshTrace.meshproperty
     def resolution(self, val):
@@ -778,17 +781,26 @@ class VectorFieldCones(FieldTrace):
     xrange = MeshTrace.meshproperty()
     yrange = MeshTrace.meshproperty()
     zrange = MeshTrace.meshproperty()
+    exclude_center = MeshTrace.meshproperty()
 
     def _generate_mesh(self):
-        nx = int(2 * np.ceil(self.xrange / self._resolution) + 1)
-        ny = int(2 * np.ceil(self.yrange / self._resolution) + 1)
-        nz = int(2 * np.ceil(self.zrange / self._resolution) + 1)
+
+        nx = 2 * np.math.ceil(self.xrange / self._resolution) + 1
+        ny = 2 * np.math.ceil(self.yrange / self._resolution) + 1
+        nz = 2 * np.math.ceil(self.zrange / self._resolution) + 1
 
         x = np.linspace(-self.xrange, self.xrange, nx) + self.center[0]
         y = np.linspace(-self.yrange, self.yrange, ny) + self.center[1]
         z = np.linspace(-self.zrange, self.zrange, nz) + self.center[2]
 
-        return np.stack(np.meshgrid(x, y, z, indexing='ij'), axis=0).reshape((3, -1))
+        mesh = np.stack(np.meshgrid(x, y, z, indexing='ij'), axis=0).reshape((3, -1))
+        if self.exclude_center:
+            x_offset = (nx // 2) * ny * nz  # Go through half of the x values
+            y_offset = (ny // 2) * nz  # Go through half of the y values
+            z_offset = (nz // 2)  # Go through half of the z values
+            index = x_offset + y_offset + z_offset
+            mesh = np.delete(mesh, index, axis=1)
+        return mesh
 
     def __call__(self, complex_transducer_amplitudes=None):
         field_data = super().__call__(complex_transducer_amplitudes)
