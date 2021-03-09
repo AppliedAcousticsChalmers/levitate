@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 __all__ = ['transducers', 'arrays', 'hardware', 'materials', 'optimization', 'fields', 'utils']
 
 from . import _version
-__version__ = _version.__version__
+__version_info__ = _version.version_info
+__version__ = _version.version
 del _version  # Keep the namespace clean. Import from directly form the `_version` module if needed.
 
 
