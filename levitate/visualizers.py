@@ -882,9 +882,10 @@ class ForceCones(VectorFieldCones):
 
 
 class ForceDiagram(Visualizer):
-    def __init__(self, *args, scale_to_gravity=True, **kwargs):
+    def __init__(self, *args, scale_to_gravity=True, include_gravity=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.scale_to_gravity = scale_to_gravity
+        self.include_gravity = include_gravity
 
     def __setitem__(self, index, value):
         if type(value) is not ForceDiagram.ForceTrace:
@@ -932,7 +933,7 @@ class ForceDiagram(Visualizer):
             for idx, field in enumerate(self):
                 this_field_traces = field(
                     data, line=kwargs['line'][idx] if 'line' in kwargs else dict(color=colors[idx % len(colors)]),
-                    name=_string_formatter(kwargs['name'][idx] if 'name' in kwargs else field.name if field.name is not '' else 'Force {}'.format(idx), self.string_format),
+                    name=_string_formatter(kwargs['name'][idx] if 'name' in kwargs else field.name if field.name != '' else 'Force {}'.format(idx), self.string_format),
                 )
                 all_traces.extend(this_field_traces)
         else:
@@ -992,6 +993,13 @@ class ForceDiagram(Visualizer):
             except AttributeError:
                 return False
 
+        @property
+        def include_gravity(self):
+            try:
+                return self.visualizer.include_gravity
+            except AttributeError:
+                return False
+
         @MeshTrace.meshproperty
         def resolution(self, val):
             return self.array.wavelength / val
@@ -1026,6 +1034,8 @@ class ForceDiagram(Visualizer):
 
         def __call__(self, complex_transducer_amplitudes, **kwargs):
             force = super().__call__(complex_transducer_amplitudes)
+            if self.include_gravity:
+                force[2] -= self.field.field.mg
             if self.scale_to_gravity:
                 force /= self.field.field.mg
 
