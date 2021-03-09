@@ -1,15 +1,14 @@
 language: python
 
 install:
-  - pip install -e . 
+  - pip install -e .
   - pip install -r requirements.txt
 
-script: 
+script:
   - pytest
 
 jobs:
   include:
-    - python: "3.5"
     - python: "3.6"
       script: pytest --cov levitate --cov-report term-missing
       after_success: bash <(curl -s https://codecov.io/bash)
@@ -20,7 +19,7 @@ jobs:
       install:
         - pip install -e .
         - pip install -r requirements.txt
-        - pip install plotly        
+        - pip install plotly
       script:
         - mkdir -p build/examples
         - python examples/basic_trap.py
@@ -34,7 +33,7 @@ jobs:
         - sphinx-build -M html docs .
         - echo '<html>\n<head>\n<meta http-equiv="refresh" content="0; url=html/index.html" />\n</head>\n<body></body>\n</html>' > index.html
         - touch .nojekyll
-      deploy: 
+      deploy:
         - provider: pages
           skip-cleanup: true
           keep-history: true
