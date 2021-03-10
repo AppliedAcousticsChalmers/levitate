@@ -1115,11 +1115,10 @@ class CylinderModes(TransducerModel):
         source_positions = np.asarray(source_positions)
         receiver_positions = np.asarray(receiver_positions)
 
-        if receiver_positions.shape[1:] == ():
-            receiver_positions = receiver_positions.reshape((3,) + (1,))
-
-        source_positions = source_positions.reshape(source_positions.shape[:2] + (1,))
-        receiver_positions = receiver_positions.reshape((3,) + (1,) + receiver_positions.shape[1:])
+        source_dims = source_positions.ndim - 1
+        receiver_dims = receiver_positions.ndim - 1
+        source_positions = source_positions.reshape(source_positions.shape[:2] + receiver_dims * (1,))
+        receiver_positions = receiver_positions.reshape((3,) + (1,) * source_dims + receiver_positions.shape[1:])
 
         source_positions_cyl = np.zeros(source_positions.shape)
         receiver_positions_cyl = np.zeros(receiver_positions.shape)
@@ -1132,7 +1131,9 @@ class CylinderModes(TransducerModel):
         receiver_positions_cyl[1] = np.arctan2(receiver_positions[1], receiver_positions[0])
         receiver_positions_cyl[2] = receiver_positions[2]
 
-        derivatives = np.zeros((utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[2:], dtype=np.complex128)
+        output_shape = (utils.num_pressure_derivs[orders],) + source_positions.shape[1:source_dims + 1] + receiver_positions.shape[source_dims + 1:]
+
+        derivatives = np.zeros(output_shape, dtype=np.complex128)
 
         # TODO: Check the conventions for the complex exponential. The jw might stem from d/ts -> jw, but with our conventions we have d/dt -> -iw. There's two j's I could find that might be relevant, one in the damping term, and one in the overall scaling.
         # IDEA: Include proper material based modelling of the damping coefficient?
@@ -1174,7 +1175,7 @@ class CylinderModes(TransducerModel):
 
             constant = source_modeshape / (Lambda * (omega_mode**2 - self.omega**2 + 2 * 1j * omega_mode * damping))
 
-            this_mode_derivatives = np.zeros((utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[2:], dtype=np.complex128)  # DEBUG
+            this_mode_derivatives = np.zeros(output_shape, dtype=np.complex128)  # DEBUG
             this_mode_derivatives[0] = constant * jv(n, k_ns * receiver_positions_cyl[0] / self.radius) * np.e ** (1j * n * receiver_positions_cyl[1]) * np.cos((m*np.pi/self.height) * receiver_positions[2])
 
             if orders > 0:
