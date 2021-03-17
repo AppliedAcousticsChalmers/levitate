@@ -1120,17 +1120,6 @@ class CylinderModes(TransducerModel):
         source_positions = source_positions.reshape(source_positions.shape[:2] + receiver_dims * (1,))
         receiver_positions = receiver_positions.reshape((3,) + (1,) * source_dims + receiver_positions.shape[1:])
 
-        source_positions_cyl = np.zeros(source_positions.shape)
-        receiver_positions_cyl = np.zeros(receiver_positions.shape)
-
-        source_positions_cyl[0] = np.sqrt(source_positions[0]**2 + source_positions[1]**2)
-        source_positions_cyl[1] = np.arctan2(source_positions[1], source_positions[0])
-        source_positions_cyl[2] = source_positions[2]
-
-        receiver_positions_cyl[0] = np.sqrt(receiver_positions[0] ** 2 + receiver_positions[1] ** 2)
-        receiver_positions_cyl[1] = np.arctan2(receiver_positions[1], receiver_positions[0])
-        receiver_positions_cyl[2] = receiver_positions[2]
-
         x_src, y_src, z_src = source_positions
         x_rec, y_rec, z_rec = receiver_positions
         rho_src = (x_src**2 + y_src**2)**0.5
@@ -1141,13 +1130,7 @@ class CylinderModes(TransducerModel):
         output_shape = (utils.num_pressure_derivs[orders],) + source_positions.shape[1:source_dims + 1] + receiver_positions.shape[source_dims + 1:]
 
         derivatives = np.zeros(output_shape, dtype=np.complex128)
-
-        # TODO: Check the conventions for the complex exponential. The jw might stem from d/ts -> jw, but with our conventions we have d/dt -> -iw. There's two j's I could find that might be relevant, one in the damping term, and one in the overall scaling.
-        # IDEA: Include proper material based modelling of the damping coefficient?
         damping = self.damping
-
-        # modal_derivatives = np.zeros((nx_max + 1, ny_max + 1, nz_max + 1, utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[2:], dtype=np.complex128)  # DEBUG
-        # modal_frequencies = np.zeros((nx_max + 1, ny_max + 1, nz_max + 1))  # DEBUG
 
         if orders > 0:
             # We use the normalized values in the calculations below, but we don't
@@ -1158,7 +1141,7 @@ class CylinderModes(TransducerModel):
         if self.selected_modes == ():
             self.selected_modes = self.modes_selection()
         else:
-            for ii in range(len(self.selected_modes)): # DEBUG
+            for ii in range(len(self.selected_modes)):
                 if isinstance(self.selected_modes[ii][1], int) and self.selected_modes[ii][1] != 0:
                     self.selected_modes[ii][1] = jnp_zeros(self.selected_modes[ii][0], self.selected_modes[ii][1])[-1]
                 elif not isinstance(self.selected_modes[ii][1], int):
@@ -1184,13 +1167,10 @@ class CylinderModes(TransducerModel):
                 Lambda = (1 - (n / k_ns)**2) * jv(n, k_ns)**2 / e_m
 
             omega_mode = self.medium.c * np.sqrt((k_ns / self.radius)**2 + (m * np.pi / self.height)**2)
-            # source_modeshape = jv(n, k_ns * source_positions_cyl[0] / self.radius) * np.e ** (1j * n * source_positions_cyl[1]) * np.cos((m*np.pi/self.height) * source_positions[2])
             source_modeshape = jv(n, k_ns * rho_src / self.radius) * np.exp(1j * n * theta_src) * np.cos(m * np.pi / self.height * z_src)
-
             constant = source_modeshape / (Lambda * (omega_mode**2 - self.omega**2 + 2 * 1j * omega_mode * damping))
 
             this_mode_derivatives = np.zeros(output_shape, dtype=np.complex128)  # DEBUG
-            # this_mode_derivatives[0] = constant * jv(n, k_ns * receiver_positions_cyl[0] / self.radius) * np.e ** (1j * n * receiver_positions_cyl[1]) * np.cos((m*np.pi/self.height) * receiver_positions[2])
 
             bessel_function = jv(n, k_ns * rho_rec / self.radius)
             z_factor = m * np.pi / self.height
@@ -1208,9 +1188,6 @@ class CylinderModes(TransducerModel):
                 this_mode_derivatives[2] = constant * (yn * bessel_derivative + 1j * n * xn / rho_rec * bessel_function) * theta_phase * cos_z
                 # d/dz
                 this_mode_derivatives[3] = -constant * bessel_function * theta_phase * sin_z * z_factor
-                # this_mode_derivatives[1] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*(k_ns*receiver_positions_cyl[0]*receiver_positions[0]*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius) - self.radius*n*(receiver_positions[0] + 1j*receiver_positions[1])*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.cos((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius*receiver_positions_cyl[0]**2)
-                # this_mode_derivatives[2] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*(k_ns*receiver_positions_cyl[0]*receiver_positions[1]*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius) + 1j*self.radius*n*(receiver_positions[0] + 1j*receiver_positions[1])*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.cos((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius*receiver_positions_cyl[0]**2)
-                # this_mode_derivatives[3] = -constant * ((np.e**(1j*n*receiver_positions_cyl[1])*m*np.pi*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius)*np.sin((m*np.pi*receiver_positions_cyl[2])/self.height))/self.height)
             if orders > 1:
                 bessel_second_derivative = jvp(n, k_ns * rho_rec / self.radius, 2) * (k_ns / self.radius)**2
                 # d^2/dx^2
@@ -1237,12 +1214,6 @@ class CylinderModes(TransducerModel):
                 this_mode_derivatives[8] = -constant * (bessel_derivative * xn - 1j * n * yn / rho_rec * bessel_function) * theta_phase * sin_z * z_factor
                 # d^2/dydz
                 this_mode_derivatives[9] = -constant * (bessel_derivative * yn + 1j * n * xn / rho_rec * bessel_function) * theta_phase * sin_z * z_factor
-                # this_mode_derivatives[4] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*(self.radius*k_ns*receiver_positions_cyl[0]*(receiver_positions_cyl[0]**2 - 2*receiver_positions[0]*(receiver_positions[0] + 1j*n*receiver_positions[1]))*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius) + (-(k_ns**2*receiver_positions_cyl[0]**2*receiver_positions[0]**2) + self.radius**2*n*(-receiver_positions_cyl[0]**2 + (receiver_positions[0] + 1j*receiver_positions[1])*((2 + n)*receiver_positions[0] + 1j*n*receiver_positions[1])))*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.cos((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius**2*receiver_positions_cyl[0]**4)
-                # this_mode_derivatives[5] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*(self.radius*k_ns*receiver_positions_cyl[0]*(receiver_positions_cyl[0]**2 + 2j*n*receiver_positions[0]*receiver_positions[1] - 2*receiver_positions[1]**2)*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius) - (k_ns**2*receiver_positions_cyl[0]**2*receiver_positions[1]**2 + self.radius**2*n*(receiver_positions_cyl[0]**2 + (receiver_positions[0] + 1j*receiver_positions[1])*(n*receiver_positions[0] + 1j*(2 + n)*receiver_positions[1])))*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.cos((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius**2*receiver_positions_cyl[0]**4)
-                # this_mode_derivatives[6] = -constant * ((np.e**(1j*n*receiver_positions_cyl[1])*m**2*np.pi**2*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius)*np.cos((m*np.pi*receiver_positions_cyl[2])/self.height))/self.height**2)
-                # this_mode_derivatives[7] = constant * (1j*np.e**(1j*n*receiver_positions_cyl[1])*(self.radius*k_ns*receiver_positions_cyl[0]*(2j*receiver_positions[0]*receiver_positions[1] + n*(receiver_positions[0] - receiver_positions[1])*(receiver_positions[0] + receiver_positions[1]))*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius) - (-1j*k_ns**2*receiver_positions_cyl[0]**2*receiver_positions[0]*receiver_positions[1] + self.radius**2*n*(receiver_positions_cyl[0]**2 + (receiver_positions[0] + 1j*receiver_positions[1])*(n*receiver_positions[0] + 1j*(2 + n)*receiver_positions[1])))*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.cos((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius**2*receiver_positions_cyl[0]**4)
-                # this_mode_derivatives[8] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*m*np.pi*(-(k_ns*receiver_positions_cyl[0]*receiver_positions[0]*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius)) + self.radius*n*(receiver_positions[0] + 1j*receiver_positions[1])*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.sin((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius*self.height*receiver_positions_cyl[0]**2)
-                # this_mode_derivatives[9] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*m*np.pi*(-(k_ns*receiver_positions_cyl[0]*receiver_positions[1]*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius)) + self.radius*n*(-1j*receiver_positions[0] + receiver_positions[1])*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.sin((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius*self.height*receiver_positions_cyl[0]**2)
             if orders > 2:
                 bessel_third_derivative = jvp(n, k_ns * rho_rec / self.radius, 3) * (k_ns / self.radius)**3
                 # d^3/dx^3
@@ -1301,47 +1272,12 @@ class CylinderModes(TransducerModel):
                     + bessel_derivative / rho_rec * (1j * n * (xn**2 - yn**2) - xn * yn)
                     + bessel_function / rho_rec**2 * (1j * (yn**2 - xn**2) + n * xn * yn) * n
                 ) * theta_phase * sin_z * z_factor
-                # this_mode_derivatives[10] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*(k_ns*receiver_positions_cyl[0]*(-(k_ns**2*receiver_positions_cyl[0]**2*receiver_positions[0]**3) + self.radius**2*(-3*receiver_positions_cyl[0]**2*(2*receiver_positions[0] + 1j*n*receiver_positions[1]) + receiver_positions[0]*((8 + n**2)*receiver_positions[0]**2 + 12j*n*receiver_positions[0]*receiver_positions[1] - 3*n**2*receiver_positions[1]**2)))*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius) + self.radius*(k_ns**2*receiver_positions_cyl[0]**2*receiver_positions[0]*(-3*receiver_positions_cyl[0]**2 + receiver_positions[0]*((4 + n)*receiver_positions[0] + 3j*n*receiver_positions[1])) + self.radius**2*n*(-((receiver_positions[0] + 1j*receiver_positions[1])*((2 + n)*receiver_positions[0] + 1j*n*receiver_positions[1])*((4 + n)*receiver_positions[0] + 1j*n*receiver_positions[1])) + receiver_positions_cyl[0]**2*(3*(2 + n)*receiver_positions[0] + 1j*(2 + 3*n)*receiver_positions[1])))*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.cos((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius**3*receiver_positions_cyl[0]**6)  # noqa
-                # this_mode_derivatives[11] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*(k_ns*receiver_positions_cyl[0]*(-(k_ns**2*receiver_positions_cyl[0]**2*receiver_positions[1]**3) + self.radius**2*(-6*receiver_positions_cyl[0]**2*receiver_positions[1] + 8*receiver_positions[1]**3 + 3j*n*receiver_positions[0]*(receiver_positions_cyl[0]**2 - 4*receiver_positions[1]**2) + n**2*(-3*receiver_positions[0]**2*receiver_positions[1] + receiver_positions[1]**3)))*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius) + self.radius*(self.radius**2*n*(receiver_positions_cyl[0]**2*(-1j*(2 + 3*n)*receiver_positions[0] + 3*(2 + n)*receiver_positions[1]) + (-1j*receiver_positions[0] + receiver_positions[1])*(n*receiver_positions[0] + 1j*(2 + n)*receiver_positions[1])*(n*receiver_positions[0] + 1j*(4 + n)*receiver_positions[1])) + k_ns**2*receiver_positions_cyl[0]**2*receiver_positions[1]*(-3*receiver_positions_cyl[0]**2 + receiver_positions[1]*(-3j*n*receiver_positions[0] + (4 + n)*receiver_positions[1])))*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.cos((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius**3*receiver_positions_cyl[0]**6)  # noqa
-                # this_mode_derivatives[12] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*m**3*np.pi**3*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius)*np.sin((m*np.pi*receiver_positions_cyl[2])/self.height))/self.height**3  # noqa
-                # this_mode_derivatives[13] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*(-(k_ns*receiver_positions_cyl[0]*(k_ns**2*receiver_positions_cyl[0]**2*receiver_positions[0]**2*receiver_positions[1] + self.radius**2*(2*(receiver_positions_cyl[0]**2 - 4*receiver_positions[0]**2)*receiver_positions[1] + 1j*n*receiver_positions[0]*(receiver_positions_cyl[0]**2 + 2*receiver_positions[0]**2 - 10*receiver_positions[1]**2) + n**2*(-3*receiver_positions[0]**2*receiver_positions[1] + receiver_positions[1]**3)))*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius)) + self.radius*(self.radius**2*n*(receiver_positions_cyl[0]**2*(1j*(2 + n)*receiver_positions[0] - (-2 + n)*receiver_positions[1]) + 1j*(receiver_positions[0] + 1j*receiver_positions[1])*((2 + n)*receiver_positions[0] + 1j*n*receiver_positions[1])*(n*receiver_positions[0] + 1j*(4 + n)*receiver_positions[1])) + k_ns**2*receiver_positions_cyl[0]**2*(-(receiver_positions_cyl[0]**2*receiver_positions[1]) + receiver_positions[0]*(-1j*n*receiver_positions[0]**2 + (4 + n)*receiver_positions[0]*receiver_positions[1] + 2j*n*receiver_positions[1]**2)))*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.cos((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius**3*receiver_positions_cyl[0]**6)  # noqa
-                # this_mode_derivatives[14] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*m*np.pi*(self.radius*k_ns*receiver_positions_cyl[0]*(-receiver_positions_cyl[0]**2 + 2*receiver_positions[0]*(receiver_positions[0] + 1j*n*receiver_positions[1]))*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius) + (k_ns**2*receiver_positions_cyl[0]**2*receiver_positions[0]**2 + self.radius**2*n*(receiver_positions_cyl[0]**2 - (receiver_positions[0] + 1j*receiver_positions[1])*((2 + n)*receiver_positions[0] + 1j*n*receiver_positions[1])))*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.sin((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius**2*self.height*receiver_positions_cyl[0]**4)  # noqa
-                # this_mode_derivatives[15] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*(-(k_ns*receiver_positions_cyl[0]*(k_ns**2*receiver_positions_cyl[0]**2*receiver_positions[0]*receiver_positions[1]**2 + self.radius**2*(2*receiver_positions_cyl[0]**2*receiver_positions[0] + n**2*receiver_positions[0]**3 - 1j*n*(receiver_positions_cyl[0]**2 - 10*receiver_positions[0]**2)*receiver_positions[1] - (8 + 3*n**2)*receiver_positions[0]*receiver_positions[1]**2 - 2j*n*receiver_positions[1]**3))*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius)) + self.radius*(self.radius**2*n*(receiver_positions_cyl[0]**2*(-((-2 + n)*receiver_positions[0]) - 1j*(2 + n)*receiver_positions[1]) + (receiver_positions[0] + 1j*receiver_positions[1])*((4 + n)*receiver_positions[0] + 1j*n*receiver_positions[1])*(n*receiver_positions[0] + 1j*(2 + n)*receiver_positions[1])) + k_ns**2*receiver_positions_cyl[0]**2*(-(receiver_positions_cyl[0]**2*receiver_positions[0]) + receiver_positions[1]*(-2j*n*receiver_positions[0]**2 + (4 + n)*receiver_positions[0]*receiver_positions[1] + 1j*n*receiver_positions[1]**2)))*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.cos((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius**3*receiver_positions_cyl[0]**6)  # noqa
-                # this_mode_derivatives[16] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*m*np.pi*(-(self.radius*k_ns*receiver_positions_cyl[0]*(receiver_positions_cyl[0]**2 + 2j*n*receiver_positions[0]*receiver_positions[1] - 2*receiver_positions[1]**2)*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius)) + (k_ns**2*receiver_positions_cyl[0]**2*receiver_positions[1]**2 + self.radius**2*n*(receiver_positions_cyl[0]**2 + (receiver_positions[0] + 1j*receiver_positions[1])*(n*receiver_positions[0] + 1j*(2 + n)*receiver_positions[1])))*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.sin((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius**2*self.height*receiver_positions_cyl[0]**4)  # noqa
-                # this_mode_derivatives[17] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*m**2*np.pi**2*(-(k_ns*receiver_positions_cyl[0]*receiver_positions[0]*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius)) + self.radius*n*(receiver_positions[0] + 1j*receiver_positions[1])*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.cos((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius*self.height**2*receiver_positions_cyl[0]**2)  # noqa
-                # this_mode_derivatives[18] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*m**2*np.pi**2*(-(k_ns*receiver_positions_cyl[0]*receiver_positions[1]*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius)) + self.radius*n*(-1j*receiver_positions[0] + receiver_positions[1])*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.cos((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius*self.height**2*receiver_positions_cyl[0]**2)  # noqa
-                # this_mode_derivatives[19] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*m*np.pi*(self.radius*k_ns*receiver_positions_cyl[0]*(2*receiver_positions[0]*receiver_positions[1] - 1j*n*(receiver_positions[0] - receiver_positions[1])*(receiver_positions[0] + receiver_positions[1]))*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius) + (k_ns**2*receiver_positions_cyl[0]**2*receiver_positions[0]*receiver_positions[1] + 1j*self.radius**2*n*(receiver_positions_cyl[0]**2 + (receiver_positions[0] + 1j*receiver_positions[1])*(n*receiver_positions[0] + 1j*(2 + n)*receiver_positions[1])))*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.sin((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius**2*self.height*receiver_positions_cyl[0]**4)  # noqa
 
-            # modal_derivatives[nx, ny, nz] = this_mode_derivatives  # DEBUG
-            # modal_frequencies[nx, ny, nz] = omega_mode / 2 / np.pi  # DEBUG
-            derivatives += this_mode_derivatives # DEBUG: Add in place instead?
+            derivatives += this_mode_derivatives
 
-            # self.modal_derivatives = modal_derivatives  # DEBUG
-            # self.modal_frequencies = modal_frequencies  # DEBUG
-
-        # TODO: Make sure that the scaling makes sense!
-        # We need a volume velocity! From Williams 1999, (6.71, p.198) pressure from a monopole:
-        #   p = -i rho_0 c k / (4 pi) Q_s exp(ikr) / r
-        #   Units: Pa = kg/m^3 m/s 1/m [Q] 1/m = kg/m^4/s [Q] => [Q] = Pa m^4 s / kg = N m^2 s/kg = kg m/s^2 m^2 s/kg = m^3 / s
-        #   [Q] = m^3 / s, i.e. volume per second.
-        # Our corresponding expression is:
-        #   p = p_0 exp(ikr) / r
-        # So p_0 = -i rho_0 c k / (4 pi) Q_s => Q_s =  4 pi p_0 / (i rho_0 c k) = 4 pi p_0 / (i w rho_0)
-        # The expression
-        #   jw rho_0 c^2 U / V = jw rho_0 c^2 (4 pi p_0 / (i w rho_0)) / V
-        #   = ± 4 pi c^2 p_0 / V
-        # Unit check: Pa = m^2/s^2 (Pa m) 1/m^3 sum s^2 = Pa. Ok!
-        # self.modal_derivatives *= 1j * self.omega * self.medium.rho * self.medium.c**2 / (self.Lx * self.Ly * self.Lz)
-        # derivatives *= 1j * self.omega * self.medium.rho * self.medium.c**2 / (self.Lx * self.Ly * self.Lz)
         derivatives *= self.p0 * self.medium.c**2 / (np.pi * self.radius**2 * self.height)  # This might be correct?
 
         return derivatives
-
-        # Can this be generalized somehow to create a mode-shape transducer superclass?
-        # Create separate functions for modeshape (+derivatives), modal frequency, modal amplitude.
-        # Will be somewhat difficult since different geometries will have different number of indices for the modes.
-        # Unless we choose to store them linearly and add indexing + generator methods somewhere?
-        # Disadvantage: Storing all the values per mode takes several thousand times more memory, so a single transducer seems to need 2 GB of ram for just the pressure in a small slice...
 
     def modes_selection(self):
 
