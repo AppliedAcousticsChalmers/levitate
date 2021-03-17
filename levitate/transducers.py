@@ -1216,22 +1216,22 @@ class CylinderModes(TransducerModel):
                 # d^2/dx^2
                 this_mode_derivatives[4] = constant * (
                     bessel_second_derivative * xn**2
-                    + bessel_derivative / rho_rec * (-2j * n * xn * yn + yn**2)
-                    + bessel_function / rho_rec**2 * (2j * n * xn * yn - n**2 * yn**2)
+                    + bessel_derivative / rho_rec * (-2j * n * xn + yn) * yn
+                    + bessel_function / rho_rec**2 * (2j * xn - n * yn) * n * yn
                 ) * cos_z * theta_phase
                 # d^2/dy^2
                 this_mode_derivatives[5] = constant * (
                     bessel_second_derivative * yn**2
-                    + bessel_derivative / rho_rec * (2j * n * xn * yn + xn**2)
-                    + bessel_function / rho_rec**2 * (-2j * n * xn * yn - n**2 * xn**2)
+                    + bessel_derivative / rho_rec * (xn + 2j * n * yn) * xn
+                    + bessel_function / rho_rec**2 * (-n * xn - 2j * yn) * n * xn
                 ) * cos_z * theta_phase
                 # d^2/dz^2
                 this_mode_derivatives[6] = -constant * bessel_function * theta_phase * cos_z * z_factor**2
                 # d^2/dxdy
                 this_mode_derivatives[7] = constant * (
                     bessel_second_derivative * xn * yn
-                    + bessel_derivative / rho_rec * (-xn * yn + 1j * n * xn**2 - 1j * n * yn**2)
-                    + bessel_function / rho_rec**2 * (1j * n * (yn**2 - xn**2) + n**2 * xn * yn)
+                    + bessel_derivative / rho_rec * (1j * n * (xn**2 - yn**2) - xn * yn)
+                    + bessel_function / rho_rec**2 * (1j * (yn**2 - xn**2) + n * xn * yn) * n
                 ) * cos_z * theta_phase
                 # d^2/dxdz
                 this_mode_derivatives[8] = -constant * (bessel_derivative * xn - 1j * n * yn / rho_rec * bessel_function) * theta_phase * sin_z * z_factor
@@ -1248,16 +1248,16 @@ class CylinderModes(TransducerModel):
                 # d^3/dx^3
                 this_mode_derivatives[10] = constant * (
                     bessel_third_derivative * xn**3
-                    + bessel_second_derivative / rho_rec * 3 * (yn**2 * xn - 1j * n * xn**2 * yn)
-                    + bessel_derivative / rho_rec**2 * 3 * (2j * n * xn**2 * yn - (n**2 + 1) * xn * yn**2 - 1j * n * yn**3)
-                    + bessel_function / rho_rec**3 * (1j * (n**3 + 2 * n) * yn**3 + 6 * n**2 * xn * yn**2 - 6j * n * xn**2 * yn)
+                    + bessel_second_derivative / rho_rec * 3 * (-1j * n * xn + yn) * xn * yn
+                    + bessel_derivative / rho_rec**2 * 3 * (1j * n * (2 * xn**2 - yn**2) - (n**2 + 1) * xn * yn) * yn
+                    + bessel_function / rho_rec**3 * (-6j * xn**2 + 6 * n * xn * yn + 1j * (n**2 + 2) * yn**2) * yn * n
                 ) * theta_phase * cos_z
                 # d^3/dy^3
                 this_mode_derivatives[11] = constant * (
                     bessel_third_derivative * yn**3
-                    + bessel_second_derivative / rho_rec * 3 * (1j * n * xn * yn**2 + xn**2 * yn)
-                    + bessel_derivative / rho_rec**2 * 3 * (1j * n * xn**3 - 2j * n * xn * yn**2 - (n**2 + 1) * xn**2 * yn)
-                    + bessel_function / rho_rec**3 * (6 * n**2 * xn**2 * yn + 6j * n * xn * yn**2 - 1j * (n**3 + 2 * n) * xn**3)
+                    + bessel_second_derivative / rho_rec * 3 * (xn + 1j * n * yn) * xn * yn
+                    + bessel_derivative / rho_rec**2 * 3 * (1j * n * xn**2 - (n**2 + 1) * xn * yn - 2j * n * yn**2) * xn
+                    + bessel_function / rho_rec**3 * (-1j * (n**2 + 2) * xn**2 + 6 * n * xn * yn + 6j * yn**2) * xn * n
                 ) * theta_phase * cos_z
                 # d^3/dz^3
                 this_mode_derivatives[12] = constant * bessel_function * theta_phase * sin_z * z_factor**3
@@ -1266,26 +1266,26 @@ class CylinderModes(TransducerModel):
                     bessel_third_derivative * xn**2 * yn
                     + bessel_second_derivative / rho_rec * (1j * n * xn**3 - 2 * xn**2 * yn - 2j * n * xn * yn**2 + yn**3)
                     + bessel_derivative / rho_rec**2 * (-2j * n * xn**3 + 2 * (n**2 + 1) * xn**2 * yn + 7j * n * xn * yn**2 - (n**2 + 1) * yn**3)
-                    + bessel_function / rho_rec**3 * (2j * n * xn**3 - 4 * n**2 * xn**2 * yn - 1j * (n**3 + 6 * n) * xn * yn**2 + 2 * n**2 * yn**3)
+                    + bessel_function / rho_rec**3 * (2j * xn**3 - 4 * n * xn**2 * yn - 1j * (n**2 + 6) * xn * yn**2 + 2 * n * yn**3) * n
                 ) * theta_phase * cos_z
                 # d^3/dx^2dz
                 this_mode_derivatives[14] = -constant * (
                     bessel_second_derivative * xn**2
-                    + bessel_derivative / rho_rec * (-2j * n * xn * yn + yn**2)
-                    + bessel_function / rho_rec**2 * (2j * n * xn * yn - n**2 * yn**2)
+                    + bessel_derivative / rho_rec * (-2j * n * xn + yn) * yn
+                    + bessel_function / rho_rec**2 * (2j * xn - n * yn) * n * yn
                 ) * theta_phase * sin_z * z_factor
                 # d^3/dy^2dx
                 this_mode_derivatives[15] = constant * (
                     bessel_third_derivative * xn * yn**2
                     + bessel_second_derivative / rho_rec * (xn**3 + 2j * n * xn**2 * yn - 2 * xn * yn**2 - 1j * n * yn**3)
                     + bessel_derivative / rho_rec**2 * (-(n**2 + 1) * xn**3 - 7j * n * xn**2 * yn + 2 * (n**2 + 1) * xn * yn**2 + 2j * n * yn**3)
-                    + bessel_function / rho_rec**3 * (2 * n**2 * xn**3 + 1j * (n**3 + 6 * n) * xn**2 * yn - 4 * n**2 * xn * yn**2 - 2j * n * yn**3)
+                    + bessel_function / rho_rec**3 * (2 * n * xn**3 + 1j * (n**2 + 6) * xn**2 * yn - 4 * n * xn * yn**2 - 2j * yn**3) * n
                 ) * theta_phase * cos_z
                 # d^3/dy^2dz
                 this_mode_derivatives[16] = -constant * (
                     bessel_second_derivative * yn**2
-                    + bessel_derivative / rho_rec * (2j * n * xn * yn + xn**2)
-                    + bessel_function / rho_rec**2 * (-2j * n * xn * yn - n**2 * xn**2)
+                    + bessel_derivative / rho_rec * (xn + 2j * n * yn) * xn
+                    + bessel_function / rho_rec**2 * (-n * xn - 2j * yn) * n * xn
                 ) * theta_phase * sin_z * z_factor
                 # d^3/dz^dx
                 this_mode_derivatives[17] = -constant * (
@@ -1298,8 +1298,8 @@ class CylinderModes(TransducerModel):
                 # d^3/dxdydz
                 this_mode_derivatives[19] = -constant * (
                     bessel_second_derivative * xn * yn
-                    + bessel_derivative / rho_rec * (-xn * yn + 1j * n * xn**2 - 1j * n * yn**2)
-                    + bessel_function / rho_rec**2 * (1j * n * (yn**2 - xn**2) + n**2 * xn * yn)
+                    + bessel_derivative / rho_rec * (1j * n * (xn**2 - yn**2) - xn * yn)
+                    + bessel_function / rho_rec**2 * (1j * (yn**2 - xn**2) + n * xn * yn) * n
                 ) * theta_phase * sin_z * z_factor
                 # this_mode_derivatives[10] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*(k_ns*receiver_positions_cyl[0]*(-(k_ns**2*receiver_positions_cyl[0]**2*receiver_positions[0]**3) + self.radius**2*(-3*receiver_positions_cyl[0]**2*(2*receiver_positions[0] + 1j*n*receiver_positions[1]) + receiver_positions[0]*((8 + n**2)*receiver_positions[0]**2 + 12j*n*receiver_positions[0]*receiver_positions[1] - 3*n**2*receiver_positions[1]**2)))*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius) + self.radius*(k_ns**2*receiver_positions_cyl[0]**2*receiver_positions[0]*(-3*receiver_positions_cyl[0]**2 + receiver_positions[0]*((4 + n)*receiver_positions[0] + 3j*n*receiver_positions[1])) + self.radius**2*n*(-((receiver_positions[0] + 1j*receiver_positions[1])*((2 + n)*receiver_positions[0] + 1j*n*receiver_positions[1])*((4 + n)*receiver_positions[0] + 1j*n*receiver_positions[1])) + receiver_positions_cyl[0]**2*(3*(2 + n)*receiver_positions[0] + 1j*(2 + 3*n)*receiver_positions[1])))*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.cos((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius**3*receiver_positions_cyl[0]**6)  # noqa
                 # this_mode_derivatives[11] = constant * (np.e**(1j*n*receiver_positions_cyl[1])*(k_ns*receiver_positions_cyl[0]*(-(k_ns**2*receiver_positions_cyl[0]**2*receiver_positions[1]**3) + self.radius**2*(-6*receiver_positions_cyl[0]**2*receiver_positions[1] + 8*receiver_positions[1]**3 + 3j*n*receiver_positions[0]*(receiver_positions_cyl[0]**2 - 4*receiver_positions[1]**2) + n**2*(-3*receiver_positions[0]**2*receiver_positions[1] + receiver_positions[1]**3)))*jv(-1 + n,(k_ns*receiver_positions_cyl[0])/self.radius) + self.radius*(self.radius**2*n*(receiver_positions_cyl[0]**2*(-1j*(2 + 3*n)*receiver_positions[0] + 3*(2 + n)*receiver_positions[1]) + (-1j*receiver_positions[0] + receiver_positions[1])*(n*receiver_positions[0] + 1j*(2 + n)*receiver_positions[1])*(n*receiver_positions[0] + 1j*(4 + n)*receiver_positions[1])) + k_ns**2*receiver_positions_cyl[0]**2*receiver_positions[1]*(-3*receiver_positions_cyl[0]**2 + receiver_positions[1]*(-3j*n*receiver_positions[0] + (4 + n)*receiver_positions[1])))*jv(n,(k_ns*receiver_positions_cyl[0])/self.radius))*np.cos((m*np.pi*receiver_positions_cyl[2])/self.height))/(self.radius**3*receiver_positions_cyl[0]**6)  # noqa
