@@ -23,7 +23,7 @@ receiver_pos = np.stack(([0.1, 0.2, 0.3], [-0.15, 1.27, 0.001]), axis=1)
 def test_pressure_derivs(t_model, args, atol, rtol):
     idx = levitate.utils.pressure_derivs_order.index
     T = t_model(**args)
-    spos = np.array([0, 0, 0])
+    spos = np.array([-2, 7, 9]) * 1e-3
     n = np.array([0, 0, 1])
     rpos = np.array([10, -20, 60]) * 1e-3
     delta = 1e-6
