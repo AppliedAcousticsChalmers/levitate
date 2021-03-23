@@ -10,7 +10,7 @@ Contents
 
     introduction
     package
-    examples
+    examples/index
     api_docs/index
 
 

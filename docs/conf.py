@@ -41,6 +41,7 @@ print('Package version:', version)
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'nbsphinx',
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
     'sphinx.ext.extlinks',
@@ -132,7 +133,7 @@ html_theme_options = {
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'Levitatedoc'
-
+html_sourcelink_suffix = ''
 
 # -- Options for LaTeX output ------------------------------------------------
 
