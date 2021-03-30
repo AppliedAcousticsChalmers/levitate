@@ -14,6 +14,7 @@ Various classes and functions to simulate and interface with physical hardware.
     :nosignatures:
 
     DragonflyArray
+    AcoustophoreticBoard
     data_to_cpp
     data_from_cpp
 """
