@@ -24,7 +24,7 @@ Hardware
     :members:
 
 .. autoclass:: levitate.hardware.AcoustophoreticBoard
-        :members:
+    :members:
 
 .. autoclass:: levitate.hardware.DragonflyArray
     :members:
