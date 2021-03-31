@@ -20,7 +20,7 @@ The primary goal of this toolbox is to provide a collection of algorithms and de
 
 - **Project Website**: http://www.levitateproject.org
 - **Source code and issue tracker**: https://github.com/AppliedAcousticsChalmers/levitate
-- **Documentation**: https://appliedacousticschalmers.github.io/levitate
+- **Documentation**: https://levitate.readthedocs.io
 
 Installation
 ------------
