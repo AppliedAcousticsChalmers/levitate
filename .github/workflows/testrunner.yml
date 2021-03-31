@@ -26,7 +26,7 @@ jobs:
         pip install .
     - name: Run tests
       run: |
-        pytest --cov-report=xml
+        pytest --cov=./levitate --cov-report=xml
     - name: Upload Coverage Report
       uses: codecov/codecov-action@v1
       if: matrix.python-version == 3.9
