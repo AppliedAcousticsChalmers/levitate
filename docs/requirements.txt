@@ -3,3 +3,4 @@ sphinx-rtd-theme
 nbsphinx
 ipykernel
 plotly
+r2m2

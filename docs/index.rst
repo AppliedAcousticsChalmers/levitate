@@ -12,6 +12,7 @@ Contents
     package
     examples/index
     api_docs/index
+    changelog
 
 
 .. only:: html

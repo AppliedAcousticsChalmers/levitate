@@ -49,6 +49,7 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.mathjax',
     'sphinx.ext.autosummary',
+    'm2r2',
 ]
 
 autodoc_inherit_docstrings = True
@@ -111,7 +112,8 @@ html_theme = 'sphinx_rtd_theme'
 #
 html_theme_options = {
     'collapse_navigation': False,
-    'logo_only': True
+    'logo_only': True,
+	'navigation_depth': 2,
 }
 
 html_logo = 'levitate_icon.png'
