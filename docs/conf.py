@@ -41,6 +41,7 @@ print('Package version:', version)
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'nbsphinx',
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
     'sphinx.ext.extlinks',
@@ -48,6 +49,7 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.mathjax',
     'sphinx.ext.autosummary',
+    'm2r2',
 ]
 
 autodoc_inherit_docstrings = True
@@ -110,8 +112,11 @@ html_theme = 'sphinx_rtd_theme'
 #
 html_theme_options = {
     'collapse_navigation': False,
+    'logo_only': True,
+	'navigation_depth': 2,
 }
 
+html_logo = 'levitate_icon.png'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
@@ -132,7 +137,7 @@ html_theme_options = {
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'Levitatedoc'
-
+html_sourcelink_suffix = ''
 
 # -- Options for LaTeX output ------------------------------------------------
 

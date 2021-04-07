@@ -30,8 +30,6 @@ def phase_alignment(*states, method='parallel', output='states'):
         is found, only that one will be returned.
 
 
-    Notes
-    -----
     A single state for an array is only unique up to a global phase.
     When multiple states are considered, the global phase of each state can be
     shifted to minimize the difference between the states.

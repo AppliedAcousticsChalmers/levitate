@@ -9,8 +9,8 @@ simplify the creation of the transducer positions for common array geometries.
     TransducerArray
     NormalTransducerArray
     RectangularArray
+    SphericalCapArray
     DoublesidedArray
-    DragonflyArray
 
 """
 

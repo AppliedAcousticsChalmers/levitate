@@ -23,5 +23,8 @@ Hardware
 .. automodule:: levitate.hardware
     :members:
 
-.. autoclass:: levitate.hardware.TCPArray
+.. autoclass:: levitate.hardware.AcoustophoreticBoard
+    :members:
+
+.. autoclass:: levitate.hardware.DragonflyArray
     :members:
