@@ -7,7 +7,7 @@ from levitate.materials import air
 air.c = 343
 air.rho = 1.2
 
-classes = levitate._field_wrappers
+classes = levitate.fields._wrappers
 
 pos = np.array([0.1, 0.2, 0.3])
 pos_b = np.array([-0.15, 1.27, 0.001])
