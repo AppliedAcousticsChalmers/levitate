@@ -239,62 +239,21 @@ class FieldBase:
     def __init__(self, *, transforms=None):
         self.transforms = transforms if transforms is not None else tuple()
 
-    def evaluate_requirements(self, complex_transducer_amplitudes, position=None):
-        """Evaluate requirements for given complex transducer amplitudes.
-
-        Parameters
-        ----------
-        complex_transducer_amplitudes: complex ndarray
-            The transducer phase and amplitude on complex form,
-            must correspond to the same array used to create the field.
-        position: ndarray
-            The position where to calculate the requirements needed.
-            Shape (3,...). If position is `None` or not passed, it is assumed
-            that the field is bound to a position and `self.position` will be used.
-
-        Returns
-        -------
-        requirements : dict
-            Has (at least) the same fields as `self.requires`, but instead of values specifying the level
-            of the requirement, this dict has the evaluated requirement at the positions and
-            transducer amplitudes specified.
-
-        Note
-        ----
-        Fields which are bound to a position will cache the array requests, i.e. the requirements
-        without any transducer amplitudes applied. It is therefore important to not manually change
-        the position, since that will not clear the cache and the new position is not actually used.
-
-        """
-        if position is None:
-            try:
-                evaluated_requests = self._cached_requests
-            except AttributeError:
-                evaluated_requests = self._cached_requests = self.array.request(self.requires, self.position)
-        else:
-            evaluated_requests = self.array.request(self.requires, position)
-
+    def evaluate_requirements(self, complex_transducer_amplitudes, requests):
         complex_transducer_amplitudes = np.asarray(complex_transducer_amplitudes)
         # Apply the input complex amplitudes
         evaluated_requrements = {}
-        if 'complex_transducer_amplitudes' in self.requires:
-            evaluated_requrements['complex_transducer_amplitudes'] = complex_transducer_amplitudes
-        if 'pressure_derivs' in evaluated_requests:
-            evaluated_requrements['pressure_derivs_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, evaluated_requests['pressure_derivs'])
+        evaluated_requrements['complex_transducer_amplitudes'] = complex_transducer_amplitudes
+        if 'pressure_derivs' in requests:
+            evaluated_requrements['pressure_derivs_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, requests['pressure_derivs'])
             evaluated_requrements['pressure_derivs_summed'] = np.sum(evaluated_requrements['pressure_derivs_individual'], axis=1)
-        if 'spherical_harmonics' in evaluated_requests:
-            evaluated_requrements['spherical_harmonics_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, evaluated_requests['spherical_harmonics'])
+        if 'spherical_harmonics' in requests:
+            evaluated_requrements['spherical_harmonics_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, requests['spherical_harmonics'])
             evaluated_requrements['spherical_harmonics_summed'] = np.sum(evaluated_requrements['spherical_harmonics_individual'], axis=1)
-        if 'spherical_harmonics_gradient' in evaluated_requests:
-            evaluated_requrements['spherical_harmonics_gradient_individual'] = np.einsum('i,jki...->jki...', complex_transducer_amplitudes, evaluated_requests['spherical_harmonics_gradient'])
+        if 'spherical_harmonics_gradient' in requests:
+            evaluated_requrements['spherical_harmonics_gradient_individual'] = np.einsum('i,jki...->jki...', complex_transducer_amplitudes, requests['spherical_harmonics_gradient'])
             evaluated_requrements['spherical_harmonics_gradient_summed'] = np.sum(evaluated_requrements['spherical_harmonics_gradient_individual'], axis=2)
         return evaluated_requrements
-
-    def _clear_cache(self):
-        try:
-            del self._cached_requests
-        except AttributeError:
-            pass
 
     def __eq__(self, other):
         return type(self) == type(other)
@@ -337,7 +296,6 @@ class Field(FieldBase):
         self.field = field
         value_indices = ''.join(chr(ord('i') + idx) for idx in range(self.ndim))
         self._sum_str = value_indices + ', ' + value_indices + '...'
-        self.requires = self.values_require
 
     def __eq__(self, other):
         return (
@@ -393,7 +351,8 @@ class Field(FieldBase):
 
         """
         # Prepare the requirements dict
-        requirements = self.evaluate_requirements(complex_transducer_amplitudes, position)
+        requests = self.array.request(self.values_require, position)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes, requests)
         # Call the function with the correct arguments
         return self.values(**{key: requirements[key] for key in self.values_require})
 
@@ -434,6 +393,12 @@ class FieldPoint(Field):
             and np.allclose(self.position, other.position)
         )
 
+    def _clear_cache(self):
+        try:
+            del self._cached_requests
+        except AttributeError:
+            pass
+
     def __call__(self, complex_transducer_amplitudes):
         """Evaluate the field implementation.
 
@@ -449,7 +414,11 @@ class FieldPoint(Field):
             The values of the implemented field used to create the wrapper.
 
         """
-        requirements = self.evaluate_requirements(complex_transducer_amplitudes)
+        try:
+            requests = self._cached_requests
+        except AttributeError:
+            requests = self._cached_requests = self.array.request(self.values_require, self.position)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes, requests)
         return self.values(**{key: requirements[key] for key in self.values_require})
 
 
@@ -511,7 +480,7 @@ class MultiField(MultiFieldBase):
     def __init__(self, *fields, **kwargs):
         super().__init__(**kwargs)
         self.fields = []
-        self.requires = FieldImplementation.requirement()
+        self.values_require = FieldImplementation.requirement()
         self.extend(fields)
 
     def __eq__(self, other):
@@ -538,16 +507,16 @@ class MultiField(MultiFieldBase):
 
         """
         # Prepare the requirements dict
-        requirements = self.evaluate_requirements(complex_transducer_amplitudes, position)
+        requests = self.array.request(self.values_require, position)
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes, requests)
         # Call the function with the correct arguments
         return [field.values(**{key: requirements[key] for key in field.values_require}) for field in self.fields]
 
     def append(self, other):
         if not isinstance(other, Field):
             raise ValueError(f'Cannot append {type(other).__name__} to a {type(self).__name__}')
-        if other.requires > self.requires:
-            self.requires = self.requires + other.requires
-            self._clear_cache()
+        if other.values_require > self.values_require:
+            self.values_require = self.values_require + other.values_require
         self.fields.append(other)
         return self
 
@@ -577,7 +546,7 @@ class MultiFieldPoint(MultiFieldBase):
     def __init__(self, *fields, **kwargs):
         super().__init__(*kwargs)
         self.fields = []
-        self.requires = []
+        self.values_require = []
         self._field_position_idx = []
 
         self.positions = []
@@ -601,12 +570,16 @@ class MultiFieldPoint(MultiFieldBase):
             arrays in the list might not have compatible shapes.
 
         """
-        all_requirements = self.evaluate_requirements(complex_transducer_amplitudes)
+        for idx, (position, requirement) in enumerate(zip(self.positions, self.values_require)):
+            if self._cached_requests[idx] is None:
+                self._cached_requests[idx] = self.array.request(requirement, position)
+
+        all_requirements = [self.evaluate_requirements(complex_transducer_amplitudes, request) for request in self._cached_requests]
         output = []
         for field, pos_idx in zip(self.fields, self._field_position_idx):
             if type(pos_idx) is int:
-                requirements = all_requirements[pos_idx]
-                output.append(field.values(**{key: requirements[key] for key in field.values_require}))
+                field_requirements = all_requirements[pos_idx]
+                output.append(field.values(**{key: field_requirements[key] for key in field.values_require}))
             else:
                 raise NotImplementedError()
 
@@ -622,7 +595,7 @@ class MultiFieldPoint(MultiFieldBase):
         # The position does not match any of the existing positions.
         # Add the new position, as well as an empty requirements dict.
         self.positions.append(position)
-        self.requires.append(FieldImplementation.requirement())
+        self.values_require.append(FieldImplementation.requirement())
         self._cached_requests.append(None)
         return len(self.positions) - 1
 
@@ -633,16 +606,16 @@ class MultiFieldPoint(MultiFieldBase):
         if hasattr(other, 'position'):
             position_idx = self._find_pos_idx(other.position)
             self._field_position_idx.append(position_idx)
-            if other.requires > self.requires[position_idx]:
-                self.requires[position_idx] = self.requires[position_idx] + other.requires
+            if other.values_require > self.values_require[position_idx]:
+                self.values_require[position_idx] = self.values_require[position_idx] + other.values_require
                 self._clear_cache(position_idx)
 
         elif hasattr(other, 'positions'):
             self._field_position_idx.append([])
-            for position, requires in zip(other.positions, other.requires):
+            for position, values_require in zip(other.positions, other.values_require):
                 position_idx = self._find_pos_idx(position)
-                if requires > self.requires[position_idx]:
-                    self.requires[position_idx] = self.requires[position_idx] + requires
+                if values_require > self.values_require[position_idx]:
+                    self.values_require[position_idx] = self.values_require[position_idx] + values_require
                     self._clear_cache(position_idx)
                 self._field_position_idx[-1].append(position_idx)
 
@@ -657,27 +630,3 @@ class MultiFieldPoint(MultiFieldBase):
             self._cached_requests = [None] * len(self.positions)
         else:
             self._cached_requests[idx] = None
-
-    def evaluate_requirements(self, complex_transducer_amplitudes):
-        for idx, (position, requirement) in enumerate(zip(self.positions, self.requires)):
-            if self._cached_requests[idx] is None:
-                self._cached_requests[idx] = self.array.request(requirement, position)
-
-        complex_transducer_amplitudes = np.asarray(complex_transducer_amplitudes)
-        # Apply the input complex amplitudes
-        evaluated_requirements = []
-        for idx, (evaluated_request, requirement) in enumerate(zip(self._cached_requests, self.requires)):
-            evaluated_requirement = {}
-            if 'complex_transducer_amplitudes' in requirement:
-                evaluated_requirement['complex_transducer_amplitudes'] = complex_transducer_amplitudes
-            if 'pressure_derivs' in evaluated_request:
-                evaluated_requirement['pressure_derivs_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, evaluated_request['pressure_derivs'])
-                evaluated_requirement['pressure_derivs_summed'] = np.sum(evaluated_requirement['pressure_derivs_individual'], axis=1)
-            if 'spherical_harmonics' in evaluated_request:
-                evaluated_requirement['spherical_harmonics_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, evaluated_request['spherical_harmonics'])
-                evaluated_requirement['spherical_harmonics_summed'] = np.sum(evaluated_requirement['spherical_harmonics_individual'], axis=1)
-            if 'spherical_harmonics_gradient' in evaluated_request:
-                evaluated_requirement['spherical_harmonics_gradient_individual'] = np.einsum('i,jki...->jki...', complex_transducer_amplitudes, evaluated_request['spherical_harmonics_gradient'])
-                evaluated_requirement['spherical_harmonics_gradient_summed'] = np.sum(evaluated_requirement['spherical_harmonics_gradient_individual'], axis=2)
-            evaluated_requirements.append(evaluated_requirement)
-        return evaluated_requirements
