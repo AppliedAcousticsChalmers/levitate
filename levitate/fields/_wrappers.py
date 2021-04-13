@@ -481,6 +481,7 @@ class MultiField(MultiFieldBase):
         super().__init__(**kwargs)
         self.fields = []
         self.values_require = FieldImplementation.requirement()
+        self.jacobians_require = FieldImplementation.requirement()
         self.extend(fields)
 
     def __eq__(self, other):
@@ -517,6 +518,8 @@ class MultiField(MultiFieldBase):
             raise ValueError(f'Cannot append {type(other).__name__} to a {type(self).__name__}')
         if other.values_require > self.values_require:
             self.values_require = self.values_require + other.values_require
+        if other.jacobians_require > self.jacobians_require:
+            self.jacobians_require = self.jacobians_require + other.jacobians_require
         self.fields.append(other)
         return self
 
@@ -547,6 +550,7 @@ class MultiFieldPoint(MultiFieldBase):
         super().__init__(*kwargs)
         self.fields = []
         self.values_require = []
+        self.jacobians_require = []
         self._field_position_idx = []
 
         self.positions = []
@@ -596,6 +600,7 @@ class MultiFieldPoint(MultiFieldBase):
         # Add the new position, as well as an empty requirements dict.
         self.positions.append(position)
         self.values_require.append(FieldImplementation.requirement())
+        self.jacobians_require.append(FieldImplementation.requirement())
         self._cached_requests.append(None)
         return len(self.positions) - 1
 
@@ -609,13 +614,19 @@ class MultiFieldPoint(MultiFieldBase):
             if other.values_require > self.values_require[position_idx]:
                 self.values_require[position_idx] = self.values_require[position_idx] + other.values_require
                 self._clear_cache(position_idx)
+            if other.jacobians_require > self.jacobians_require[position_idx]:
+                self.jacobians_require[position_idx] = self.jacobians_require[position_idx] + other.jacobians_require
+                self._clear_cache(position_idx)
 
         elif hasattr(other, 'positions'):
             self._field_position_idx.append([])
-            for position, values_require in zip(other.positions, other.values_require):
+            for position, values_require, jacobians_require in zip(other.positions, other.values_require, other.jacobians_require):
                 position_idx = self._find_pos_idx(position)
                 if values_require > self.values_require[position_idx]:
                     self.values_require[position_idx] = self.values_require[position_idx] + values_require
+                    self._clear_cache(position_idx)
+                if jacobians_require > self.jacobians_require[position_idx]:
+                    self.jacobians_require[position_idx] = self.jacobians_require[position_idx] + jacobians_require
                     self._clear_cache(position_idx)
                 self._field_position_idx[-1].append(position_idx)
 
@@ -630,3 +641,40 @@ class MultiFieldPoint(MultiFieldBase):
             self._cached_requests = [None] * len(self.positions)
         else:
             self._cached_requests[idx] = None
+
+
+class CostFunction(MultiFieldPoint):
+    def __call__(self, complex_transducer_amplitudes):
+        """Evaluate all fields.
+
+        Parameters
+        ----------
+        compelx_transducer_amplitudes : complex numpy.ndarray
+            Complex representation of the transducer phases and amplitudes of the
+            array used to create the field.
+
+        Returns
+        -------
+        values: list
+            A list of the return values from the individual fields.
+            Depending on the number of dimensions of the fields, the
+            arrays in the list might not have compatible shapes.
+
+        """
+        for idx, (position, values_require, jacobians_require) in enumerate(zip(self.positions, self.values_require, self.jacobians_require)):
+            if self._cached_requests[idx] is None:
+                requirement = values_require + jacobians_require
+                self._cached_requests[idx] = self.array.request(requirement, position)
+
+        all_requirements = [self.evaluate_requirements(complex_transducer_amplitudes, request) for request in self._cached_requests]
+        values = []
+        jacobians = []
+        for field, pos_idx in zip(self.fields, self._field_position_idx):
+            if type(pos_idx) is int:
+                field_requirements = all_requirements[pos_idx]
+                values.append(field.values(**{key: field_requirements[key] for key in field.values_require}))
+                jacobians.append(field.jacobians(**{key: field_requirements[key] for key in field.jacobians_require}))
+            else:
+                raise NotImplementedError()
+
+        return values, jacobians
