@@ -1,130 +1,6 @@
-"""Implementation of field wrapper protocol.
-
-The API for the implemented fields consists of two parts:
-the actual implementation of the fields in `FieldImplemention`
-objects, and the wrapper classes `FieldBase` and its subclasses.
-When objects of the `FieldImplementation` type is instantiated
-they will automagically be wrapped inside a different object, which is
-returned to the caller.
-The wrapper objects are of different variants, corresponding to the use case.
-
-Note that it is not intended that a user manually creates any of these objects,
-since there are many pit-falls when choosing the correct type. Instead call the
-implemented fields to get a basic field type and manipulate it using
-the arithmetic API to create the desired functionality.
-To validate that an API arithmetic manipulation actually does what was intended,
-simply print the resulting object to inspect the new structure.
-
-Basic Types
------------
-The basic type is a simple `Field`, which is the default return type from
-instantiating. When called with transducer complex amplitudes and a set of positions,
-the object evaluates the field implementation with the required parameters and
-returns just the value from the field.
-
-If the field is bound by using the `@` operation a new `FieldPoint`
-object is created, and the position is implicit in the call.
-This is more efficient for repeated calling with the same position,
-since some parts of the calculation can be cached.
-
-If the field is weighed with the `*` operation a new `CostField`
-object is created, and the return from a call is changed. Cost field type
-objects will return the weighed sum of the different parts of the implemented
-field, as well as the jacobians of said value with respect to the transducers.
-The jacobians are returned if a form that allow for simple calculation of the
-jacobians with respect to transducer real part, imaginary part, amplitude, or phase.
-
-If a field is both bound and weighted it is a `CostFieldPoint`, created either
-by binding a `CostField` or by weighting a `FieldPoint`.
-This will have the same caching and call signature as a `FieldPoint`, but
-the same return values as an `CostField`. This form is the most suitable
-for numerical optimizations.
-
-.. autosummary::
-    :nosignatures:
-
-    Field
-    FieldPoint
-    CostField
-    CostFieldPoint
-
-Squared Types
--------------
-Each of the above types can be used to change the values (and jacobians)
-to calculate the squared magnitude of the values, possible with a static
-target shift applied before taking the magnitude.
-There are four types, `SquaredField`, `SquaredFieldPoint`,
-`SquaredCostField`, and `SquaredCostFieldPoint`, each
-corresponding to one of the basic types.
-They are created by taking the absolute value of a basic object, or by subtracting
-a fixed value from a basic object. Note that the square is not apparent from the API,
-which is less intuitive that the other parts in the API.
-In all other regards, the squared versions behave like their basic counterparts.
-
-.. autosummary::
-    :nosignatures:
-
-    SquaredField
-    SquaredFieldPoint
-    SquaredCostField
-    SquaredCostFieldPoint
-
-MultiField
-----------
-MultiFields are objects which collect basic fields operating at the same point(s) in space.
-Two objects of the same basic type (or a squared version of said basic type)
-can be added together. If the fields are either unbound or bound to the same
-position, a multi-field-type object is created. Again, there are four types, each corresponding
-to one of the basic types: `MultiField`, `MultiFieldPoint`, `MultiCostField`,
-and `MultiCostFieldPoint`.
-The two field-style variants will evaluate all included fields and return the individual
-values from the included fields. The two cost-field-style variants will sum the values
-from the included cost fields.
-
-.. autosummary::
-    :nosignatures:
-
-    MultiField
-    MultiFieldPoint
-    MultiCostField
-    MultiCostFieldPoint
-
-MultiPoint
-----------
-MultiPoints are objects which collect multi-field-type objects bound to different points.
-There are only two types: `MultiFieldMultiPoint` similar to a `MutiFieldPoint`,
-and `MultiCostFieldMultiPoint` similar to a `MultiCostFieldPoint`. It is not possible to
-have unbound multi-points, they would simply be unbound.
-A `MultiFieldMultiPoint` returns the values from the stored fields.
-A `MultiCostFieldMultiPoint` will sum the values and jacobians of the stored objects.
-
-.. autosummary::
-    :nosignatures:
-
-    MultiFieldMultiPoint
-    MultiCostFieldMultiPoint
-
-Implementation Details
-----------------------
-To make the API work as intended, there are a couple additional
-classes and functions.
-The base class for the implemented fields, `FieldImplementation` is
-only used as a super class when implementing new physical fields. See its documentation
-for more details on how to extend the package with new field implementations.
-
-The wrapping of `FieldImplementation` inside `Field` objects is implemented
-in the `FieldImplementationMeta` class, in the `~FieldImplementationMeta.__call__` method.
-This also accepts additional `weight` and `position` parameters to directly create
-the other three basic types, instead of the default `Field`.
-
-`FieldBase` is the top-level class for all wrappers, and handles evaluation of
-spatial structures, caching, etc.
-Similarly there is a `SquaredFieldBase`, which is wrapping the base `Field` objects'
-calculation functions with the magnitude and square.
-"""
-
 import numpy as np
 import collections
+import inspect
 
 
 class FieldImplementationMeta(type):
@@ -137,7 +13,17 @@ class FieldImplementationMeta(type):
     but also instantiate and return a `Field`-type object.
     """
 
-    def __call__(cls, *cls_args, weight=None, position=None, **cls_kwargs):
+    def __init__(cls, clsname, bases, attrs):
+        # Restore the signature
+        # This seems to be needed for certain tools to properly see the init
+        # signature of the implemented class.
+        sig = inspect.signature(cls.__init__)
+        parameters = tuple(sig.parameters.values())
+        cls.__signature__ = sig.replace(parameters=parameters[1:])
+
+        return super().__init__(clsname, bases, attrs)
+
+    def __call__(cls, *cls_args, **cls_kwargs):
         """Instantiate an `Field`-type object, using the `cls` as the base field implementation.
 
         The actual `Field`-type will be chosen based on which optional parameters are passed.
@@ -152,25 +38,13 @@ class FieldImplementationMeta(type):
             The `FieldImplementation` class to use for calculations.
         *cls_args :
             Args passed to the `cls`.
-        weight : numeric
-            Optional weight.
-        position : numpy.ndarray
-            Optional array to bind the field to, shape (3,...).
         **cls_kwargs :
             Keyword arguments passed to `cls`.
 
         """
         obj = cls.__new__(cls, *cls_args, **cls_kwargs)
         obj.__init__(*cls_args, **cls_kwargs)
-        if weight is None and position is None:
-            alg = Field(field=obj)
-        elif weight is None:
-            alg = FieldPoint(field=obj, position=position)
-        elif position is None:
-            alg = CostField(field=obj, weight=weight)
-        elif weight is not None and position is not None:
-            alg = CostFieldPoint(field=obj, weight=weight, position=position)
-        return alg
+        return Field(field=obj)
 
 
 class FieldImplementation(metaclass=FieldImplementationMeta):
@@ -283,24 +157,68 @@ class FieldImplementation(metaclass=FieldImplementationMeta):
             max_common = {key: max(self[key], other[key]) for key in self.keys() & other.keys()}
             return type(self)(**unique_self, **unique_other, **max_common)
 
+        def __lt__(self, other):
+            # For self to be a smaller requirement than other, all requirements
+            # in self must exist in other, and they must all have a larger value in other.
+            if not isinstance(other, (dict, collections.UserDict)):
+                return NotImplemented
+            if self.keys() > other.keys():
+                # There are requirements in self which are not in the other.
+                return False
+            for key in self:
+                # all(self[n] < other[n]) <=> any(not self[n] < other[n]) <=> any(self[n] >= other[n])
+                if self[key] >= other[key]:
+                    # The `key` requirement in self is not smaller than the one in the other
+                    return False
+            return True
 
-class FieldMeta(type):
-    """Metaclass for `Field`-type objects.
+        def __gt__(self, other):
+            # For self to be a larger requirement than other, all requirements in
+            # in other must exist in self, and they must all have a larger value in self.
+            if not isinstance(other, (dict, collections.UserDict)):
+                return NotImplemented
+            if other.keys() > self.keys():
+                # There are requirements in the other which are not in self.
+                return False
+            for key in other:
+                # all(self[n] > other[n]) <=> any(not self[n] > other[n]) <=> any(self[n] <= other[n])
+                if self[key] <= other[key]:
+                    # The `key` requirement in self is not smaller than the one in the other
+                    return False
+            return True
 
-    This metaclass is only needed to make the `_type` property available
-    at both class and instance level.
-    """
+        def __le__(self, other):
+            # For self to be a smaller or equal requirement than other, all requirements
+            # in self must exist in other, and they must all have a larger, or equal value in other.
+            if not isinstance(other, (dict, collections.UserDict)):
+                return NotImplemented
+            if self.keys() > other.keys():
+                # There are requirements in self which are not in the other.
+                return False
+            for key in self:
+                # all(self[n] <= other[n]) <=> any(not self[n] <= other[n]) <=> any(self[n] > other[n])
+                if self[key] > other[key]:
+                    # The `key` requirement in self is larger than the one in the other
+                    return False
+            return True
 
-    @property
-    def _type(cls):  # noqa: D401
-        """The type of the field.
+        def __ge__(self, other):
+            # For self to be a larger or equal requirement than other, all requirements in
+            # in other must exist in self, and they must all have a larger or equal value in self.
+            if not isinstance(other, (dict, collections.UserDict)):
+                return NotImplemented
+            if other.keys() > self.keys():
+                # There are requirements in the other which are not in self.
+                return False
+            for key in other:
+                # all(self[n] >= other[n]) <=> any(not self[n] >= other[n]) <=> any(self[n] < other[n])
+                if self[key] < other[key]:
+                    # The `key` requirement in self is smaller than the one in the other
+                    return False
+            return True
 
-        In this context `type` refers for the combination of `bound` and `cost`.
-        """
-        return cls._is_bound, cls._is_cost
 
-
-class FieldBase(metaclass=FieldMeta):
+class FieldBase:
     """Base class for all field type objects.
 
     This wraps a few common procedures for fields,
@@ -317,6 +235,9 @@ class FieldBase(metaclass=FieldMeta):
     ----
     This class should not be instantiated directly.
     """
+
+    def __init__(self, *, transforms=None):
+        self.transforms = transforms if transforms is not None else tuple()
 
     def evaluate_requirements(self, complex_transducer_amplitudes, position=None):
         """Evaluate requirements for given complex transducer amplitudes.
@@ -375,28 +296,8 @@ class FieldBase(metaclass=FieldMeta):
         except AttributeError:
             pass
 
-    @property
-    def _type(self):  # noqa: D401
-        """The type of the field.
-
-        In this context `type` refers for the combination of `bound` and `cost`.
-        """
-        return type(self)._type
-
     def __eq__(self, other):
         return type(self) == type(other)
-
-    def __abs__(self):
-        return self - 0
-
-    def __radd__(self, other):
-        return self.__add__(other)
-
-    def __rmul__(self, weight):
-        return self.__mul__(weight)
-
-    def __truediv__(self, value):
-        return self * (1 / value)
 
     def __str__(self, not_api_call=True):
         return self._str_format_spec.format(self)
@@ -427,35 +328,12 @@ class Field(FieldBase):
     field : `FieldImplementation`
         The implemented field to use for calculations.
 
-    Methods
-    -------
-    +
-        Adds this field with another `Field` or `FieldPoint`.
-
-        :return: `FieldPoint`.
-    *
-        Weight the field with a suitable weight.
-        The weight needs to have the correct number of dimensions, but will
-        otherwise broadcast properly.
-
-        :return: `CostField`
-    @
-        Bind the field to a point in space. The point needs to have
-        3 elements in the first dimension.
-
-        :return: `FieldPoint`
-    -
-        Converts to a squared magnitude target field.
-
-        :return: `SquaredField`
-
     """
 
     _str_format_spec = '{:%cls%name}'
-    _is_bound = False
-    _is_cost = False
 
-    def __init__(self, field):
+    def __init__(self, field, **kwargs):
+        super().__init__(**kwargs)
         self.field = field
         value_indices = ''.join(chr(ord('i') + idx) for idx in range(self.ndim))
         self._sum_str = value_indices + ', ' + value_indices + '...'
@@ -519,28 +397,11 @@ class Field(FieldBase):
         # Call the function with the correct arguments
         return self.values(**{key: requirements[key] for key in self.values_require})
 
-    def __add__(self, other):
-        if other == 0:
-            return self
-        if type(self) == type(other):
-            return MultiField(self, other)
-        else:
-            return NotImplemented
-
-    def __sub__(self, target):
-        return SquaredField(field=self, target=target)
-
-    def __mul__(self, weight):
-        weight = np.asarray(weight)
-        if weight.dtype == object:
-            return NotImplemented
-        return CostField(weight=weight, field=self.field)
-
     def __matmul__(self, position):
         position = np.asarray(position)
         if position.ndim < 1 or position.shape[0] != 3:
             return NotImplemented
-        return FieldPoint(position=position, field=self.field)
+        return FieldPoint(position=position, field=self.field, transforms=self.transforms)
 
     def __format__(self, format_spec):
         name = getattr(self, 'name', None) or 'Unknown'
@@ -559,34 +420,9 @@ class FieldPoint(Field):
     position : numpy.ndarray
         The position to bind to.
 
-    Methods
-    -------
-    +
-        Adds this field with another `FieldPoint`,
-        `MultiFieldPoint`, or `MultiFieldMultiPoint`.
-
-        :return: `MultiFieldPoint` or `MultiFieldMultiPoint`.
-    *
-        Weight the field with a suitable weight.
-        The weight needs to have the correct number of dimensions, but will
-        otherwise broadcast properly.
-
-        :return: `CostFieldPoint`
-    @
-        Re-bind the field to a new point in space. The point needs to have
-        3 elements in the first dimension.
-
-        :return: `FieldPoint`
-    -
-        Converts to a magnitude target field.
-
-        :return: `SquaredFieldPoint`
-
     """
 
     _str_format_spec = '{:%cls%name%position}'
-    _is_bound = True
-    _is_cost = False
 
     def __init__(self, field, position, **kwargs):
         super().__init__(field=field, **kwargs)
@@ -616,563 +452,50 @@ class FieldPoint(Field):
         requirements = self.evaluate_requirements(complex_transducer_amplitudes)
         return self.values(**{key: requirements[key] for key in self.values_require})
 
-    def __add__(self, other):
-        if other == 0:
-            return self
-        if type(self) == type(other):
-            if np.allclose(self.position, other.position):
-                return MultiFieldPoint(self, other)
-            else:
-                return MultiFieldMultiPoint(self, other)
-        else:
-            return NotImplemented
 
-    def __sub__(self, target):
-        return SquaredFieldPoint(field=self, target=target, position=self.position)
+class MultiFieldBase(FieldBase):
+    _str_format_spec = '{:%cls%fields%position}'
 
-    def __mul__(self, weight):
-        weight = np.asarray(weight)
-        if weight.dtype == object:
-            return NotImplemented
-        return CostFieldPoint(weight=weight, position=self.position, field=self.field)
+    def extend(self, other):
+        for field in other:
+            self.append(field)
+        return self
 
+    def __getitem__(self, idx):
+        return self.fields[idx]
 
-class CostField(Field):
-    """Unbound cost field for single point, single field.
+    def __len__(self):
+        return len(self.fields)
 
-    See `Field` for more precise description.
-
-    Parameters
-    ----------
-    field : FieldImplementation
-        The implemented field to use for calculations.
-    weight : numpy.ndarray
-        The weight to use for the summation of values. Needs to have the same
-        number of dimensions as the `FieldImplementation` used.
-
-    Methods
-    -------
-    +
-        Adds this field with another `CostField` or `MultiCostField`.
-
-        :return: `MultiCostField`.
-    *
-        Rescale the weight, i.e. multiplies the current weight with the new value.
-        The weight needs to have the correct number of dimensions, but will
-        otherwise broadcast properly.
-
-        :return: `CostField`
-    @
-        Bind the field to a point in space. The point needs to have
-        3 elements in the first dimension.
-
-        :return: `CostFieldPoint`
-    -
-        Converts to a squared magnitude target field.
-
-        :return: `SquaredCostField`
-
-    """
-
-    _str_format_spec = '{:%cls%name%weight}'
-    _is_bound = False
-    _is_cost = True
-
-    def __init__(self, field, weight, **kwargs):
-        super().__init__(field=field, **kwargs)
-        self.weight = np.asarray(weight)
-        if self.weight.ndim < self.ndim:
-            extra_dims = self.ndim - self.weight.ndim
-            self.weight.shape = (1,) * extra_dims + self.weight.shape
-        self.requires = self.values_require + self.jacobians_require
-
-    def __eq__(self, other):
-        return (
-            super().__eq__(other)
-            and np.allclose(self.weight, other.weight)
-        )
-
-    def __call__(self, complex_transducer_amplitudes, position):
-        """Evaluate the field implementation.
-
-        Parameters
-        ----------
-        compelx_transducer_amplitudes : complex numpy.ndarray
-            Complex representation of the transducer phases and amplitudes of the
-            array used to create the field.
-        position : array-like
-            The position(s) where to evaluate the field.
-            The first dimension needs to have 3 elements.
-
-        Returns
-        -------
-        values: ndarray
-            The values of the implemented fiield used to create the wrapper.
-        jacobians : ndarray
-            The jacobians of the values with respect to the transducers.
-
-        """
-        requirements = self.evaluate_requirements(complex_transducer_amplitudes, position)
-        values = self.values(**{key: requirements[key] for key in self.values_require})
-        jacobians = self.jacobians(**{key: requirements[key] for key in self.jacobians_require})
-        return np.einsum(self._sum_str, self.weight, values), np.einsum(self._sum_str, self.weight, jacobians)
-
-    def __add__(self, other):
-        if other == 0:
-            return self
-        if type(self) == type(other):
-            return MultiCostField(self, other)
-        else:
-            return NotImplemented
-
-    def __sub__(self, target):
-        return SquaredCostField(field=self, target=target, weight=self.weight)
-
-    def __mul__(self, weight):
-        weight = np.asarray(weight)
-        if weight.dtype == object:
-            return NotImplemented
-        return CostField(field=self.field, weight=self.weight * weight)
-
-    def __matmul__(self, position):
-        position = np.asarray(position)
-        if position.ndim < 1 or position.shape[0] != 3:
-            return NotImplemented
-        return CostFieldPoint(weight=self.weight, position=position, field=self.field)
-
-
-class CostFieldPoint(CostField, FieldPoint):
-    """Cost function for single point, single fields.
-
-    See `Field` for more precise description.
-
-    Parameters
-    ----------
-    field : FieldImplementation
-        The implemented field to use for calculations.
-    weight : numpy.ndarray
-        The weight to use for the summation of values. Needs to have the same
-        number of dimensions as the `FieldImplementation` used.
-    position : numpy.ndarray
-        The position to bind to.
-
-    Methods
-    -------
-    +
-        Adds this field with another `CostFieldPoint`,
-        `MultiCostFieldPoint`, or `MultiCostFieldMultiPoint`.
-
-        :return: `MultiCostFieldPoint`,or `MultiCostFieldMultiPoint`
-    *
-        Rescale the weight, i.e. multiplies the current weight with the new value.
-        The weight needs to have the correct number of dimensions, but will
-        otherwise broadcast properly.
-
-        :return: `CostFieldPoint`
-    @
-        Re-bind the field to a new point in space. The point needs to have
-        3 elements in the first dimension.
-
-        :return: `CostFieldPoint`
-    -
-        Converts to a magnitude target field.
-
-        :return: `SquaredCostFieldPoint`
-
-    """
-
-    _str_format_spec = '{:%cls%name%weight%position}'
-    _is_bound = True
-    _is_cost = True
-
-    # Inheritance order is important here, we need to resolve to CostField.__mul__ and not FieldPoint.__mul__
-    def __init__(self, field, weight, position, **kwargs):
-        super().__init__(field=field, weight=weight, position=position, **kwargs)
-
-    def __eq__(self, other):
-        return super().__eq__(other)
-
-    def __call__(self, complex_transducer_amplitudes):
-        """Evaluate the field implementation.
-
-        Parameters
-        ----------
-        complex_transducer_amplitudes : complex numpy.ndarray
-            Complex representation of the transducer phases and amplitudes of the
-            array used to create the field.
-
-        Returns
-        -------
-        values: ndarray
-            The values of the implemented field used to create the wrapper.
-        jacobians : ndarray
-            The jacobians of the values with respect to the transducers.
-
-        """
-        requirements = self.evaluate_requirements(complex_transducer_amplitudes)
-        values = self.values(**{key: requirements[key] for key in self.values_require})
-        jacobians = self.jacobians(**{key: requirements[key] for key in self.jacobians_require})
-        return np.einsum(self._sum_str, self.weight, values), np.einsum(self._sum_str, self.weight, jacobians)
-
-    def __add__(self, other):
-        if other == 0:
-            return self
-        if type(self) == type(other):
-            if np.allclose(self.position, other.position):
-                return MultiCostFieldPoint(self, other)
-            else:
-                return MultiCostFieldMultiPoint(self, other)
-        else:
-            return NotImplemented
-
-    def __sub__(self, target):
-        return SquaredCostFieldPoint(field=self, target=target, weight=self.weight, position=self.position)
-
-    def __mul__(self, weight):
-        weight = np.asarray(weight)
-        if weight.dtype == object:
-            return NotImplemented
-        return CostFieldPoint(field=self.field, weight=self.weight * weight, position=self.position)
-
-
-class SquaredFieldBase(Field):
-    """Base class for magnitude target fields.
-
-    Uses a field  :math:`A` to instead calculate :math:`V = |A - A_0|^2`,
-    i.e. the squared magnitude difference to a target. For multi-dimensional fields
-    the target needs to have the same (or a broadcastable) shape.
-    The jacobians are calculated as :math:`dV = 2 dA (A-A_0)`.
-
-    Parameters
-    ----------
-    field: Field-like
-        A wrapper of a field implementation, of the same type as the magnitude target.
-    target numpy.ndarray
-        The static offset target value(s).
-
-    Note
-    ----
-    This class should not be instantiated directly, only use subclasses.
-
-    """
-
-    def __init__(self, field, target, **kwargs):
-        if type(self) == SquaredFieldBase:
-            raise AssertionError('`SquaredFieldBase` should never be directly instantiated!')
-        self.values_require = field.values_require
-        if hasattr(field, 'jacobians_require'):
-            self.jacobians_require = field.jacobians_require + field.values_require
-
-        super().__init__(field=field, **kwargs)
-        target = np.asarray(target)
-        self.target = target
-
-    def __eq__(self, other):
-        return (
-            super().__eq__(other)
-            and np.allclose(self.target, other.target)
-        )
+    def __iter__(self):
+        # Needed in case the object is modified while iterating.
+        # This will freeze the fields before iteration starts.
+        for field in tuple(self.fields):
+            yield field
 
     @property
-    def name(self):
-        return self.field.name
-
-    def values(self, **kwargs):
-        """Calculate squared magnitude difference.
-
-        If the underlying field returns :math:`A`, this function returns
-        :math:`|A - A_0|^2`, where :math:`A_0` is the target value.
-
-        For information about parameters, see the documentation of the values function
-        of the underlying objects, accessed through the `field` properties.
-        """
-        values = self.field.values(**kwargs)
-        values -= self.target.reshape(self.target.shape + (values.ndim - self.ndim) * (1,))
-        return np.real(values * np.conj(values))
-
-    def jacobians(self, **kwargs):
-        """Calculate jacobians squared magnitude difference.
-
-        If the underlying field returns :math:`dA`, the derivative of the value(s)
-        with respect to the transducers, this function returns
-        :math:`2 dA (A - A_0)`, where :math:`A_0` is the target value.
-
-        For information about parameters, see the documentation of the values function
-        of the underlying objects, accessed through the `field` properties.
-        """
-        values = self.field.values(**{key: kwargs[key] for key in self.field.values_require})
-        values -= self.target.reshape(self.target.shape + (values.ndim - self.ndim) * (1,))
-        jacobians = self.field.jacobians(**{key: kwargs[key] for key in self.field.jacobians_require})
-        return 2 * jacobians * np.conj(values.reshape(values.shape[:self.ndim] + (1,) + values.shape[self.ndim:]))
-
-    # These properties are needed to not overwrite the requirements defined in the field implementations.
-    @property
-    def values_require(self):
-        return self._values_require
-
-    @values_require.setter
-    def values_require(self, val):
-        self._values_require = val
-
-    @property
-    def jacobians_require(self):
-        return self._jacobians_require
-
-    @jacobians_require.setter
-    def jacobians_require(self, val):
-        self._jacobians_require = val
-
-    def __sub__(self, target):
-        kwargs = {}
-        if self._is_bound:
-            kwargs['position'] = self.position
-        if self._is_cost:
-            kwargs['weight'] = self.weight
-        return type(self)(field=self.field, target=self.target + target, **kwargs)
+    def array(self):
+        return self.fields[0].array
 
     def __format__(self, format_spec):
-        target_str = ' - %target' if not np.allclose(self.target, 0) else ''
-        format_spec = format_spec.replace('%name', '|%name' + target_str + '|^2').replace('%target', str(self.target))
-        return super().__format__(format_spec)
-
-
-class SquaredField(SquaredFieldBase, Field):
-    """Magnitude target field class.
-
-    Calculates the squared magnitude difference between the field value(s)
-    and a static target value(s).
-
-    Parameters
-    ----------
-    field: Field
-        A wrapper of an field implementation.
-    target: numpy.ndarray
-        The static offset target value(s).
-
-    Methods
-    -------
-    +
-        Adds this field with another `Field` or `MultiField`.
-
-        :return: `MultiField`
-    *
-        Weight the field with a suitable weight.
-        The weight needs to have the correct number of dimensions, but will
-        otherwise broadcast properly.
-
-        :return: `SquaredCostField`
-    @
-        Bind the field to a point in space. The point needs to have
-        3 elements in the first dimension.
-
-        :return: `SquaredFieldPoint`
-    -
-        Shifts the current target value(s) with the new values.
-
-        :return: `SquaredField`
-
-    """
-
-    def __add__(self, other):
-        if other == 0:
-            return self
-        other_type = type(other)
-        if SquaredFieldBase in other_type.__bases__:
-            other_type = other_type.__bases__[1]
-        if other_type == type(self).__bases__[1]:
-            return MultiField(self, other)
-        else:
-            return NotImplemented
-
-    def __matmul__(self, position):
-        field = self.field @ position
-        return SquaredFieldPoint(field=field, target=self.target, position=field.position)
-
-    def __mul__(self, weight):
-        field = self.field * weight
-        return SquaredCostField(field=field, target=self.target, weight=field.weight)
-
-
-class SquaredFieldPoint(SquaredFieldBase, FieldPoint):
-    """Magnitude target bound field class.
-
-    Calculates the squared magnitude difference between the field value(s)
-    and a static target value(s).
-
-    Parameters
-    ----------
-    field: FieldPoint
-        A wrapper of an field implementation.
-    target: numpy.ndarray
-        The static offset target value(s).
-
-    Methods
-    -------
-    +
-        Adds this field with another `FieldPoint`,
-        `MultiFieldPoint`, or `MultiFieldMultiPoint`.
-
-        :return: `MultiFieldPoint`, or `MultiFieldMultiPoint`
-    *
-        Weight the field with a suitable weight.
-        The weight needs to have the correct number of dimensions, but will
-        otherwise broadcast properly.
-
-        :return: `SquaredCostFieldPoint`
-    @
-        Re-bind the field to a point in space. The point needs to have
-        3 elements in the first dimension.
-
-        :return: `SquaredFieldPoint`
-    -
-        Shifts the current target value(s) with the new values.
-
-        :return: `SquaredFieldPoint`
-
-    """
-
-    def __add__(self, other):
-        if other == 0:
-            return self
-        other_type = type(other)
-        if SquaredFieldBase in other_type.__bases__:
-            other_type = other_type.__bases__[1]
-        if other_type == type(self).__bases__[1]:
-            if np.allclose(self.position, other.position):
-                return MultiFieldPoint(self, other)
+        if '%fields' in format_spec:
+            field_start = format_spec.find('%fields')
+            if len(format_spec) > field_start + 11 and format_spec[field_start + 11] == ':':
+                field_spec_len = format_spec[field_start + 12].find(':')
+                field_spec = format_spec[field_start + 12:field_start + 12 + field_spec_len]
+                pre = format_spec[:field_start + 10]
+                post = format_spec[field_start + 13 + field_spec_len:]
+                format_spec = pre + post
             else:
-                return MultiFieldMultiPoint(self, other)
-        else:
-            return NotImplemented
-
-    def __matmul__(self, position):
-        field = self.field @ position
-        return SquaredFieldPoint(field=field, target=self.target, position=field.position)
-
-    def __mul__(self, weight):
-        field = self.field * weight
-        return SquaredCostFieldPoint(field=field, target=self.target, weight=field.weight, position=field.position)
+                field_spec = '{:%name%weight}'
+            field_str = '('
+            for field in self.fields:
+                field_str += field_spec.format(field) + ' + '
+            format_spec = format_spec.replace('%fields', field_str.rstrip(' + ') + ')')
+        return super().__format__(format_spec.replace('%name', ''))
 
 
-class SquaredCostField(SquaredFieldBase, CostField):
-    """Magnitude target unbound cost field class.
-
-    Calculates the squared magnitude difference between the field value(s)
-    and a static target value(s).
-
-    Parameters
-    ----------
-    field: CostField
-        A wrapper of an field implementation.
-    target: numpy.ndarray
-        The static offset target value(s).
-
-    Methods
-    -------
-    +
-        Adds this field with another `CostField` or `MultiCostField`.
-
-        :return: `MultiCostField`
-    *
-        Rescale the weight, i.e. multiplies the current weight with the new value.
-        The weight needs to have the correct number of dimensions, but will
-        otherwise broadcast properly.
-
-        :return: `SquaredCostField`
-    @
-        Bind the field to a point in space. The point needs to have
-        3 elements in the first dimension.
-
-        :return: `SquaredCostFieldPoint`
-    -
-        Shifts the current target value(s) with the new values.
-
-        :return: `SquaredCostField`
-
-    """
-
-    def __add__(self, other):
-        if other == 0:
-            return self
-        other_type = type(other)
-        if SquaredFieldBase in other_type.__bases__:
-            other_type = other_type.__bases__[1]
-        if other_type == type(self).__bases__[1]:
-            return MultiCostField(self, other)
-        else:
-            return NotImplemented
-
-    def __matmul__(self, position):
-        field = self.field @ position
-        return SquaredCostFieldPoint(field=field, target=self.target, position=field.position, weight=field.weight)
-
-    def __mul__(self, weight):
-        field = self.field * weight
-        return SquaredCostField(field=field, target=self.target, weight=field.weight)
-
-
-class SquaredCostFieldPoint(SquaredFieldBase, CostFieldPoint):
-    """Magnitude target cost function class.
-
-    Calculates the squared magnitude difference between the field value(s)
-    and a static target value(s).
-
-    Parameters
-    ----------
-    field: CostFieldPoint
-        A wrapper of an field implementation.
-    target: numpy.ndarray
-        The static offset target value(s).
-
-    Methods
-    -------
-    +
-        Adds this field with another `CostFieldPoint`,
-        `MultiCostFieldPoint`, or `MultiCostFieldMultiPoint`.
-
-        :return: `MultiCostFieldPoint`, or `MultiCostFieldMultiPoint`
-    *
-        Rescale the weight, i.e. multiplies the current weight with the new value.
-        The weight needs to have the correct number of dimensions, but will
-        otherwise broadcast properly.
-
-        :return: `SquaredCostFieldPoint`
-    @
-        Bind the field to a point in space. The point needs to have
-        3 elements in the first dimension.
-
-        :return: `SquaredCostFieldPoint`
-    -
-        Shifts the current target value(s) with the new values.
-
-        :return: `SquaredCostFieldPoint`
-
-    """
-
-    def __add__(self, other):
-        if other == 0:
-            return self
-        other_type = type(other)
-        if SquaredFieldBase in other_type.__bases__:
-            other_type = other_type.__bases__[1]
-        if other_type == type(self).__bases__[1]:
-            if np.allclose(self.position, other.position):
-                return MultiCostFieldPoint(self, other)
-            else:
-                return MultiCostFieldMultiPoint(self, other)
-        else:
-            return NotImplemented
-
-    def __matmul__(self, position):
-        field = self.field @ position
-        return SquaredCostFieldPoint(field=field, target=self.target, position=field.position, weight=field.weight)
-
-    def __mul__(self, weight):
-        field = self.field * weight
-        return SquaredCostFieldPoint(field=field, target=self.target, weight=field.weight, position=field.position)
-
-
-class MultiField(FieldBase):
+class MultiField(MultiFieldBase):
     """Class for multiple fields, single position calculations.
 
     This class collects multiple `Field` objects for simultaneous evaluation at
@@ -1183,47 +506,16 @@ class MultiField(FieldBase):
     ----------
     *fields : Field
         Any number of `Field` objects.
-
-    Methods
-    -------
-    +
-        Adds an `Field` or `MultiField` to the current set
-        of fields.
-
-        :return: `FieldPoint`
-    *
-        Weights all fields with the same weight. This requires
-        that all the fields can actually use the same weight.
-
-        :return: `MultiCostField`
-    @
-        Binds all the fields to the same position.
-
-        :return: `MultiFieldPoint`
-    -
-        Converts all the fields to squared target field.
-        This requires that all the fields can use the same target.
-
-        :return: `MultiField`
-
     """
 
-    _str_format_spec = '{:%cls%fields%position}'
-    _is_bound = False
-    _is_cost = False
-
-    def __init__(self, *fields):
+    def __init__(self, *fields, **kwargs):
+        super().__init__(**kwargs)
         self.fields = []
         self.requires = FieldImplementation.requirement()
-        for field in fields:
-            self += field
+        self.extend(fields)
 
     def __eq__(self, other):
         return super().__eq__(other) and self.fields == other.fields
-
-    @property
-    def array(self):
-        return self.fields[0].array
 
     def __call__(self, complex_transducer_amplitudes, position):
         """Evaluate all fields.
@@ -1250,66 +542,20 @@ class MultiField(FieldBase):
         # Call the function with the correct arguments
         return [field.values(**{key: requirements[key] for key in field.values_require}) for field in self.fields]
 
-    def __add__(self, other):
-        if other == 0:
-            return self
-        if type(self) == type(other):
-            return MultiField(*self.fields, *other.fields)
-        elif self._type == other._type:
-            return MultiField(*self.fields, other)
-        else:
-            return NotImplemented
-
-    def __iadd__(self, other):
-        add_element = False
-        add_point = False
-        if type(self) == type(other):
-            add_point = True
-        elif self._type == other._type:
-            add_element = True
-        old_requires = self.requires
-        if add_element:
+    def append(self, other):
+        if not isinstance(other, Field):
+            raise ValueError(f'Cannot append {type(other).__name__} to a {type(self).__name__}')
+        if other.requires > self.requires:
             self.requires = self.requires + other.requires
-            self.fields.append(other)
-        elif add_point:
-            for field in other.fields:
-                self += field
-        else:
-            return NotImplemented
-        if self.requires != old_requires:
-            # We have new requirements, if there are cached spatial structures they will
-            # need to be recalculated at next call.
             self._clear_cache()
+        self.fields.append(other)
         return self
-
-    def __sub__(self, other):
-        return type(self)(*[field - other for field in self.fields])
-
-    def __mul__(self, weight):
-        return MultiCostField(*[field * weight for field in self.fields])
 
     def __matmul__(self, position):
         return MultiFieldPoint(*[field @ position for field in self.fields])
 
-    def __format__(self, format_spec):
-        if '%fields' in format_spec:
-            field_start = format_spec.find('%fields')
-            if len(format_spec) > field_start + 11 and format_spec[field_start + 11] == ':':
-                field_spec_len = format_spec[field_start + 12].find(':')
-                field_spec = format_spec[field_start + 12:field_start + 12 + field_spec_len]
-                pre = format_spec[:field_start + 10]
-                post = format_spec[field_start + 13 + field_spec_len:]
-                format_spec = pre + post
-            else:
-                field_spec = '{:%name%weight}'
-            field_str = '('
-            for field in self.fields:
-                field_str += field_spec.format(field) + ' + '
-            format_spec = format_spec.replace('%fields', field_str.rstrip(' + ') + ')')
-        return super().__format__(format_spec.replace('%name', ''))
 
-
-class MultiFieldPoint(MultiField):
+class MultiFieldPoint(MultiFieldBase):
     """Class for multiple field, single fixed position calculations.
 
     This class collects multiple `FieldPoint` bound to the same position(s)
@@ -1326,37 +572,17 @@ class MultiFieldPoint(MultiField):
     If the class is initialized with fields bound to different points,
     some of the fields are simply discarded.
 
-    Methods
-    -------
-    +
-        Adds an `FieldPoint` or `MultiFieldPoint` to the current set
-        of fields. If the newly added field is not bound to the same position,
-        an `MultiFIeldMultiPoint` will be created and returned.
-
-        :return: `MultiFieldPoint` or `MultiFieldMultiPoint`
-    *
-        Weights all fields with the same weight. This requires
-        that all the fields can actually use the same weight.
-
-        :return: `MultiCostFieldMultiPoint`
-    @
-        Re-binds all the fields to a new position.
-
-        :return: `MultiFieldPoint`
-    -
-        Converts all the fields to magnitude target fields.
-        This requires that all the fields can use the same target.
-
-        :return: `MultiFieldPoint`
-
     """
 
-    _is_bound = True
-    _is_cost = False
+    def __init__(self, *fields, **kwargs):
+        super().__init__(*kwargs)
+        self.fields = []
+        self.requires = []
+        self._field_position_idx = []
 
-    def __init__(self, *fields):
-        self.position = fields[0].position
-        super().__init__(*fields)
+        self.positions = []
+        self._cached_requests = []
+        self.extend(fields)
 
     def __call__(self, complex_transducer_amplitudes):
         """Evaluate all fields.
@@ -1375,372 +601,83 @@ class MultiFieldPoint(MultiField):
             arrays in the list might not have compatible shapes.
 
         """
-        requirements = self.evaluate_requirements(complex_transducer_amplitudes)
-        return [field.values(**{key: requirements[key] for key in field.values_require}) for field in self.fields]
-
-    def __add__(self, other):
-        if other == 0:
-            return self
-        if self._type != other._type:
-            return NotImplemented
-        if type(other) == MultiFieldPoint and np.allclose(self.position, other.position):
-            return MultiFieldPoint(*self.fields, *other.fields)
-        elif isinstance(other, FieldPoint) and np.allclose(self.position, other.position):
-            return MultiFieldPoint(*self.fields, other)
-        else:
-            return MultiFieldMultiPoint(self, other)
-
-    def __iadd__(self, other):
-        try:
-            if np.allclose(other.position, self.position):
-                return super().__iadd__(other)
+        all_requirements = self.evaluate_requirements(complex_transducer_amplitudes)
+        output = []
+        for field, pos_idx in zip(self.fields, self._field_position_idx):
+            if type(pos_idx) is int:
+                requirements = all_requirements[pos_idx]
+                output.append(field.values(**{key: requirements[key] for key in field.values_require}))
             else:
-                return MultiFieldMultiPoint(self, other)
-        except AttributeError:
-            return NotImplemented
+                raise NotImplementedError()
 
-    def __mul__(self, weight):
-        return MultiCostFieldPoint(*[field * weight for field in self.fields])
+        return output
 
+    def _find_pos_idx(self, position):
+        for idx, pos in enumerate(self.positions):
+            if pos.shape is not position.shape:
+                continue
+            if not np.allclose(pos, position):
+                continue
+            return idx
+        # The position does not match any of the existing positions.
+        # Add the new position, as well as an empty requirements dict.
+        self.positions.append(position)
+        self.requires.append(FieldImplementation.requirement())
+        self._cached_requests.append(None)
+        return len(self.positions) - 1
 
-class MultiCostField(MultiField):
-    """Class for multiple cost function, single position calculations.
+    def append(self, other):
+        if not isinstance(other, FieldPoint):
+            raise ValueError(f'Cannot append {type(other).__name__} to a {type(self).__name__}')
 
-    This class collects multiple `CostField` objects for simultaneous evaluation at
-    the same position(s). Since the fields can use the same spatial structures
-    this is more efficient than to evaluate all the fields one by one.
+        if hasattr(other, 'position'):
+            position_idx = self._find_pos_idx(other.position)
+            self._field_position_idx.append(position_idx)
+            if other.requires > self.requires[position_idx]:
+                self.requires[position_idx] = self.requires[position_idx] + other.requires
+                self._clear_cache(position_idx)
 
-    Parameters
-    ----------
-    *fields : CostField
-        Any number of `CostField` objects.
+        elif hasattr(other, 'positions'):
+            self._field_position_idx.append([])
+            for position, requires in zip(other.positions, other.requires):
+                position_idx = self._find_pos_idx(position)
+                if requires > self.requires[position_idx]:
+                    self.requires[position_idx] = self.requires[position_idx] + requires
+                    self._clear_cache(position_idx)
+                self._field_position_idx[-1].append(position_idx)
 
-    Methods
-    -------
-    +
-        Adds an `CostField` or `MultiCostField` to the
-        current set of fields.
-
-        :return: `MultiCostField`
-    *
-        Rescale the weights of all fields, i.e. multiplies the current set of
-        weight with the new value. The weight needs to have the correct number of
-        dimensions, but will otherwise broadcast properly.
-
-        :return: `MultiCostField`
-    @
-        Binds all the fields to the same position.
-
-        :return: `MultiCostFieldPoint`
-    -
-        Converts all the fields to magnitude target fields.
-        This requires that all the fields can use the same target.
-
-        :return: `MultiCostField`
-
-    """
-
-    _is_bound = False
-    _is_cost = True
-
-    def __call__(self, complex_transducer_amplitudes, position):
-        """Evaluate and sum the all fields.
-
-        Parameters
-        ----------
-        compelx_transducer_amplitudes : complex numpy.ndarray
-            Complex representation of the transducer phases and amplitudes of the
-            array used to create the field.
-        position : array-like
-            The position(s) where to evaluate the fields.
-            The first dimension needs to have 3 elements.
-
-        Returns
-        -------
-        values: ndarray
-            The summed values of all fields.
-        jacobians : ndarray
-            The the summed jacobians of all fields.
-
-        """
-        requirements = self.evaluate_requirements(complex_transducer_amplitudes, position)
-        value = 0
-        jacobians = 0
-        for field in self.fields:
-            value += np.einsum(field._sum_str, field.weight, field.values(**{key: requirements[key] for key in field.values_require}))
-            jacobians += np.einsum(field._sum_str, field.weight, field.jacobians(**{key: requirements[key] for key in field.jacobians_require}))
-        return value, jacobians
-
-    def __add__(self, other):
-        if other == 0:
-            return self
-        if type(self) == type(other):
-            return MultiCostField(*self.fields, *other.fields)
-        elif self._type == other._type:
-            return MultiCostField(*self.fields, other)
         else:
-            return NotImplemented
+            raise ValueError(f'Cannot append a {type(other).__name__} which has no position to a {type(self).__name__}')
 
-    def __matmul__(self, position):
-        return MultiCostFieldPoint(*[field @ position for field in self.fields])
+        self.fields.append(other)
+        return self
 
-
-class MultiCostFieldPoint(MultiCostField, MultiFieldPoint):
-    """Class for multiple cost function, single fixed position calculations.
-
-    This class collects multiple `CostFieldPoint` bound to the same position(s)
-    for simultaneous evaluation. Since the fields can use the same spatial
-    structures this is more efficient than to evaluate all the fields one by one.
-
-    Parameters
-    ----------
-    *fields : CostFieldPoint
-        Any number of `CostFieldPoint` objects.
-
-    Warning
-    --------
-    If the class is initialized with fields bound to different points,
-    some of the fields are simply discarded.
-
-    Methods
-    -------
-    +
-        Adds an `CostFieldPoint` or `MultiCostFieldPoint` to the  current set of fields.
-        If the newly added field is not bound to the same position,
-        a `MultiCostFieldMultiPoint` will be created and returned.
-
-        :return: `MultiCostFieldPoint` or `MultiCostFieldMultiPoint`
-    *
-        Rescale the weights of all fields, i.e. multiplies the current set of
-        weight with the new value. The weight needs to have the correct number of
-        dimensions, but will otherwise broadcast properly.
-
-        :return: `MultiCostFieldPoint`
-    @
-        Re-binds all the fields to a new position.
-
-        :return: `MultiCostFieldPoint`
-    -
-        Converts all the fields to magnitude target fields.
-        This requires that all the fields can use the same target.
-
-        :return: `MultiCostFieldPoint`
-
-    """
-
-    _is_bound = True
-    _is_cost = True
-
-    def __call__(self, complex_transducer_amplitudes):
-        """Evaluate and sum the all fields.
-
-        Parameters
-        ----------
-        compelx_transducer_amplitudes : complex numpy.ndarray
-            Complex representation of the transducer phases and amplitudes of the
-            array used to create the field.
-
-        Returns
-        -------
-        values: ndarray
-            The summed values of all cost functions.
-        jacobians : ndarray
-            The the summed jacobians of all cost functions.
-
-        """
-        requirements = self.evaluate_requirements(complex_transducer_amplitudes)
-        value = 0
-        jacobians = 0
-        for field in self.fields:
-            value += np.einsum(field._sum_str, field.weight, field.values(**{key: requirements[key] for key in field.values_require}))
-            jacobians += np.einsum(field._sum_str, field.weight, field.jacobians(**{key: requirements[key] for key in field.jacobians_require}))
-        return value, jacobians
-
-    def __add__(self, other):
-        if other == 0:
-            return self
-        if self._type != other._type:
-            return NotImplemented
-        if type(other) == MultiCostFieldPoint and np.allclose(self.position, other.position):
-            return MultiCostFieldPoint(*self.fields, *other.fields)
-        elif isinstance(other, CostFieldPoint) and np.allclose(self.position, other.position):
-            return MultiCostFieldPoint(*self.fields, other)
+    def _clear_cache(self, idx=None):
+        if idx is None:
+            self._cached_requests = [None] * len(self.positions)
         else:
-            return MultiCostFieldMultiPoint(self, other)
+            self._cached_requests[idx] = None
 
-    def __iadd__(self, other):
-        try:
-            if np.allclose(other.position, self.position):
-                return super().__iadd__(other)
-            else:
-                return MultiCostFieldMultiPoint(self, other)
-        except AttributeError:
-            return NotImplemented
+    def evaluate_requirements(self, complex_transducer_amplitudes):
+        for idx, (position, requirement) in enumerate(zip(self.positions, self.requires)):
+            if self._cached_requests[idx] is None:
+                self._cached_requests[idx] = self.array.request(requirement, position)
 
-
-class MultiFieldMultiPoint(FieldBase):
-    """Collects fields bound to different positions.
-
-    Convenience class to evaluate and manipulate fields bound to
-    different positions in space. Will not improve the computational
-    efficiency beyond the gains from merging the fields bound
-    to the same positions.
-
-    Parameters
-    ----------
-    *fields: FieldPoint or MultiFieldPoint
-        Any number of fields bound to any number of points.
-
-    Methods
-    -------
-    +
-        Adds an additional `FieldPoint`, `MultiFieldPoint`
-        or `MultiFieldMultiPoint` to the set.
-
-        :return: `MultiFieldMultiPoint`
-    *
-        Weights all fields in the set with the same weight.
-        Requires that they can actually be weighted with the same
-        weight.
-
-        :return: `MultiCostFieldMultiPoint`
-
-    """
-
-    _str_format_spec = '{:%cls%points}'
-    _is_bound = True
-    _is_cost = False
-
-    def __init__(self, *fields):
-        self.fields = []
-        for field in fields:
-            self += field
-
-    def __eq__(self, other):
-        return super().__eq__(other) and self.fields == other.fields
-
-    def __call__(self, complex_transducer_amplitudes):
-        """Evaluate all fields.
-
-        Parameters
-        ----------
-        compelx_transducer_amplitudes : complex numpy.ndarray
-            Complex representation of the transducer phases and amplitudes of the
-            array used to create the field.
-
-        Returns
-        -------
-        values: list
-            A list of the return values from the individual fields.
-            Depending on the number of dimensions of the fields, the
-            arrays in the list might not have compatible shapes, and some
-            might be lists with values corresponding to the same point in space.
-
-        """
-        values = []
-        for point in self.fields:
-            values.append(point(complex_transducer_amplitudes))
-        return values
-
-    def __add__(self, other):
-        if other == 0:
-            return self
-        elif self._type != other._type:
-            return NotImplemented
-        else:
-            return type(self)(*self.fields, other)
-
-    def __iadd__(self, other):
-        if type(other) == type(self):
-            for field in other.fields:
-                self += field
-            return self
-        elif self._type != other._type:
-            return NotImplemented
-        else:
-            for idx, point in enumerate(self.fields):
-                if np.allclose(point.position, other.position):
-                    # Mutating `point` will not update the contents in the list!
-                    self.fields[idx] += other
-                    break
-            else:
-                self.fields.append(other)
-            return self
-
-    def __mul__(self, weight):
-        return MultiCostFieldMultiPoint(*[field * weight for field in self.fields])
-
-    def __format__(self, format_spec):
-        if '%points' in format_spec:
-            points_start = format_spec.find('%points')
-            if len(format_spec) > points_start + 7 and format_spec[points_start + 7] == ':':
-                points_spec_len = format_spec[points_start + 8].rind(':')
-                points_spec = format_spec[points_start + 8:points_start + 8 + points_spec_len]
-                pre = format_spec[:points_start + 6]
-                post = format_spec[points_start + 9 + points_spec_len:]
-                format_spec = pre + post
-            else:
-                points_spec = '\t{:%cls%name%fields%weight%position}\n'
-            points_str = '[\n'
-            for field in self.fields:
-                points_str += points_spec.format(field).replace('%fields', '')
-            format_spec = format_spec.replace('%points', points_str + ']')
-        return super().__format__(format_spec)
-
-
-class MultiCostFieldMultiPoint(MultiFieldMultiPoint, MultiCostFieldPoint):
-    """Collects cost fields bound to different positions.
-
-    Convenience class to evaluate and manipulate cost fields bound to
-    different positions in space. Will not improve the computational
-    efficiency beyond the gains from merging the fields bound
-    to the same positions.
-
-    Parameters
-    ----------
-    *fields: CostFieldPoint or MultiCostFieldPoint
-        Any number of cost fields bound to any number of points.
-
-    Methods
-    -------
-    +
-        Adds an additional `CostFieldPoint`, `MultiFieldPoint`
-        or `MultiCostFieldMultiPoint` to the set.
-
-        :return: `MultiCostFieldMultiPoint`
-    *
-        Rescale the weights, i.e. multiplies the current weights with the new value.
-        The weight needs to have the correct number of dimensions, but will
-        otherwise broadcast properly.
-
-        :return: `MultiCostFieldMultiPoint`
-
-    """
-
-    _is_bound = True
-    _is_cost = True
-
-    def __call__(self, complex_transducer_amplitudes):
-        """Evaluate and sum the all fields.
-
-        Parameters
-        ----------
-        compelx_transducer_amplitudes : complex numpy.ndarray
-            Complex representation of the transducer phases and amplitudes of the
-            array used to create the field.
-
-        Returns
-        -------
-        values: ndarray
-            The summed values of all cost functions.
-        jacobians : ndarray
-            The the summed jacobians of all cost functions.
-
-        """
-        values = 0
-        jacobians = 0
-        for field in self.fields:
-            val, jac = field(complex_transducer_amplitudes)
-            values += val
-            jacobians += jac
-        return values, jacobians
+        complex_transducer_amplitudes = np.asarray(complex_transducer_amplitudes)
+        # Apply the input complex amplitudes
+        evaluated_requirements = []
+        for idx, (evaluated_request, requirement) in enumerate(zip(self._cached_requests, self.requires)):
+            evaluated_requirement = {}
+            if 'complex_transducer_amplitudes' in requirement:
+                evaluated_requirement['complex_transducer_amplitudes'] = complex_transducer_amplitudes
+            if 'pressure_derivs' in evaluated_request:
+                evaluated_requirement['pressure_derivs_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, evaluated_request['pressure_derivs'])
+                evaluated_requirement['pressure_derivs_summed'] = np.sum(evaluated_requirement['pressure_derivs_individual'], axis=1)
+            if 'spherical_harmonics' in evaluated_request:
+                evaluated_requirement['spherical_harmonics_individual'] = np.einsum('i,ji...->ji...', complex_transducer_amplitudes, evaluated_request['spherical_harmonics'])
+                evaluated_requirement['spherical_harmonics_summed'] = np.sum(evaluated_requirement['spherical_harmonics_individual'], axis=1)
+            if 'spherical_harmonics_gradient' in evaluated_request:
+                evaluated_requirement['spherical_harmonics_gradient_individual'] = np.einsum('i,jki...->jki...', complex_transducer_amplitudes, evaluated_request['spherical_harmonics_gradient'])
+                evaluated_requirement['spherical_harmonics_gradient_summed'] = np.sum(evaluated_requirement['spherical_harmonics_gradient_individual'], axis=2)
+            evaluated_requirements.append(evaluated_requirement)
+        return evaluated_requirements
