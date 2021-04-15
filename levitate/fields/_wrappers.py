@@ -93,6 +93,10 @@ class FieldImplementation(metaclass=FieldImplementationMeta):
     def __eq__(self, other):
         return type(self) == type(other) and self.array == other.array
 
+    @property
+    def ndim(self):
+        return len(self.shape)
+
     class requirement(collections.UserDict):
         """Parse a set of requirements.
 
@@ -325,8 +329,14 @@ class Field(FieldBase):
         return self.field.jacobians_require
 
     @property
+    def shape(self):
+        if len(self.transforms) > 0:
+            return self.transforms[-1].shape
+        return self.field.shape
+
+    @property
     def ndim(self):
-        return self.field.ndim
+        return len(self.shape)
 
     @property
     def array(self):
