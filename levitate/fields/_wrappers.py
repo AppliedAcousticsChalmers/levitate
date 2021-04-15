@@ -364,7 +364,10 @@ class Field(FieldBase):
         requests = self.array.request(self.values_require, position)
         requirements = self.evaluate_requirements(complex_transducer_amplitudes, requests)
         # Call the function with the correct arguments
-        return self.values(**{key: requirements[key] for key in self.values_require})
+        values = self.values(**{key: requirements[key] for key in self.values_require})
+        for transform in self.transforms:
+            values = transform.values(values)
+        return values
 
     def __matmul__(self, position):
         position = np.asarray(position)
@@ -429,7 +432,10 @@ class FieldPoint(Field):
         except AttributeError:
             requests = self._cached_requests = self.array.request(self.values_require, self.position)
         requirements = self.evaluate_requirements(complex_transducer_amplitudes, requests)
-        return self.values(**{key: requirements[key] for key in self.values_require})
+        values = self.values(**{key: requirements[key] for key in self.values_require})
+        for transform in self.transforms:
+            values = transform.values(values)
+        return values
 
 
 class MultiFieldBase(FieldBase):
@@ -520,8 +526,17 @@ class MultiField(MultiFieldBase):
         # Prepare the requirements dict
         requests = self.array.request(self.values_require, position)
         requirements = self.evaluate_requirements(complex_transducer_amplitudes, requests)
-        # Call the function with the correct arguments
-        return [field.values(**{key: requirements[key] for key in field.values_require}) for field in self.fields]
+
+        values = []
+        for field in self.fields:
+            field_values = field.values(**{key: requirements[key] for key in field.values_require})
+            for transform in field.transforms:
+                field_values = transform.values(field_values)
+            values.append(field_values)
+
+        for transform in self.transforms:
+            values = transform.values(values)
+        return values
 
     def append(self, other):
         if not isinstance(other, Field):
@@ -589,15 +604,20 @@ class MultiFieldPoint(MultiFieldBase):
                 self._cached_requests[idx] = self.array.request(requirement, position)
 
         all_requirements = [self.evaluate_requirements(complex_transducer_amplitudes, request) for request in self._cached_requests]
-        output = []
+        values = []
         for field, pos_idx in zip(self.fields, self._field_position_idx):
             if type(pos_idx) is int:
                 field_requirements = all_requirements[pos_idx]
-                output.append(field.values(**{key: field_requirements[key] for key in field.values_require}))
+                field_values = field.values(**{key: field_requirements[key] for key in field.values_require})
+                for transform in field.transforms:
+                    field_values = transform.values(field_values)
+                values.append(field_values)
             else:
                 raise NotImplementedError()
 
-        return output
+        for transform in self.transforms:
+            values = transform.values(values)
+        return values
 
     def _find_pos_idx(self, position):
         for idx, pos in enumerate(self.positions):
@@ -682,9 +702,17 @@ class CostFunction(MultiFieldPoint):
         for field, pos_idx in zip(self.fields, self._field_position_idx):
             if type(pos_idx) is int:
                 field_requirements = all_requirements[pos_idx]
-                values.append(field.values(**{key: field_requirements[key] for key in field.values_require}))
-                jacobians.append(field.jacobians(**{key: field_requirements[key] for key in field.jacobians_require}))
+                field_values = field.values(**{key: field_requirements[key] for key in field.values_require})
+                field_jacobians = field.jacobians(**{key: field_requirements[key] for key in field.jacobians_require})
+
+                for transform in field.transforms:
+                    field_values, field_jacobians = transform.values_jacobians(field_values, field_jacobians)
+
+                values.append(field_values)
+                jacobians.append(field_jacobians)
             else:
                 raise NotImplementedError()
 
+        for transform in self.transforms:
+            values, jacobians = transform.values_jacobians(values, jacobians)
         return values, jacobians
