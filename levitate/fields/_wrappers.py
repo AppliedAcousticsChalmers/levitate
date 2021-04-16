@@ -312,13 +312,11 @@ class Field(FieldBase):
     def name(self):
         return self.field.__class__.__name__
 
-    @property
-    def values(self):
-        return self.field.values
+    def values(self, requirements):
+        return self.field.values(**{key: requirements[key] for key in self.values_require})
 
-    @property
-    def jacobians(self):
-        return self.field.jacobians
+    def jacobians(self, requirements):
+        return self.field.jacobians(**{key: requirements[key] for key in self.jacobians_require})
 
     @property
     def values_require(self):
@@ -364,7 +362,7 @@ class Field(FieldBase):
         requests = self.array.request(self.values_require, position)
         requirements = self.evaluate_requirements(complex_transducer_amplitudes, requests)
         # Call the function with the correct arguments
-        values = self.values(**{key: requirements[key] for key in self.values_require})
+        values = self.values(requirements)
         for transform in self.transforms:
             values = transform.values(values)
         return values
@@ -432,7 +430,7 @@ class FieldPoint(Field):
         except AttributeError:
             requests = self._cached_requests = self.array.request(self.values_require, self.position)
         requirements = self.evaluate_requirements(complex_transducer_amplitudes, requests)
-        values = self.values(**{key: requirements[key] for key in self.values_require})
+        values = self.values(requirements)
         for transform in self.transforms:
             values = transform.values(values)
         return values
@@ -529,7 +527,7 @@ class MultiField(MultiFieldBase):
 
         values = []
         for field in self.fields:
-            field_values = field.values(**{key: requirements[key] for key in field.values_require})
+            field_values = field.values(requirements)
             for transform in field.transforms:
                 field_values = transform.values(field_values)
             values.append(field_values)
@@ -608,7 +606,7 @@ class MultiFieldPoint(MultiFieldBase):
         for field, pos_idx in zip(self.fields, self._field_position_idx):
             if type(pos_idx) is int:
                 field_requirements = all_requirements[pos_idx]
-                field_values = field.values(**{key: field_requirements[key] for key in field.values_require})
+                field_values = field.values(field_requirements)
                 for transform in field.transforms:
                     field_values = transform.values(field_values)
                 values.append(field_values)
@@ -702,8 +700,8 @@ class CostFunction(MultiFieldPoint):
         for field, pos_idx in zip(self.fields, self._field_position_idx):
             if type(pos_idx) is int:
                 field_requirements = all_requirements[pos_idx]
-                field_values = field.values(**{key: field_requirements[key] for key in field.values_require})
-                field_jacobians = field.jacobians(**{key: field_requirements[key] for key in field.jacobians_require})
+                field_values = field.values(field_requirements)
+                field_jacobians = field.jacobians(field_requirements)
 
                 for transform in field.transforms:
                     field_values, field_jacobians = transform.values_jacobians(field_values, field_jacobians)
