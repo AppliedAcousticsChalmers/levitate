@@ -633,9 +633,19 @@ class MultiFieldPoint(MultiFieldBase):
         values = self.values(requirements)
         return values
 
+    def map_positions_to_fields(self, position_quanties):
+        field_quantities = []
+        for field, pos_idx in zip(self.fields, self._field_position_idx):
+            if type(pos_idx) is int:
+                field_quantity = position_quanties[pos_idx]
+            else:
+                field_quantity = [position_quanties[idx] for idx in pos_idx]
+            field_quantities.append(field_quantity)
+        return field_quantities
+
     def _find_pos_idx(self, position):
         for idx, pos in enumerate(self.positions):
-            if pos.shape is not position.shape:
+            if pos.shape != position.shape:
                 continue
             if not np.allclose(pos, position):
                 continue
@@ -650,14 +660,9 @@ class MultiFieldPoint(MultiFieldBase):
 
     def values(self, requirements, transform=True):
         values = []
-        for field, pos_idx in zip(self.fields, self._field_position_idx):
-            if type(pos_idx) is int:
-                field_requirements = requirements[pos_idx]
-                field_values = field.values(field_requirements)
-            else:
-                field_requirements = [requirements[idx] for idx in pos_idx]
-                field_values = field.values(*field_requirements)
-            values.append(field_values)
+        requirements = self.map_positions_to_fields(requirements)
+        for field, requirement in zip(self.fields, requirements):
+            values.append(field.values(requirement))
 
         if transform:
             for transform in self.transforms:
@@ -667,13 +672,9 @@ class MultiFieldPoint(MultiFieldBase):
     def values_jacobians(self, requirements, transform=True):
         values = []
         jacobians = []
-        for field, pos_idx in zip(self.fields, self._field_position_idx):
-            if type(pos_idx) is int:
-                field_requirements = requirements[pos_idx]
-                field_values, field_jacobians = field.values_jacobians(field_requirements)
-            else:
-                field_requirements = [requirements[idx] for idx in pos_idx]
-                field_values, field_jacobians = field.values_jacobians(*field_requirements)
+        requirements = self.map_positions_to_fields(requirements)
+        for field, requirement in zip(self.fields, requirements):
+            field_values, field_jacobians = field.values_jacobians(requirement)
             values.append(field_values)
             jacobians.append(field_jacobians)
 
@@ -683,10 +684,7 @@ class MultiFieldPoint(MultiFieldBase):
         return values, jacobians
 
     def append(self, other):
-        if not isinstance(other, FieldPoint):
-            raise ValueError(f'Cannot append {type(other).__name__} to a {type(self).__name__}')
-
-        if hasattr(other, 'position'):
+        if isinstance(other, FieldPoint):
             position_idx = self._find_pos_idx(other.position)
             self._field_position_idx.append(position_idx)
             if other.values_require > self.values_require[position_idx]:
@@ -696,20 +694,21 @@ class MultiFieldPoint(MultiFieldBase):
                 self.jacobians_require[position_idx] = self.jacobians_require[position_idx] + other.jacobians_require
                 self._clear_cache(position_idx)
 
-        elif hasattr(other, 'positions'):
+        elif isinstance(other, MultiFieldPoint):
             self._field_position_idx.append([])
             for position, values_require, jacobians_require in zip(other.positions, other.values_require, other.jacobians_require):
                 position_idx = self._find_pos_idx(position)
+                self._field_position_idx[-1].append(position_idx)
+
                 if values_require > self.values_require[position_idx]:
                     self.values_require[position_idx] = self.values_require[position_idx] + values_require
                     self._clear_cache(position_idx)
                 if jacobians_require > self.jacobians_require[position_idx]:
                     self.jacobians_require[position_idx] = self.jacobians_require[position_idx] + jacobians_require
                     self._clear_cache(position_idx)
-                self._field_position_idx[-1].append(position_idx)
 
         else:
-            raise ValueError(f'Cannot append a {type(other).__name__} which has no position to a {type(self).__name__}')
+            raise ValueError(f'Cannot append {type(other).__name__} to a {type(self).__name__}')
 
         self.fields.append(other)
         return self
@@ -739,10 +738,9 @@ class CostFunction(MultiFieldPoint):
             arrays in the list might not have compatible shapes.
 
         """
-        for idx in range(len(self)):
+        for idx, (position, values_require, jacobians_require) in enumerate(zip(self.positions, self.values_require, self.jacobians_require)):
             if self._cached_requests[idx] is None:
-                requirement = self.values_require[idx] + self.jacobians_require[idx]
-                self._cached_requests[idx] = self.array.request(requirement, self.positions[idx])
+                self._cached_requests[idx] = self.array.request(values_require + jacobians_require, position)
 
         requirements = [self.evaluate_requirements(complex_transducer_amplitudes, request) for request in self._cached_requests]
         values, jacobians = self.values_jacobians(requirements)
