@@ -312,11 +312,27 @@ class Field(FieldBase):
     def name(self):
         return self.field.__class__.__name__
 
-    def values(self, requirements):
-        return self.field.values(**{key: requirements[key] for key in self.values_require})
+    def values(self, requirements, transform=True):
+        values = self.field.values(**{key: requirements[key] for key in self.values_require})
+        if transform:
+            for transform in self.transforms:
+                values = transform.values(values)
+        return values
 
-    def jacobians(self, requirements):
-        return self.field.jacobians(**{key: requirements[key] for key in self.jacobians_require})
+    def jacobians(self, requirements, transform=True):
+        jacobians = self.field.jacobians(**{key: requirements[key] for key in self.jacobians_require})
+        if transform:
+            for transform in self.transforms:
+                jacobians = transform.jacobians(jacobians)
+        return jacobians
+
+    def values_jacobians(self, requirements, transform=True):
+        values = self.field.values(**{key: requirements[key] for key in self.values_require})
+        jacobians = self.field.jacobians(**{key: requirements[key] for key in self.jacobians_require})
+        if transform:
+            for transform in self.transforms:
+                values, jacobians = transform.values_jacobians(values, jacobians)
+        return values, jacobians
 
     @property
     def values_require(self):
@@ -358,13 +374,9 @@ class Field(FieldBase):
             The values of the implemented field used to create the wrapper.
 
         """
-        # Prepare the requirements dict
         requests = self.array.request(self.values_require, position)
         requirements = self.evaluate_requirements(complex_transducer_amplitudes, requests)
-        # Call the function with the correct arguments
         values = self.values(requirements)
-        for transform in self.transforms:
-            values = transform.values(values)
         return values
 
     def __matmul__(self, position):
@@ -431,8 +443,6 @@ class FieldPoint(Field):
             requests = self._cached_requests = self.array.request(self.values_require, self.position)
         requirements = self.evaluate_requirements(complex_transducer_amplitudes, requests)
         values = self.values(requirements)
-        for transform in self.transforms:
-            values = transform.values(values)
         return values
 
 
@@ -528,8 +538,6 @@ class MultiField(MultiFieldBase):
         values = []
         for field in self.fields:
             field_values = field.values(requirements)
-            for transform in field.transforms:
-                field_values = transform.values(field_values)
             values.append(field_values)
 
         for transform in self.transforms:
@@ -607,8 +615,6 @@ class MultiFieldPoint(MultiFieldBase):
             if type(pos_idx) is int:
                 field_requirements = all_requirements[pos_idx]
                 field_values = field.values(field_requirements)
-                for transform in field.transforms:
-                    field_values = transform.values(field_values)
                 values.append(field_values)
             else:
                 raise NotImplementedError()
@@ -700,12 +706,7 @@ class CostFunction(MultiFieldPoint):
         for field, pos_idx in zip(self.fields, self._field_position_idx):
             if type(pos_idx) is int:
                 field_requirements = all_requirements[pos_idx]
-                field_values = field.values(field_requirements)
-                field_jacobians = field.jacobians(field_requirements)
-
-                for transform in field.transforms:
-                    field_values, field_jacobians = transform.values_jacobians(field_values, field_jacobians)
-
+                field_values, field_jacobians = field.values_jacobians(field_requirements)
                 values.append(field_values)
                 jacobians.append(field_jacobians)
             else:
