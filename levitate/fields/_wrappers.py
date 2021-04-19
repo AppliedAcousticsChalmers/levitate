@@ -276,6 +276,19 @@ class FieldBase:
     def _repr_pretty_(self, p, cycle):
         p.text(str(self))
 
+    def jacobians(self, requirements, transform=True):
+        return self.values_jacobians(requirements, transform=transform)[1]
+
+    @property
+    def values_jacobians_require(self):
+        values_require = self.values_require
+        jacobians_require = self.jacobians_require
+
+        if isinstance(values_require, FieldImplementation.requirement):
+            return values_require + jacobians_require
+        else:
+            return [vals + jacs for (vals, jacs) in zip(values_require, jacobians_require)]
+
 
 class Field(FieldBase):
     """Primary class for single point, single field.
@@ -318,13 +331,6 @@ class Field(FieldBase):
             for transform in self.transforms:
                 values = transform.values(values)
         return values
-
-    def jacobians(self, requirements, transform=True):
-        jacobians = self.field.jacobians(**{key: requirements[key] for key in self.jacobians_require})
-        if transform:
-            for transform in self.transforms:
-                jacobians = transform.jacobians(jacobians)
-        return jacobians
 
     def values_jacobians(self, requirements, transform=True):
         values = self.field.values(**{key: requirements[key] for key in self.values_require})
