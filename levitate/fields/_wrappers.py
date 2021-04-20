@@ -473,6 +473,19 @@ class MultiFieldBase(FieldBase):
             yield field
 
     @property
+    def shape(self):
+        if len(self.transforms) > 0:
+            return self.transforms[-1].shape
+        return [field.shape for field in self.fields]
+
+    @property
+    def ndim(self):
+        shape = self.shape
+        if type(shape) == list:
+            return -1
+        return len(self.shape)
+
+    @property
     def array(self):
         return self.fields[0].array
 
