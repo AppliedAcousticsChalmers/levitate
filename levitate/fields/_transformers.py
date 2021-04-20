@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 
 class Transform:
@@ -34,6 +35,40 @@ class SingleInput:
     @property
     def shape(self):
         return self.input.shape
+
+    @property
+    def ndim(self):
+        return len(self.shape)
+
+
+class MultiInput:
+    def __init__(self, inputs):
+        self.inputs = inputs
+        self._input_val_reshapes = [(slice(None),) * input.ndim + (None, Ellipsis) for input in self.inputs]
+
+    @property
+    def shape(self):
+        return [input.shape for input in self.inputs]
+
+    @property
+    def ndim(self):
+        return -1
+
+
+class MultiInputReducer(MultiInput):
+    def __init__(self, inputs):
+        super().__init__(inputs)
+        self._output_val_reshape = (slice(None),) * self.ndim + (None, Ellipsis)
+
+    @property
+    def shape(self):
+        shapes = [input.shape for input in self.inputs]
+        ndim = max(len(s) for s in shapes)
+        padded_shapes = [(1,) * (ndim - len(s)) + s for s in shapes]
+        out_shape = [max(s) for s in zip(*padded_shapes)]
+        if not all([dim == 1 or dim == out_dim for dims, out_dim in zip(zip(*padded_shapes), out_shape) for dim in dims]):
+            raise ValueError(f"Shapes {shapes} cannot be broadcast together")
+        return tuple(out_shape)
 
     @property
     def ndim(self):
@@ -120,3 +155,22 @@ class Absolute(SingleInput, Transform):
         abs_values = np.abs(values)
         jacobians = jacobians * (np.conjugate(values) / abs_values)[self._val_reshape]
         return abs_values, jacobians
+
+
+class FieldSum(MultiInputReducer, Transform):
+    def values(self, values):
+        return sum(values)
+
+    def jacobians(self, values, jacobians):
+        return sum(jacobians)
+
+
+class Product(MultiInputReducer, Transform):
+    def values(self, values):
+        return math.prod(values)
+
+    def values_jacobians(self, values, jacobians):
+        value_product = math.prod(values)
+        log_derivs = [jac / val[val_shape] for (val, jac, val_shape) in zip(values, jacobians, self._input_val_reshapes)]
+        jacobian_product = sum(log_derivs) * value_product[self._output_val_reshape]
+        return value_product, jacobian_product
