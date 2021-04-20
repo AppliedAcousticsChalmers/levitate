@@ -2,10 +2,6 @@ import numpy as np
 
 
 class Transform:
-    def __init__(self, input):
-        self.input = input
-        self._val_reshape = (slice(None),) * self.input.ndim + (None, Ellipsis)
-
     def __init_subclass__(cls):
         super().__init_subclass__()
         has_values = hasattr(cls, 'values')
@@ -29,6 +25,12 @@ class Transform:
     def _values_jacobians(self, values, jacobians):
         return self.values(values), self.jacobians(values, jacobians)
 
+
+class SingleInput:
+    def __init__(self, input):
+        self.input = input
+        self._val_reshape = (slice(None),) * self.input.ndim + (None, Ellipsis)
+
     @property
     def shape(self):
         return self.input.shape
@@ -38,7 +40,7 @@ class Transform:
         return len(self.shape)
 
 
-class Shift(Transform):
+class Shift(SingleInput, Transform):
     def __init__(self, input, shift):
         super().__init__(input)
         self.shift = shift
@@ -50,7 +52,7 @@ class Shift(Transform):
         return jacobians
 
 
-class Scale(Transform):
+class Scale(SingleInput, Transform):
     def __init__(self, input, scale):
         super().__init__(input)
         self.scale = scale
@@ -62,7 +64,7 @@ class Scale(Transform):
         return jacobians * self.scale
 
 
-class Power(Transform):
+class Power(SingleInput, Transform):
     def __init__(self, input, exponent):
         super().__init__(input)
         self.exponent = exponent
@@ -74,7 +76,7 @@ class Power(Transform):
         return jacobians * self.exponent * values[self._val_reshape] ** (self.exponent - 1)
 
 
-class Exponential(Transform):
+class Exponential(SingleInput, Transform):
     def __init__(self, input, base):
         super().__init__(input)
         self.base = base
@@ -88,7 +90,7 @@ class Exponential(Transform):
         return values, jacobians
 
 
-class Sum(Transform):
+class ComponentSum(SingleInput, Transform):
     def __init__(self, input, axis=None):
         super().__init__(input)
         try:
@@ -110,7 +112,7 @@ class Sum(Transform):
         return tuple(s for ax, s in enumerate(self.input.shape) if ax not in self.axis)
 
 
-class Absolute(Transform):
+class Absolute(SingleInput, Transform):
     def values(self, values):
         return np.abs(values)
 
