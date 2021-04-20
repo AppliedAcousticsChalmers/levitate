@@ -243,6 +243,11 @@ class FieldBase:
     def __init__(self, *, transforms=None):
         self.transforms = transforms if transforms is not None else tuple()
 
+    def copy(self):
+        new_obj = type(self).__new__(type(self))
+        new_obj.transforms = self.transforms
+        return new_obj
+
     def evaluate_requirements(self, complex_transducer_amplitudes, requests):
         complex_transducer_amplitudes = np.asarray(complex_transducer_amplitudes)
         # Apply the input complex amplitudes
@@ -313,6 +318,11 @@ class Field(FieldBase):
         self.field = field
         value_indices = ''.join(chr(ord('i') + idx) for idx in range(self.ndim))
         self._sum_str = value_indices + ', ' + value_indices + '...'
+
+    def copy(self):
+        new_obj = super().copy()
+        new_obj.field = self.field
+        return new_obj
 
     def __eq__(self, other):
         return (
@@ -415,6 +425,11 @@ class FieldPoint(Field):
     def __init__(self, field, position, **kwargs):
         super().__init__(field=field, **kwargs)
         self.position = np.asarray(position)
+
+    def copy(self):
+        new_obj = super().copy()
+        new_obj.position = self.position
+        return new_obj
 
     def __eq__(self, other):
         return (
@@ -527,6 +542,13 @@ class MultiField(MultiFieldBase):
         self.jacobians_require = FieldImplementation.requirement()
         self.extend(fields)
 
+    def copy(self):
+        new_obj = super().copy()
+        new_obj.fields = list(self.fields)
+        new_obj.values_require = self.values_require
+        new_obj.jacobians_require = self.jacobians_require
+        return new_obj
+
     def __eq__(self, other):
         return super().__eq__(other) and self.fields == other.fields
 
@@ -620,6 +642,16 @@ class MultiFieldPoint(MultiFieldBase):
         self.positions = []
         self._cached_requests = []
         self.extend(fields)
+
+    def copy(self):
+        new_obj = super().copy()
+        new_obj.fields = list(self.fields)
+        new_obj.values_require = list(self.values_require)
+        new_obj.jacobians_require = list(self.jacobians_require)
+        new_obj.positions = list(self.positions)
+        new_obj._field_position_idx = list(self._field_position_idx)
+        new_obj._clear_cache()
+        return new_obj
 
     def __call__(self, complex_transducer_amplitudes):
         """Evaluate all fields.
