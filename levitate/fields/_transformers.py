@@ -202,6 +202,54 @@ class Conjugate(SingleInput, Transform):
         return jacobians
 
 
+class EigenvalueSum(SingleInput, Transform):
+    # The initial idea was to just return the eigenvalues as they are.
+    # However, it turned out that something is not working with the jacobians
+    # when the eigenvalues are complex. Summing the eigenvalues and the
+    # corresponding jacobians seems to solve this for some magic reason...
+    # It is probably related to that the sum of the eigenvalues is always real,
+    # since the complex eigenvalues always appear in conjugated pairs.
+    # The intention with this was originally to sum the real parts anyhow, so
+    # this was deemed an acceptable compromise for the time being.
+    @property
+    def shape(self):
+        return ()
+
+    def values(self, values):
+        values = np.moveaxis(values, [0, 1], [-2, 1])
+        values = np.linalg.eigvals(values)
+        values = np.moveaxis(values, -1, 0)
+        return np.sum(values, axis=0).real
+        # return np.sort(values, axis=0)
+
+    def values_jacobians(self, values, jacobians):
+        values_moved = np.moveaxis(values, [0, 1], [-2, -1])  # Move the matrices to the last dimensions, which eig expects.
+        values_transposed = np.moveaxis(values, [0, 1], [-1, -2])  # The same but for transposed matrices.
+
+        evals_right, evecs_right = np.linalg.eig(values_moved)
+        evals_left, evecs_left = np.linalg.eig(values_transposed)
+
+        # Move the data back to have eigenvalue index first, then component of the eigenvectors
+        evals_right = np.moveaxis(evals_right, -1, 0)
+        evals_left = np.moveaxis(evals_left, -1, 0)
+        evecs_right = np.moveaxis(evecs_right, [-2, -1], [1, 0])
+        evecs_left = np.moveaxis(evecs_left, [-2, -1], [1, 0])
+
+        # Sort the values in ascending order.
+        # We need to sort the left and right to match, and sorting both in ascending order
+        # using fast algorithms is cheaper than what we could implement here.
+        idx_right = np.argsort(evals_right, axis=0)
+        idx_left = np.argsort(evals_left, axis=0)
+        evals = np.choose(idx_right, evals_right)
+        evecs_right_sorted = np.choose(idx_right[:, None], evecs_right)
+        evecs_left_sorted = np.choose(idx_left[:, None], evecs_left)
+
+        norms = 1 / np.einsum('pi...,pi...->p...', evecs_left_sorted, evecs_right_sorted)
+        eigen_jacobians = np.einsum('pi...,pj...,ij...,p...->p...', evecs_left_sorted, evecs_right_sorted, jacobians, norms)
+        return np.sum(evals, axis=0).real, np.sum(eigen_jacobians, axis=0)
+        # return evals, eigen_jacobians
+
+
 class FieldSum(MultiInputReducer, Transform):
     def values(self, values):
         return sum(values)
