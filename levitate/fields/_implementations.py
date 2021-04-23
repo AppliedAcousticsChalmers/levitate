@@ -683,7 +683,7 @@ class SphericalHarmonicsExpansion(FieldImplementation):
         """
         super().__init__(array, *args, **kwargs)
         if -1 in self.shape:
-            self.shape = tuple((self.orders + 1)**2 if s == -1 else s for s in self.shape)
+            self.shape = tuple((orders + 1)**2 if s == -1 else s for s in self.shape)
         self.max_idx = len(utils.SphericalHarmonicsIndexer(orders))
         self.values_require = FieldImplementation.requirement(spherical_harmonics_summed=orders)
         self.jacobians_require = FieldImplementation.requirement(spherical_harmonics_individual=orders)

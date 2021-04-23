@@ -21,3 +21,4 @@ References
 
 
 from ._implementations import *  # noqa: F401, F403
+from ._wrappers import stack  # noqa: F401

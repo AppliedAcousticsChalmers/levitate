@@ -2,6 +2,9 @@ import numpy as np
 import collections
 import inspect
 
+class IncompatibleFieldsError(TypeError):
+    pass
+
 
 class FieldImplementationMeta(type):
     """Metaclass to wrap `FieldImplementation` objects in `Field` objects.
@@ -600,8 +603,8 @@ class MultiField(MultiFieldBase):
         return values, jacobians
 
     def append(self, other):
-        if not isinstance(other, Field):
-            raise ValueError(f'Cannot append {type(other).__name__} to a {type(self).__name__}')
+        if not isinstance(other, (Field, MultiField)):
+            raise IncompatibleFieldsError(f'Cannot append a {type(other).__name__} to a {type(self).__name__}')
         if other.values_require > self.values_require:
             self.values_require = self.values_require + other.values_require
         if other.jacobians_require > self.jacobians_require:
@@ -753,7 +756,7 @@ class MultiFieldPoint(MultiFieldBase):
                     self._clear_cache(position_idx)
 
         else:
-            raise ValueError(f'Cannot append {type(other).__name__} to a {type(self).__name__}')
+            raise IncompatibleFieldsError(f'Cannot append a {type(other).__name__} to a {type(self).__name__}')
 
         self.fields.append(other)
         return self
@@ -790,3 +793,18 @@ class CostFunction(MultiFieldPoint):
         requirements = [self.evaluate_requirements(complex_transducer_amplitudes, request) for request in self._cached_requests]
         values, jacobians = self.values_jacobians(requirements)
         return values, jacobians
+
+
+unbound_fields = (Field, MultiField)
+bound_fields = (FieldPoint, MultiFieldPoint)
+
+
+def stack(*fields):
+    is_bound = isinstance(fields[0], bound_fields)
+    is_stackable = all([isinstance(field, bound_fields) == is_bound for field in fields])
+    if not is_stackable:
+        raise IncompatibleFieldsError('Cannot stack a mix of bound and unbound fields')
+    if is_bound:
+        return MultiFieldPoint(*fields)
+    else:
+        return MultiField(*fields)
