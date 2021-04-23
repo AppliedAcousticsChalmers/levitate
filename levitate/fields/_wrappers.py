@@ -2,6 +2,9 @@ import numpy as np
 import collections
 import inspect
 
+from . import _transformers
+
+
 class IncompatibleFieldsError(TypeError):
     pass
 
@@ -296,6 +299,82 @@ class FieldBase:
             return values_require + jacobians_require
         else:
             return [vals + jacs for (vals, jacs) in zip(values_require, jacobians_require)]
+
+    @property
+    def _output_layer(self):
+        if len(self.transforms) > 0:
+            return self.transforms[-1]
+        try:
+            return self.field
+        except AttributeError:
+            return self.fields
+
+    def _append_transform(self, transform_type, *args, **kwargs):
+        self.transforms = self.transforms + (transform_type(self._output_layer, *args, **kwargs),)
+        return self
+
+    def __add__(self, other):
+        try:
+            return stack(self, other)._append_transform(_transformers.FieldSum)
+        except IncompatibleFieldsError:
+            try:
+                return self.copy()._append_transform(_transformers.Shift, other)
+            except _transformers.NonNumericError:
+                return NotImplemented
+
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    def __sub__(self, other):
+        return self.__add__(-other)
+
+    def __rsub__(self, other):
+        return self.__sub__(other)
+
+    def __mul__(self, other):
+        try:
+            return stack(self, other)._append_transform(_transformers.Product)
+        except IncompatibleFieldsError:
+            try:
+                return self.copy()._append_transform(_transformers.Scale, other)
+            except _transformers.NonNumericError:
+                return NotImplemented
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
+    def __truediv__(self, other):
+        if isinstance(other, FieldBase):
+            return self.__mul__(other ** -1)
+        else:
+            return self.__mul__(1 / np.ararray(other))
+
+    def __rtruediv__(self, other):
+        return self.__truediv__(other)
+
+    def __pow__(self, other):
+        try:
+            return self.copy()._append_transform(_transformers.Power, other)
+        except _transformers.NonNumericError:
+            return NotImplemented
+
+    def __rpow__(self, other):
+        try:
+            return self.copy()._append_transform(_transformers.Exponential, other)
+        except _transformers.NonNumericError:
+            return NotImplemented
+
+    def __neg__(self):
+        return self.copy()._append_transform(_transformers.Negate)
+
+    def __abs__(self):
+        return self.copy()._append_transform(_transformers.Absolute)
+
+    def sum(self, axis=None):
+        if self.ndim == -1:
+            return self.copy()._append_transform(_transformers.FieldSum)
+        elif self.ndim >= 0:
+            return self.copy()._append_transform(_transformers.ComponentSum, axis=axis)
 
 
 class Field(FieldBase):
