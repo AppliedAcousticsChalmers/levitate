@@ -1,6 +1,9 @@
 import numpy as np
 import math
 
+class NonNumericError(TypeError):
+    pass
+
 
 class Transform:
     def __init_subclass__(cls):
@@ -78,7 +81,9 @@ class MultiInputReducer(MultiInput):
 class Shift(SingleInput, Transform):
     def __init__(self, input, shift):
         super().__init__(input)
-        self.shift = shift
+        self.shift = np.asarray(shift)
+        if not np.issubdtype(self.shift.dtype, np.number):
+            raise NonNumericError(f'Cannot shift with value {shift} of type {type(shift).__name__}')
 
     def values(self, values):
         return values + self.shift
@@ -90,7 +95,9 @@ class Shift(SingleInput, Transform):
 class Scale(SingleInput, Transform):
     def __init__(self, input, scale):
         super().__init__(input)
-        self.scale = scale
+        self.scale = np.asarray(scale)
+        if not np.issubdtype(self.scale.dtype, np.number):
+            raise NonNumericError(f'Cannot scale with value {scale} of type {type(scale).__name__}')
 
     def values(self, values):
         return values * self.scale
@@ -102,7 +109,9 @@ class Scale(SingleInput, Transform):
 class Power(SingleInput, Transform):
     def __init__(self, input, exponent):
         super().__init__(input)
-        self.exponent = exponent
+        self.exponent = np.asarray(exponent)
+        if not np.issubdtype(self.exponent.dtype, np.number):
+            raise NonNumericError(f'Cannot raise to value {exponent} of type {type(exponent).__name__}')
 
     def values(self, values):
         return values ** self.exponent
@@ -114,7 +123,9 @@ class Power(SingleInput, Transform):
 class Exponential(SingleInput, Transform):
     def __init__(self, input, base):
         super().__init__(input)
-        self.base = base
+        self.base = np.asarray(base)
+        if not np.issubdtype(self.base.dtype, np.number):
+            raise NonNumericError(f'Cannot exponentiate with base {base} of type {type(base).__name__}')
 
     def values(self, values):
         return self.base ** values
@@ -155,6 +166,40 @@ class Absolute(SingleInput, Transform):
         abs_values = np.abs(values)
         jacobians = jacobians * (np.conjugate(values) / abs_values)[self._val_reshape]
         return abs_values, jacobians
+
+
+class Negate(SingleInput, Transform):
+    def values(self, values):
+        return -values
+
+    def jacobians(self, values, jacobians):
+        return -jacobians
+
+
+class Real(SingleInput, Transform):
+    def values(self, values):
+        return np.real(values)
+
+    def jacobians(self, values, jacobians):
+        return jacobians
+
+
+class Imag(SingleInput, Transform):
+    def values(self, values):
+        return np.imag(values)
+
+    def jacobians(self, values, jacobians):
+        if np.iscomplexobj(values):
+            return -1j * jacobians
+        return np.zeros_like(jacobians)
+
+
+class Conjugate(SingleInput, Transform):
+    def values(self, values):
+        return np.conjugate(values)
+
+    def jacobians(self, values, jacobians):
+        return jacobians
 
 
 class FieldSum(MultiInputReducer, Transform):
