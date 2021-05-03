@@ -1110,7 +1110,281 @@ class CylinderModes(TransducerModel):
         self.radius, self.height, self.dB_limit, self.selected_modes = radius, height, dB_limit, selected_modes
         self.damping = damping
 
+    def _maximum_bessel_order(self, wavenumber, one_above=False):
+        """Find the highest order of Bessel function with resonances below a given wavenumber."""
+        kappa = wavenumber * self.radius
+        n_max = np.math.ceil(kappa - np.log(kappa))
+        while jnp_zeros(n_max, 1)[0] < kappa:
+            n_max += 1
+        return n_max - (0 if one_above else 1)  # Remove one since we increment until we are above
+
+    def _bessel_deriv_zeros(self, order, wavenumber, one_above=False):
+        """Find the wavenumbers where the derivative of the Berssel function is zero, below a given wavenumber."""
+        kappa = wavenumber * self.radius
+        s_max = max(np.math.ceil((kappa - order) / 3), 1)
+        kappa_zeros = jnp_zeros(order, s_max)
+
+        while kappa_zeros[-1] < kappa:
+            # Initial guess included too few zeros
+            s_max += np.math.ceil((kappa - kappa_zeros[-1]) / 3)
+            kappa_zeros = jnp_zeros(order, s_max)
+
+        if kappa_zeros[-1] > kappa:
+            # Initial guess included too many zeros
+            s_max -= np.sum(kappa_zeros > kappa)
+            kappa_zeros = kappa_zeros[:s_max + (1 if one_above else 0)]
+
+        return kappa_zeros / self.radius
+
+    def _closest_resoance(self):
+        """Find the wavenumber of the closest resonance for the cavity."""
+        n_max = self._maximum_bessel_order(self.k, one_above=True)
+
+        smallest_difference = np.inf
+
+        # Check for n=s=0
+        m_above = np.math.ceil(self.height / np.pi * self.k)
+        m_below = m_above - 1
+        k_above = (m_above * np.pi / self.height)
+        k_below = (m_below * np.pi / self.height)
+        if np.abs(k_above - self.k) < smallest_difference:
+            smallest_difference = np.abs(k_above - self.k)
+            closest_wavenumber = k_above
+            closest_mode = (0, 0, m_above)
+        if np.abs(k_below - self.k) < smallest_difference:
+            smallest_difference = np.abs(k_below - self.k)
+            closest_wavenumber = k_below
+            closest_mode = (0, 0, m_below)
+
+        for n in range(0, n_max + 1):
+            for s, radial_wavenumber in enumerate(self._bessel_deriv_zeros(n, self.k, one_above=True), 1):
+                if radial_wavenumber > self.k:
+                    if np.abs(radial_wavenumber - self.k) < smallest_difference:
+                        smallest_difference = np.abs(radial_wavenumber - self.k)
+                        closest_wavenumber = radial_wavenumber
+                        closest_mode = (n, s, 0)
+                else:
+                    m_above = np.math.ceil(self.height / np.pi * (self.k**2 - radial_wavenumber**2)**0.5)
+                    m_below = m_above - 1
+                    k_above = (radial_wavenumber**2 + (m_above * np.pi / self.height)**2)**0.5
+                    k_below = (radial_wavenumber**2 + (m_below * np.pi / self.height)**2)**0.5
+                    if np.abs(k_above - self.k) < smallest_difference:
+                        smallest_difference = np.abs(k_above - self.k)
+                        closest_wavenumber = k_above
+                        closest_mode = (n, s, m_above)
+                    if np.abs(k_below - self.k) < smallest_difference:
+                        smallest_difference = np.abs(k_below - self.k)
+                        closest_wavenumber = k_below
+                        closest_mode = (n, s, m_below)
+
+        self._closest_mode = closest_mode
+        return closest_wavenumber
+
+    def _cutoff_wavenumber(self):
+        """Find the cutoff wavenumber above which all modes will be below the chosen threshold."""
+        closest_wavenumber = self._closest_resoance()
+        max_strength = np.abs(closest_wavenumber**2 - self.k**2 + 2j * closest_wavenumber * self.damping / self.medium.c)
+        min_strength = max_strength * 10**(self.dB_limit / 20)
+        k_max = (min_strength + self.k**2)**0.5
+        return k_max
+
+
     def pressure_derivs(self, source_positions, source_normals, receiver_positions, orders=3):
+        source_positions = np.asarray(source_positions)
+        receiver_positions = np.asarray(receiver_positions)
+
+        source_dims = source_positions.ndim - 1
+        receiver_dims = receiver_positions.ndim - 1
+        source_positions = source_positions.reshape(source_positions.shape[:2] + receiver_dims * (1,))
+        receiver_positions = receiver_positions.reshape((3,) + (1,) * source_dims + receiver_positions.shape[1:])
+
+        x_src, y_src, z_src = source_positions
+        x_rec, y_rec, z_rec = receiver_positions
+        rho_src = (x_src**2 + y_src**2)**0.5
+        rho_rec = (x_rec**2 + y_rec**2)**0.5
+        theta_src = np.arctan2(y_src, x_src)
+        theta_rec = np.arctan2(y_rec, x_rec)
+
+        if orders > 0:
+            # We use the normalized values in the calculations below, but we don't
+            # have to recalculate these values for every mode.
+            xn = x_rec / rho_rec  # Normalized x
+            yn = y_rec / rho_rec  # Normalized y
+
+        output_shape = (utils.num_pressure_derivs[orders],) + source_positions.shape[1:source_dims + 1] + receiver_positions.shape[source_dims + 1:]
+
+        derivatives = np.zeros(output_shape, dtype=np.complex128)
+        damping = self.damping / self.medium.c
+        radius = self.radius
+        height = self.height
+
+        k_max = self._cutoff_wavenumber()
+        def single_mode_derivatives(
+            bessel_function, bessel_derivative, bessel_second_derivative, bessel_third_derivative,
+            n, sin_angle, cos_angle,
+            sin_z, cos_z, axial_wavenumber
+        ):
+            this_mode_derivatives = np.zeros(output_shape, dtype=np.complex128)
+            this_mode_derivatives[0] = bessel_function * cos_z
+
+            if orders > 0:
+                # d/dx
+                this_mode_derivatives[1] = (xn * bessel_derivative - 1j * n * yn / rho_rec * bessel_function) * cos_z
+                # d/dy
+                this_mode_derivatives[2] = (yn * bessel_derivative + 1j * n * xn / rho_rec * bessel_function) * cos_z
+                # d/dz
+                this_mode_derivatives[3] = -bessel_function * sin_z * axial_wavenumber
+
+            if orders > 1:
+                # d^2/dx^2
+                this_mode_derivatives[4] = (
+                    bessel_second_derivative * xn**2
+                    + bessel_derivative / rho_rec * (-2j * n * xn + yn) * yn
+                    + bessel_function / rho_rec**2 * (2j * xn - n * yn) * n * yn
+                ) * cos_z
+                # d^2/dy^2
+                this_mode_derivatives[5] = (
+                    bessel_second_derivative * yn**2
+                    + bessel_derivative / rho_rec * (xn + 2j * n * yn) * xn
+                    + bessel_function / rho_rec**2 * (-n * xn - 2j * yn) * n * xn
+                ) * cos_z
+                # d^2/dz^2
+                this_mode_derivatives[6] = -bessel_function * cos_z * axial_wavenumber**2
+                # d^2/dxdy
+                this_mode_derivatives[7] = (
+                    bessel_second_derivative * xn * yn
+                    + bessel_derivative / rho_rec * (1j * n * (xn**2 - yn**2) - xn * yn)
+                    + bessel_function / rho_rec**2 * (1j * (yn**2 - xn**2) + n * xn * yn) * n
+                ) * cos_z
+                # d^2/dxdz
+                this_mode_derivatives[8] = -(bessel_derivative * xn - 1j * n * yn / rho_rec * bessel_function) * sin_z * axial_wavenumber
+                # d^2/dydz
+                this_mode_derivatives[9] = -(bessel_derivative * yn + 1j * n * xn / rho_rec * bessel_function) * sin_z * axial_wavenumber
+
+            if orders > 2:
+                # d^3/dx^3
+                this_mode_derivatives[10] = (
+                    bessel_third_derivative * xn**3
+                    + bessel_second_derivative / rho_rec * 3 * (-1j * n * xn + yn) * xn * yn
+                    + bessel_derivative / rho_rec**2 * 3 * (1j * n * (2 * xn**2 - yn**2) - (n**2 + 1) * xn * yn) * yn
+                    + bessel_function / rho_rec**3 * (-6j * xn**2 + 6 * n * xn * yn + 1j * (n**2 + 2) * yn**2) * yn * n
+                ) * cos_z
+                # d^3/dy^3
+                this_mode_derivatives[11] = (
+                    bessel_third_derivative * yn**3
+                    + bessel_second_derivative / rho_rec * 3 * (xn + 1j * n * yn) * xn * yn
+                    + bessel_derivative / rho_rec**2 * 3 * (1j * n * xn**2 - (n**2 + 1) * xn * yn - 2j * n * yn**2) * xn
+                    + bessel_function / rho_rec**3 * (-1j * (n**2 + 2) * xn**2 + 6 * n * xn * yn + 6j * yn**2) * xn * n
+                ) * cos_z
+                # d^3/dz^3
+                this_mode_derivatives[12] = bessel_function * sin_z * axial_wavenumber**3
+                # d^3/dx^2dy
+                this_mode_derivatives[13] = (
+                    bessel_third_derivative * xn**2 * yn
+                    + bessel_second_derivative / rho_rec * (1j * n * xn**3 - 2 * xn**2 * yn - 2j * n * xn * yn**2 + yn**3)
+                    + bessel_derivative / rho_rec**2 * (-2j * n * xn**3 + 2 * (n**2 + 1) * xn**2 * yn + 7j * n * xn * yn**2 - (n**2 + 1) * yn**3)
+                    + bessel_function / rho_rec**3 * (2j * xn**3 - 4 * n * xn**2 * yn - 1j * (n**2 + 6) * xn * yn**2 + 2 * n * yn**3) * n
+                ) * cos_z
+                # d^3/dx^2dz
+                this_mode_derivatives[14] = -(
+                    bessel_second_derivative * xn**2
+                    + bessel_derivative / rho_rec * (-2j * n * xn + yn) * yn
+                    + bessel_function / rho_rec**2 * (2j * xn - n * yn) * n * yn
+                ) * sin_z * axial_wavenumber
+                # d^3/dy^2dx
+                this_mode_derivatives[15] = (
+                    bessel_third_derivative * xn * yn**2
+                    + bessel_second_derivative / rho_rec * (xn**3 + 2j * n * xn**2 * yn - 2 * xn * yn**2 - 1j * n * yn**3)
+                    + bessel_derivative / rho_rec**2 * (-(n**2 + 1) * xn**3 - 7j * n * xn**2 * yn + 2 * (n**2 + 1) * xn * yn**2 + 2j * n * yn**3)
+                    + bessel_function / rho_rec**3 * (2 * n * xn**3 + 1j * (n**2 + 6) * xn**2 * yn - 4 * n * xn * yn**2 - 2j * yn**3) * n
+                ) * cos_z
+                # d^3/dy^2dz
+                this_mode_derivatives[16] = -(
+                    bessel_second_derivative * yn**2
+                    + bessel_derivative / rho_rec * (xn + 2j * n * yn) * xn
+                    + bessel_function / rho_rec**2 * (-n * xn - 2j * yn) * n * xn
+                ) * sin_z * axial_wavenumber
+                # d^3/dz^dx
+                this_mode_derivatives[17] = -(
+                    xn * bessel_derivative - 1j * n * yn / rho_rec * bessel_function
+                ) * cos_z * axial_wavenumber**2
+                # d^3/dz^3dy
+                this_mode_derivatives[18] = -(
+                    yn * bessel_derivative + 1j * n * xn / rho_rec * bessel_function
+                ) * cos_z * axial_wavenumber**2
+                # d^3/dxdydz
+                this_mode_derivatives[19] = -(
+                    bessel_second_derivative * xn * yn
+                    + bessel_derivative / rho_rec * (1j * n * (xn**2 - yn**2) - xn * yn)
+                    + bessel_function / rho_rec**2 * (1j * (yn**2 - xn**2) + n * xn * yn) * n
+                ) * sin_z * axial_wavenumber
+
+            return (this_mode_derivatives * (cos_angle + 1j * sin_angle)).real
+
+        included_modes = {}
+        # Handle n=s=0
+        m_max = np.math.floor(k_max * height / np.pi)
+        bessel_function = bessel_derivative = bessel_second_derivative = bessel_third_derivative = None
+        for m in range(m_max + 1):
+            axial_wavenumber = mode_wavenumber = m * np.pi / height
+            axial_normalization = 1 if m == 0 else 0.5
+            resonance_factor = mode_wavenumber**2 - self.k**2 + 2j * mode_wavenumber * damping
+
+            cos_z = np.cos(axial_wavenumber * z_rec)
+            sin_z = np.sin(axial_wavenumber * z_rec)
+
+            included_modes[(0, 0, m)] = mode_wavenumber
+            derivatives += single_mode_derivatives(
+                1, 0, 0, 0,  # J_0(0), J'_0(0), J''_0(0), J'''_0(0)
+                0, 0, 1,  # n, sin(n phi'), cos(n phi')
+                sin_z, cos_z, axial_wavenumber
+            ) * np.cos(axial_wavenumber * z_src) / (resonance_factor * axial_normalization)
+
+
+        n_max = self._maximum_bessel_order(k_max)
+        for n in range(n_max + 1):
+            source_theta_phase = np.exp(1j * n * theta_src)
+            angle = n * (theta_rec + theta_src)
+            cos_angle = np.cos(angle)
+            sin_angle = np.sin(angle)
+            theta_phase = np.exp(1j * n * theta_rec)
+            for s, radial_wavenumber in enumerate(self._bessel_deriv_zeros(n, k_max), 1):
+                # Calculate kappa dependent quantities
+                radial_normalization = (1 - (n / (radial_wavenumber * radius))**2) * jv(n, radial_wavenumber * radius)**2 / (1 if n == 0 else 2)
+                bessel_function = jv(n, radial_wavenumber * rho_rec)
+                source_bessel_function = jv(n, radial_wavenumber * rho_src)
+                if orders > 0:
+                    bessel_derivative = jvp(n, radial_wavenumber * rho_rec, 1) * radial_wavenumber
+                if orders > 1:
+                    bessel_second_derivative = jvp(n, radial_wavenumber * rho_rec, 2) * radial_wavenumber**2
+                if orders > 2:
+                    bessel_third_derivative = jvp(n, radial_wavenumber * rho_rec, 3) * radial_wavenumber**3
+
+                m_max = np.math.floor(height / np.pi * (k_max**2 - radial_wavenumber**2)**0.5)
+                for m in range(m_max + 1):
+                    axial_wavenumber = m * np.pi / height
+                    mode_wavenumber = (radial_wavenumber**2 + axial_wavenumber**2)**0.5
+
+                    axial_normalization = 1 if m == 0 else 0.5
+                    resonance_factor = mode_wavenumber**2 - self.k**2 + 2j * mode_wavenumber * damping
+                    # source_modeshape = source_bessel_function * source_theta_phase * np.cos(axial_wavenumber * z_src)
+                    # mode_strength = source_modeshape / (resonance_factor * radial_normalization * axial_normalization)
+
+                    cos_z = np.cos(axial_wavenumber * z_rec)
+                    sin_z = np.sin(axial_wavenumber * z_rec)
+
+                    included_modes[(n, s, m)] = mode_wavenumber
+                    derivatives += single_mode_derivatives(
+                        bessel_function, bessel_derivative, bessel_second_derivative, bessel_third_derivative,
+                        n, sin_angle, cos_angle,
+                        sin_z, cos_z, axial_wavenumber
+                    ) * source_bessel_function * np.cos(axial_wavenumber * z_src) / (resonance_factor * radial_normalization * axial_normalization)
+
+        derivatives *= self.p0 / (np.pi * radius ** 2 * height)
+        self._included_modes = included_modes
+        return derivatives
+
+    def pressure_derivs_legacy(self, source_positions, source_normals, receiver_positions, orders=3):
 
         source_positions = np.asarray(source_positions)
         receiver_positions = np.asarray(receiver_positions)
@@ -1302,6 +1576,7 @@ class CylinderModes(TransducerModel):
             while k_ns <= k_ns_max:
                 m = 0
                 m_max = np.floor(self.radius * np.sqrt((2*self.omega / self.medium.c) ** 2 - (m *np.pi / self.height) ** 2)).astype(int)  # DEBUG
+                # m_max = np.math.floor(self.height / self.radius / np.pi * (k_ns_max**2 - k_ns**2)**0.5)
                 while m <= m_max:
 
                     if m == 0:
@@ -1317,7 +1592,8 @@ class CylinderModes(TransducerModel):
                     omega_mode = self.medium.c * np.sqrt((k_ns / self.radius)**2 + (m * np.pi / self.height)**2)
 
                     modal_amplitude.append(1 / (Lambda * (omega_mode ** 2 - self.omega ** 2 + 2 * 1j * omega_mode * damping)))
-                    modes_list.append((n, k_ns, m))
+                    # modes_list.append((n, k_ns, m))
+                    modes_list.append((n, s, m))
 
                     m += 1
                 s += 1
