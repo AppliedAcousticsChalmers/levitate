@@ -1206,10 +1206,15 @@ class CylinderModes(TransducerModel):
         theta_rec = np.arctan2(y_rec, x_rec)
 
         if orders > 0:
-            # We use the normalized values in the calculations below, but we don't
+            # We use the normalized values in the calculations, but we don't
             # have to recalculate these values for every mode.
             xn = x_rec / rho_rec  # Normalized x
             yn = y_rec / rho_rec  # Normalized y
+            xnxn = xn * xn
+            ynyn = yn * yn
+            xnyn = xn * yn
+        else:
+            xn = yn = xnxn = ynyn = xnyn = None
 
         output_shape = (utils.num_pressure_derivs[orders],) + source_positions.shape[1:source_dims + 1] + receiver_positions.shape[source_dims + 1:]
 
@@ -1219,108 +1224,6 @@ class CylinderModes(TransducerModel):
         height = self.height
 
         k_max = self._cutoff_wavenumber()
-        def single_mode_derivatives(
-            bessel_function, bessel_derivative, bessel_second_derivative, bessel_third_derivative,
-            n, sin_angle, cos_angle,
-            sin_z, cos_z, axial_wavenumber
-        ):
-            this_mode_derivatives = np.zeros(output_shape, dtype=np.complex128)
-            this_mode_derivatives[0] = bessel_function * cos_z
-
-            if orders > 0:
-                # d/dx
-                this_mode_derivatives[1] = (xn * bessel_derivative - 1j * n * yn / rho_rec * bessel_function) * cos_z
-                # d/dy
-                this_mode_derivatives[2] = (yn * bessel_derivative + 1j * n * xn / rho_rec * bessel_function) * cos_z
-                # d/dz
-                this_mode_derivatives[3] = -bessel_function * sin_z * axial_wavenumber
-
-            if orders > 1:
-                # d^2/dx^2
-                this_mode_derivatives[4] = (
-                    bessel_second_derivative * xn**2
-                    + bessel_derivative / rho_rec * (-2j * n * xn + yn) * yn
-                    + bessel_function / rho_rec**2 * (2j * xn - n * yn) * n * yn
-                ) * cos_z
-                # d^2/dy^2
-                this_mode_derivatives[5] = (
-                    bessel_second_derivative * yn**2
-                    + bessel_derivative / rho_rec * (xn + 2j * n * yn) * xn
-                    + bessel_function / rho_rec**2 * (-n * xn - 2j * yn) * n * xn
-                ) * cos_z
-                # d^2/dz^2
-                this_mode_derivatives[6] = -bessel_function * cos_z * axial_wavenumber**2
-                # d^2/dxdy
-                this_mode_derivatives[7] = (
-                    bessel_second_derivative * xn * yn
-                    + bessel_derivative / rho_rec * (1j * n * (xn**2 - yn**2) - xn * yn)
-                    + bessel_function / rho_rec**2 * (1j * (yn**2 - xn**2) + n * xn * yn) * n
-                ) * cos_z
-                # d^2/dxdz
-                this_mode_derivatives[8] = -(bessel_derivative * xn - 1j * n * yn / rho_rec * bessel_function) * sin_z * axial_wavenumber
-                # d^2/dydz
-                this_mode_derivatives[9] = -(bessel_derivative * yn + 1j * n * xn / rho_rec * bessel_function) * sin_z * axial_wavenumber
-
-            if orders > 2:
-                # d^3/dx^3
-                this_mode_derivatives[10] = (
-                    bessel_third_derivative * xn**3
-                    + bessel_second_derivative / rho_rec * 3 * (-1j * n * xn + yn) * xn * yn
-                    + bessel_derivative / rho_rec**2 * 3 * (1j * n * (2 * xn**2 - yn**2) - (n**2 + 1) * xn * yn) * yn
-                    + bessel_function / rho_rec**3 * (-6j * xn**2 + 6 * n * xn * yn + 1j * (n**2 + 2) * yn**2) * yn * n
-                ) * cos_z
-                # d^3/dy^3
-                this_mode_derivatives[11] = (
-                    bessel_third_derivative * yn**3
-                    + bessel_second_derivative / rho_rec * 3 * (xn + 1j * n * yn) * xn * yn
-                    + bessel_derivative / rho_rec**2 * 3 * (1j * n * xn**2 - (n**2 + 1) * xn * yn - 2j * n * yn**2) * xn
-                    + bessel_function / rho_rec**3 * (-1j * (n**2 + 2) * xn**2 + 6 * n * xn * yn + 6j * yn**2) * xn * n
-                ) * cos_z
-                # d^3/dz^3
-                this_mode_derivatives[12] = bessel_function * sin_z * axial_wavenumber**3
-                # d^3/dx^2dy
-                this_mode_derivatives[13] = (
-                    bessel_third_derivative * xn**2 * yn
-                    + bessel_second_derivative / rho_rec * (1j * n * xn**3 - 2 * xn**2 * yn - 2j * n * xn * yn**2 + yn**3)
-                    + bessel_derivative / rho_rec**2 * (-2j * n * xn**3 + 2 * (n**2 + 1) * xn**2 * yn + 7j * n * xn * yn**2 - (n**2 + 1) * yn**3)
-                    + bessel_function / rho_rec**3 * (2j * xn**3 - 4 * n * xn**2 * yn - 1j * (n**2 + 6) * xn * yn**2 + 2 * n * yn**3) * n
-                ) * cos_z
-                # d^3/dx^2dz
-                this_mode_derivatives[14] = -(
-                    bessel_second_derivative * xn**2
-                    + bessel_derivative / rho_rec * (-2j * n * xn + yn) * yn
-                    + bessel_function / rho_rec**2 * (2j * xn - n * yn) * n * yn
-                ) * sin_z * axial_wavenumber
-                # d^3/dy^2dx
-                this_mode_derivatives[15] = (
-                    bessel_third_derivative * xn * yn**2
-                    + bessel_second_derivative / rho_rec * (xn**3 + 2j * n * xn**2 * yn - 2 * xn * yn**2 - 1j * n * yn**3)
-                    + bessel_derivative / rho_rec**2 * (-(n**2 + 1) * xn**3 - 7j * n * xn**2 * yn + 2 * (n**2 + 1) * xn * yn**2 + 2j * n * yn**3)
-                    + bessel_function / rho_rec**3 * (2 * n * xn**3 + 1j * (n**2 + 6) * xn**2 * yn - 4 * n * xn * yn**2 - 2j * yn**3) * n
-                ) * cos_z
-                # d^3/dy^2dz
-                this_mode_derivatives[16] = -(
-                    bessel_second_derivative * yn**2
-                    + bessel_derivative / rho_rec * (xn + 2j * n * yn) * xn
-                    + bessel_function / rho_rec**2 * (-n * xn - 2j * yn) * n * xn
-                ) * sin_z * axial_wavenumber
-                # d^3/dz^dx
-                this_mode_derivatives[17] = -(
-                    xn * bessel_derivative - 1j * n * yn / rho_rec * bessel_function
-                ) * cos_z * axial_wavenumber**2
-                # d^3/dz^3dy
-                this_mode_derivatives[18] = -(
-                    yn * bessel_derivative + 1j * n * xn / rho_rec * bessel_function
-                ) * cos_z * axial_wavenumber**2
-                # d^3/dxdydz
-                this_mode_derivatives[19] = -(
-                    bessel_second_derivative * xn * yn
-                    + bessel_derivative / rho_rec * (1j * n * (xn**2 - yn**2) - xn * yn)
-                    + bessel_function / rho_rec**2 * (1j * (yn**2 - xn**2) + n * xn * yn) * n
-                ) * sin_z * axial_wavenumber
-
-            return (this_mode_derivatives * (cos_angle + 1j * sin_angle)).real
-
         included_modes = {}
         # Handle n=s=0
         m_max = np.math.floor(k_max * height / np.pi)
@@ -1334,20 +1237,18 @@ class CylinderModes(TransducerModel):
             sin_z = np.sin(axial_wavenumber * z_rec)
 
             included_modes[(0, 0, m)] = mode_wavenumber
-            derivatives += single_mode_derivatives(
+            derivatives += self._single_mode_derivatives(
+                orders, xn, yn, xnxn, ynyn, xnyn, rho_rec, output_shape,
                 1, 0, 0, 0,  # J_0(0), J'_0(0), J''_0(0), J'''_0(0)
                 0, 0, 1,  # n, sin(n phi'), cos(n phi')
                 sin_z, cos_z, axial_wavenumber
             ) * np.cos(axial_wavenumber * z_src) / (resonance_factor * axial_normalization)
 
-
         n_max = self._maximum_bessel_order(k_max)
         for n in range(n_max + 1):
-            source_theta_phase = np.exp(1j * n * theta_src)
             angle = n * (theta_rec + theta_src)
             cos_angle = np.cos(angle)
             sin_angle = np.sin(angle)
-            theta_phase = np.exp(1j * n * theta_rec)
             for s, radial_wavenumber in enumerate(self._bessel_deriv_zeros(n, k_max), 1):
                 # Calculate kappa dependent quantities
                 radial_normalization = (1 - (n / (radial_wavenumber * radius))**2) * jv(n, radial_wavenumber * radius)**2 / (1 if n == 0 else 2)
@@ -1367,22 +1268,187 @@ class CylinderModes(TransducerModel):
 
                     axial_normalization = 1 if m == 0 else 0.5
                     resonance_factor = mode_wavenumber**2 - self.k**2 + 2j * mode_wavenumber * damping
-                    # source_modeshape = source_bessel_function * source_theta_phase * np.cos(axial_wavenumber * z_src)
-                    # mode_strength = source_modeshape / (resonance_factor * radial_normalization * axial_normalization)
 
                     cos_z = np.cos(axial_wavenumber * z_rec)
                     sin_z = np.sin(axial_wavenumber * z_rec)
 
                     included_modes[(n, s, m)] = mode_wavenumber
-                    derivatives += single_mode_derivatives(
+                    tmp = self._single_mode_derivatives(
+                        orders, xn, yn, xnxn, ynyn, xnyn, rho_rec, output_shape,
                         bessel_function, bessel_derivative, bessel_second_derivative, bessel_third_derivative,
                         n, sin_angle, cos_angle,
                         sin_z, cos_z, axial_wavenumber
-                    ) * source_bessel_function * np.cos(axial_wavenumber * z_src) / (resonance_factor * radial_normalization * axial_normalization)
+                    )
+                    tmp = tmp * (source_bessel_function * np.cos(axial_wavenumber * z_src)) / (resonance_factor * radial_normalization * axial_normalization)
+                    derivatives += tmp
 
         derivatives *= self.p0 / (np.pi * radius ** 2 * height)
         self._included_modes = included_modes
         return derivatives
+
+    def _single_mode_derivatives(
+        self, orders,
+        xn, yn, xnxn, ynyn, xnyn, rho_rec, output_shape,
+        bessel_function, bessel_derivative, bessel_second_derivative, bessel_third_derivative,
+        n, sin_angle, cos_angle,
+        sin_z, cos_z, axial_wavenumber
+    ):
+        # This function have been optimized w.r.t. operation ordering. Keep that in mind before changing anything.
+        this_mode_derivatives = np.zeros(output_shape, dtype=np.float64)
+        this_mode_derivatives[0] = bessel_function * cos_z * cos_angle
+
+        if orders > 0:
+            bessel_function_over_rho = bessel_function / rho_rec
+            # d/dx
+            this_mode_derivatives[1] = (xn * bessel_derivative * cos_angle + n * yn * bessel_function_over_rho * sin_angle) * cos_z
+            # d/dy
+            this_mode_derivatives[2] = (yn * bessel_derivative * cos_angle - n * xn * bessel_function_over_rho * sin_angle) * cos_z
+            # d/dz
+            this_mode_derivatives[3] = -bessel_function * axial_wavenumber * sin_z * cos_angle
+
+        if orders > 1:
+            bessel_derivative_over_rho = bessel_derivative / rho_rec
+            bessel_function_over_rho2 = bessel_function_over_rho / rho_rec
+            # d^2/dx^2
+            this_mode_derivatives[4] = (
+                (
+                    bessel_second_derivative * xnxn
+                    + (bessel_derivative_over_rho - n * n * bessel_function_over_rho2) * ynyn
+                ) * cos_angle
+                + 2 * n * (bessel_derivative_over_rho - bessel_function_over_rho2) * xnyn * sin_angle
+            ) * cos_z
+            # d^2/dy^2
+            this_mode_derivatives[5] = (
+                (
+                    bessel_second_derivative * ynyn
+                    + (bessel_derivative_over_rho - n * n * bessel_function_over_rho2) * xnxn
+                ) * cos_angle
+                - 2 * n * (bessel_derivative_over_rho - bessel_function_over_rho2) * xnyn * sin_angle
+            ) * cos_z
+            # d^2/dz^2
+            this_mode_derivatives[6] = -bessel_function * cos_z * axial_wavenumber**2 * cos_angle
+            # d^2/dxdy
+            this_mode_derivatives[7] = (
+                (
+                    bessel_second_derivative
+                    - bessel_derivative_over_rho
+                    + n * n * bessel_function_over_rho2
+                ) * xnyn * cos_angle
+                + (
+                    bessel_derivative_over_rho - bessel_function_over_rho2
+                ) * n * (ynyn - xnxn) * sin_angle
+            ) * cos_z
+            # d^2/dxdz
+            this_mode_derivatives[8] = -(bessel_derivative * xn * cos_angle + n * yn * bessel_function_over_rho * sin_angle) * axial_wavenumber * sin_z
+            # d^2/dydz
+            this_mode_derivatives[9] = -(bessel_derivative * yn * cos_angle - n * xn * bessel_function_over_rho * sin_angle) * axial_wavenumber * sin_z
+
+        if orders > 2:
+            bessel_second_derivative_over_rho = bessel_second_derivative / rho_rec
+            bessel_derivative_over_rho2 = bessel_derivative_over_rho / rho_rec
+            bessel_function_over_rho3 = bessel_function_over_rho2 / rho_rec
+            # d^3/dx^3
+            this_mode_derivatives[10] = (
+                (
+                    bessel_third_derivative * xnxn
+                    + (
+                        bessel_second_derivative_over_rho
+                        - bessel_derivative_over_rho2 * (n * n + 1)
+                        + bessel_function_over_rho3 * (2 * n * n)
+                    ) * 3 * ynyn
+                ) * xn * cos_angle
+                + (
+                    bessel_second_derivative_over_rho * 3 * xnxn
+                    - bessel_derivative_over_rho2 * 3 * (2 * xnxn - ynyn)
+                    + bessel_function_over_rho3 * (6 * xnxn - (n * n + 2) * ynyn)
+                ) * yn * n * sin_angle
+            ) * cos_z
+            # d^3/dy^3
+            this_mode_derivatives[11] = (
+                (
+                    bessel_third_derivative * ynyn
+                    + (
+                        bessel_second_derivative_over_rho
+                        - bessel_derivative_over_rho2 * (n * n + 1)
+                        + bessel_function_over_rho3 * (2 * n * n)
+                    ) * 3 * xnxn
+                ) * yn * cos_angle
+                + (
+                    - bessel_second_derivative_over_rho * 3 * ynyn
+                    + bessel_derivative_over_rho2 * 3 * (2 * ynyn - xnxn)
+                    - bessel_function_over_rho3 * (6 * ynyn - (n * n + 2) * xnxn)
+                ) * xn * n * sin_angle
+            ) * cos_z
+            # d^3/dz^3
+            this_mode_derivatives[12] = bessel_function * sin_z * axial_wavenumber**3 * cos_angle
+            # d^3/dx^2dy
+            this_mode_derivatives[13] = (
+                (
+                    bessel_third_derivative * xnxn
+                    + (
+                        bessel_second_derivative_over_rho
+                        - bessel_derivative_over_rho2 * (n * n + 1)
+                        + bessel_function_over_rho3 * (n * n * 2)
+                    ) * (ynyn - 2 * xnxn)
+                ) * yn * cos_angle
+                + (
+                    bessel_second_derivative_over_rho * (-xnxn + 2 * ynyn)
+                    + bessel_derivative_over_rho2 * (2 * xnxn - 7 * ynyn)
+                    + bessel_function_over_rho3 * (-2 * xnxn + (n * n + 6) * ynyn)
+                ) * n * xn * sin_angle
+            ) * cos_z
+            # d^3/dx^2dz
+            this_mode_derivatives[14] = -(
+                (
+                    bessel_second_derivative * xnxn
+                    + (bessel_derivative_over_rho - n * n * bessel_function_over_rho2) * ynyn
+                ) * cos_angle
+                + (bessel_derivative_over_rho - bessel_function_over_rho2) * (2 * n) * xnyn * sin_angle
+            ) * sin_z * axial_wavenumber
+            # d^3/dy^2dx
+            this_mode_derivatives[15] = (
+                (
+                    bessel_third_derivative * ynyn
+                    + (
+                        bessel_second_derivative_over_rho
+                        - bessel_derivative_over_rho2 * (n * n + 1)
+                        + bessel_function_over_rho3 * (2 * n * n)
+                    ) * (xnxn - 2 * ynyn)
+                ) * xn * cos_angle
+                + (
+                    bessel_second_derivative_over_rho * (-2 * xnxn + ynyn)
+                    + bessel_derivative_over_rho2 * (7 * xnxn - 2 * ynyn)
+                    + bessel_function_over_rho3 * (-(n * n + 6) * xnxn + 2 * ynyn)
+                ) * yn * n * sin_angle
+            ) * cos_z
+            # d^3/dy^2dz
+            this_mode_derivatives[16] = -(
+                (
+                    bessel_second_derivative * ynyn
+                    + (bessel_derivative_over_rho - n * n * bessel_function_over_rho2) * xnxn
+                ) * cos_angle
+                - (bessel_derivative_over_rho - bessel_function_over_rho2) * (2 * n) * xnyn * sin_angle
+            ) * sin_z * axial_wavenumber
+            # d^3/dz^dx
+            this_mode_derivatives[17] = -(
+                xn * bessel_derivative * cos_angle + n * yn * bessel_function_over_rho * sin_angle
+            ) * cos_z * axial_wavenumber**2
+            # d^3/dz^3dy
+            this_mode_derivatives[18] = -(
+                yn * bessel_derivative * cos_angle - n * xn * bessel_function_over_rho * sin_angle
+            ) * cos_z * axial_wavenumber**2
+            # d^3/dxdydz
+            this_mode_derivatives[19] = -(
+                (
+                    bessel_second_derivative
+                    - bessel_derivative_over_rho
+                    + n * n * bessel_function_over_rho2
+                ) * xnyn * cos_angle
+                + (bessel_derivative_over_rho - bessel_function_over_rho2) * n * (ynyn - xnxn) * sin_angle
+            ) * sin_z * axial_wavenumber
+
+        return this_mode_derivatives
+
 
     def pressure_derivs_legacy(self, source_positions, source_normals, receiver_positions, orders=3):
 
