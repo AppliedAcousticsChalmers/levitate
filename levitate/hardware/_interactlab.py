@@ -106,7 +106,7 @@ class AcoustophoreticBoard(NormalTransducerArray):
         try:
             serial
         except NameError:
-            raise NameError("Module 'serial' not imported. This is needed to control the hardware from InteractLab. \nTry running `pip install serial` in your environment install the package.") from _serial_import_error
+            raise NameError("Module 'serial' not imported. This is needed to control the hardware from InteractLab. \nTry running `pip install pyserial` in your environment install the package.") from _serial_import_error
         for id in self.id:
             if id not in self._ports:
                 raise ConnectionError(f'The interact lab array with id `{self.id}` has no listed port!')

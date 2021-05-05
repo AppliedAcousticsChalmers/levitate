@@ -10,6 +10,112 @@ import scipy.optimize
 import itertools
 
 
+def phase_alignment(*states, method='parallel', output='states'):
+    r"""Align independet states with respect to the global phase.
+
+    Parameters
+    ----------
+    *states : arrary_like
+        The states to align. THis can be passed in as a sequence of arguments,
+        of as a (P, N)-shaped array, where P is the number of states and N is
+        the number of elements in each state.
+    method : str, optional, keyword-only
+        Which method to use for the alignment, default 'parallel'.
+        Should be one of 'parallel' or 'sequential', see below for description.
+    output : str, optional, keyword-only
+        What the function should return, default 'states'.
+        The string should contain some combination of 'states' and/or 'phases'.
+        The funtion will return the aligned states and/or the obtained phases
+        in the order found in the string. If only one of 'states' or 'phases'
+        is found, only that one will be returned.
+
+
+    A single state for an array is only unique up to a global phase.
+    When multiple states are considered, the global phase of each state can be
+    shifted to minimize the difference between the states.
+    This function takes a number of states and finds the optimal phase shifts
+    for each of the states. This can operate in two distinct modes,
+    a parallel mode and a sequential mode.
+
+    Method `'parallel'` minimizes the sum of all magnitude differences of the states
+
+    .. math::
+        \sum_k \sum_l || S_k e^{i\phi_k} -  S_l e^{i\phi_l} ||^2
+
+    or equivalently, maximizes the sum of the states
+
+    .. math::
+        || \sum_k S_k e^{i\phi_k} ||^2.
+
+    Explicitly, this is done by numerically minimizing the cost function
+
+    .. math::
+        O = \Re\{c A c^*\}
+
+    where :math:`c` is a vector with the phases written on complex form, and
+    :math:`A[i,j] = -\sum_n S_i[n] S_j^*[n] (1 - \delta_{ij})`.
+    This is suitable for superposition, where we want the states to have the
+    most power output.
+
+    Method `sequential` minimizes the difference between consecutive states in
+    an iterative fashion. In each step, the difference
+
+    .. math::
+        ||S_k e^{i\phi_k} - S_{k-1} e^{i\phi_{k-1}}||
+
+    is minimized. This is done explicitly as
+
+    .. math::
+        \phi_k = \phi_{k-1} - \arg\{ \sum_n S_k[n] S_{n-1}^*[n] \}
+
+    with :math:`\phi_0 = 0`. This procedure is suitable for state transitions,
+    where the difference between non-consecutive states is irrelevant.
+    """
+    if len(states) == 1 and np.ndim(states[0]) == 2:
+        states = np.asarray(states[0])
+    else:
+        states = np.stack(states, axis=0)
+    num_states = states.shape[0]
+
+    if 'parallel' in method.lower():
+        dots = - np.inner(states, states.conjugate())
+        dots[np.diag_indices(num_states)] = 0
+
+        def func_and_grad(phases):
+            cplx = np.exp(1j * phases)
+            tmp = cplx @ dots * cplx.conjugate()
+            func = tmp.real.sum()
+            grad = 2 * tmp.imag
+            return func, grad
+
+        start = np.zeros(num_states)
+        result = scipy.optimize.minimize(func_and_grad, start, jac=True)
+        phases = result.x
+        phases -= phases[0]
+    elif 'sequential' in method.lower():
+        phases = np.zeros(num_states)
+        for state_idx in range(1, num_states):
+            phases[state_idx] = phases[state_idx - 1] - np.angle(
+                np.sum(states[state_idx] * states[state_idx - 1].conjugate())
+            )
+    else:
+        raise ValueError(f'Method `{method}` is not a known method for phase alignment.')
+
+    if 'state' in output.lower():
+        states = np.exp(1j * phases[:, None]) * states
+
+    if 'state' in output.lower() and 'phase' in output.lower():
+        if output.lower().find('state') < output.lower().find('phase'):
+            return states, phases
+        else:
+            return phases, states
+
+    if 'state' in output.lower():
+        return states
+    if 'phase' in output.lower():
+        return phases
+
+
 def _minimize_sequence(function_sequence, array,
                        start_values, use_real_imag,
                        constrain_transducers, variable_amplitudes,

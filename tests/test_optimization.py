@@ -28,9 +28,9 @@ def test_minimize_sequence():
     result, status = levitate.optimization.minimize([trap, trap + quiet_zone], array, basinhopping=True, minimize_kwargs={'tol': 1e-6}, callback=lambda **kwargs: False, return_optim_status=True)
 
 
-large_array = levitate.arrays.RectangularArray(shape=9)
+large_array = levitate.arrays.RectangularArray(shape=8)
 phases = np.random.uniform(-np.pi, np.pi, large_array.num_transducers)
-magnitudes = np.random.uniform(1e-3, 1, large_array.num_transducers)
+magnitudes = np.random.uniform(0.5, 1, large_array.num_transducers)
 cplx_amps = levitate.utils.complex(phases, magnitudes)
 
 

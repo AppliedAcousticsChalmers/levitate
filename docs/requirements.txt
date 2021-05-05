@@ -1,0 +1,6 @@
+sphinx
+sphinx-rtd-theme
+nbsphinx
+ipykernel
+plotly
+m2r2

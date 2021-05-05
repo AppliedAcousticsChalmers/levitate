@@ -10,29 +10,51 @@ def git_version():
     try:
         p_out = subprocess.run(cmd, cwd=d, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
     except subprocess.CalledProcessError:
-        return None
+        return {'short': None}
 
     # Format the version
     description = p_out.stdout.decode().strip().lstrip('Vversion')
     parts = description.split('-')
-    version = parts[0]
+    version = {'short': parts[0]}
+
     if len(parts) > 1:
-        version += '+' + '.'.join(parts[1:])
+        version['full'] = version['short'] + '+' + '.'.join(parts[1:])
+    else:
+        version['full'] = version['short']
+
+    version['release'] = '.g' not in version['full']
+    version['clean'] = 'dirty' not in version['full']
+
+    try:
+        p_out = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=d, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+    except subprocess.CalledProcessError:
+        version['git revision'] = None
+    else:
+        version['git revision'] = p_out.stdout.decode().strip()
+
     return version
 
 
-__version__ = git_version()
-distribute_contents = \
-'''"""File generated while packaging."""
+version_info = git_version()
+version = version_info['short']
+
+
+packaged_contents = \
+f'''"""File generated while packaging."""
 import contextlib
-__version__ = '{}'
+
+version_info = {version_info}
+version_info['packaged'] = True
+version = '{version}'
 
 
 @contextlib.contextmanager
 def hardcoded():
     """Dummy context manager, returns the version."""
-    yield __version__
-'''.format(__version__)
+    yield version
+'''
+
+version_info['packaged'] = False
 
 
 @contextlib.contextmanager
@@ -44,15 +66,15 @@ def hardcoded():
     Will return the current version, hardcode the file for packaging, and
     restore the file afterwards.
     """
-    if __version__ is None:
+    if version is None:
         raise RuntimeError('Cannot get version from git, nothing to hardcode')
 
     with open(__file__, 'r') as f:
         contents = f.read()
     with open(__file__, 'w') as f:
-        f.write(distribute_contents)
+        f.write(packaged_contents)
     try:
-        yield __version__
+        yield version
     finally:
         with open(__file__, 'w') as f:
             f.write(contents)

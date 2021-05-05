@@ -1,7 +1,7 @@
 |levitate_logo|
 ===============
-.. image:: https://img.shields.io/travis/com/AppliedAcousticsChalmers/levitate/master.svg?label=tests
-    :target: https://travis-ci.com/AppliedAcousticsChalmers/levitate
+.. image:: https://github.com/AppliedAcousticsChalmers/levitate/actions/workflows/testrunner.yml/badge.svg
+    :target: https://github.com/AppliedAcousticsChalmers/levitate/actions/workflows/testrunner.yml
 
 .. image:: https://img.shields.io/codecov/c/github/AppliedAcousticsChalmers/levitate/master.svg
     :target: https://codecov.io/gh/AppliedAcousticsChalmers/levitate
@@ -20,7 +20,7 @@ The primary goal of this toolbox is to provide a collection of algorithms and de
 
 - **Project Website**: http://www.levitateproject.org
 - **Source code and issue tracker**: https://github.com/AppliedAcousticsChalmers/levitate
-- **Documentation**: https://appliedacousticschalmers.github.io/levitate
+- **Documentation**: https://levitate.readthedocs.io
 
 Installation
 ------------
@@ -31,7 +31,7 @@ The easiest is to use pip to install the latest stable release from PyPI::
 
 You can also install more recent versions directly from github::
 
-    pip install git+https://github.com/AppliedAcousticsChalmers/levitate.git
+    pip install git+https://github.com/AppliedAcousticsChalmers/levitate.git@devleop
 
 To contribute to the development the recommended installation is to clone the repository and use conda to get the requirements in a new virtual environment::
 
