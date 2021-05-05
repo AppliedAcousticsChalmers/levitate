@@ -1246,7 +1246,7 @@ class CylinderModes(TransducerModel):
 
         n_max = self._maximum_bessel_order(k_max)
         for n in range(n_max + 1):
-            angle = n * (theta_rec + theta_src)
+            angle = n * (theta_rec - theta_src)
             cos_angle = np.cos(angle)
             sin_angle = np.sin(angle)
             for s, radial_wavenumber in enumerate(self._bessel_deriv_zeros(n, k_max), 1):
