@@ -167,6 +167,23 @@ class FieldImplementation(metaclass=FieldImplementationMeta):
             max_common = {key: max(self[key], other[key]) for key in self.keys() & other.keys()}
             return type(self)(**unique_self, **unique_other, **max_common)
 
+        def includes(self, other):
+            if not isinstance(other, (dict, collections.UserDict)):
+                raise TypeError(f'Cannot check if a {type(self).__name__} includes a {type(other).__name__}')
+
+            # For self to include other, all keys in other must exist in self
+            if len(other.keys() - self.keys()) > 0:
+                return False
+
+            # For self to include other, all keys in other must exist in self, with a larger or equal value.
+            for key in other:
+                if key not in self:
+                    return False
+                if other[key] > self[key]:
+                    return False
+
+            return True
+
         def __lt__(self, other):
             # For self to be a smaller requirement than other, all requirements
             # in self must exist in other, and they must all have a larger value in other.
@@ -684,9 +701,9 @@ class MultiField(MultiFieldBase):
     def append(self, other):
         if not isinstance(other, (Field, MultiField)):
             raise IncompatibleFieldsError(f'Cannot append a {type(other).__name__} to a {type(self).__name__}')
-        if other.values_require > self.values_require:
+        if not self.values_require.includes(other.values_require):
             self.values_require = self.values_require + other.values_require
-        if other.jacobians_require > self.jacobians_require:
+        if not self.jacobians_require.includes(other.jacobians_require):
             self.jacobians_require = self.jacobians_require + other.jacobians_require
         self.fields.append(other)
         return self
@@ -814,10 +831,10 @@ class MultiFieldPoint(MultiFieldBase):
         if isinstance(other, FieldPoint):
             position_idx = self._find_pos_idx(other.position)
             self._field_position_idx.append(position_idx)
-            if other.values_require > self.values_require[position_idx]:
+            if not self.values_require[position_idx].includes(other.values_require):
                 self.values_require[position_idx] = self.values_require[position_idx] + other.values_require
                 self._clear_cache(position_idx)
-            if other.jacobians_require > self.jacobians_require[position_idx]:
+            if not self.jacobians_require[position_idx].includes(other.jacobians_require):
                 self.jacobians_require[position_idx] = self.jacobians_require[position_idx] + other.jacobians_require
                 self._clear_cache(position_idx)
 
@@ -827,10 +844,10 @@ class MultiFieldPoint(MultiFieldBase):
                 position_idx = self._find_pos_idx(position)
                 self._field_position_idx[-1].append(position_idx)
 
-                if values_require > self.values_require[position_idx]:
+                if not self.values_require[position_idx].includes(values_require):
                     self.values_require[position_idx] = self.values_require[position_idx] + values_require
                     self._clear_cache(position_idx)
-                if jacobians_require > self.jacobians_require[position_idx]:
+                if not self.jacobians_require[position_idx].includes(jacobians_require):
                     self.jacobians_require[position_idx] = self.jacobians_require[position_idx] + jacobians_require
                     self._clear_cache(position_idx)
 
