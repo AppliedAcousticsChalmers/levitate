@@ -45,33 +45,33 @@ class SingleInput:
 
 
 class MultiInput:
-    def __init__(self, inputs):
-        self.inputs = inputs
-        self._input_val_reshapes = [(slice(None),) * input.ndim + (None, Ellipsis) for input in self.inputs]
+    def __init__(self, input):
+        self.input = input
+        self._input_val_reshapes = [(slice(None),) * input.ndim + (None, Ellipsis) for input in self.input]
 
     @property
     def shape(self):
-        return [input.shape for input in self.inputs]
+        return self.input.shape
 
     @property
     def ndim(self):
-        return -1
+        return None
 
 
 class MultiInputReducer(MultiInput):
-    def __init__(self, inputs):
-        super().__init__(inputs)
+    def __init__(self, input):
+        super().__init__(input)
         self._output_val_reshape = (slice(None),) * self.ndim + (None, Ellipsis)
 
     @property
     def shape(self):
-        shapes = [input.shape for input in self.inputs]
-        ndim = max(len(s) for s in shapes)
-        padded_shapes = [(1,) * (ndim - len(s)) + s for s in shapes]
-        out_shape = [max(s) for s in zip(*padded_shapes)]
-        if not all([dim == 1 or dim == out_dim for dims, out_dim in zip(zip(*padded_shapes), out_shape) for dim in dims]):
-            raise ValueError(f"Shapes {shapes} cannot be broadcast together")
-        return tuple(out_shape)
+        return broadcast_shapes(*[input.shape for input in self.input])
+        # ndim = max(len(s) for s in shapes)
+        # padded_shapes = [(1,) * (ndim - len(s)) + s for s in shapes]
+        # out_shape = [max(s) for s in zip(*padded_shapes)]
+        # if not all([dim == 1 or dim == out_dim for dims, out_dim in zip(zip(*padded_shapes), out_shape) for dim in dims]):
+        #     raise IncompatibleShapeError(f"Input shapes {shapes} cannot be broadcast together")
+        # return tuple(out_shape)
 
     @property
     def ndim(self):
@@ -80,8 +80,8 @@ class MultiInputReducer(MultiInput):
 
 class Shift(SingleInput, Transform):
     def __init__(self, input, shift):
-        super().__init__(input)
         self.shift = np.asarray(shift)
+        super().__init__(input)
         if not np.issubdtype(self.shift.dtype, np.number):
             raise NonNumericError(f'Cannot shift with value {shift} of type {type(shift).__name__}')
 
@@ -90,6 +90,10 @@ class Shift(SingleInput, Transform):
 
     def jacobians(self, values, jacobians):
         return jacobians
+
+    @property
+    def shape(self):
+        return broadcast_shapes(self.shift.shape, self.input.shape)
 
 
 class Scale(SingleInput, Transform):
