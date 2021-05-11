@@ -22,3 +22,19 @@ References
 
 from ._implementations import *  # noqa: F401, F403
 from ._wrappers import stack  # noqa: F401
+
+
+def sum(*fields):
+    if len(fields) == 1:
+        return fields[0].sum()
+    return stack(*fields).sum()
+
+
+def sum_of_eigenvalue(field):
+    from ._transformers import EigenvalueSum
+    return field.copy()._append_transform(EigenvalueSum)
+
+
+def exp(field):
+    import numpy
+    return numpy.e ** field
