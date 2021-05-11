@@ -264,7 +264,22 @@ class FieldBase:
         try:
             return self.field
         except AttributeError:
-            return self.fields
+            return self
+
+    @property
+    def shape(self):
+        output = self._output_layer
+        if output is self:
+            return [field.shape for field in output]
+        else:
+            return output.shape
+
+    @property
+    def ndim(self):
+        shape = self.shape
+        if isinstance(shape, tuple):
+            return len(shape)
+        return None
 
     def _append_transform(self, transform_type, *args, **kwargs):
         self.transforms = self.transforms + (transform_type(self._output_layer, *args, **kwargs),)
@@ -398,16 +413,6 @@ class Field(FieldBase):
         return self.field.jacobians_require
 
     @property
-    def shape(self):
-        if len(self.transforms) > 0:
-            return self.transforms[-1].shape
-        return self.field.shape
-
-    @property
-    def ndim(self):
-        return len(self.shape)
-
-    @property
     def array(self):
         return self.field.array
 
@@ -525,19 +530,6 @@ class MultiFieldBase(FieldBase):
         # This will freeze the fields before iteration starts.
         for field in tuple(self.fields):
             yield field
-
-    @property
-    def shape(self):
-        if len(self.transforms) > 0:
-            return self.transforms[-1].shape
-        return [field.shape for field in self.fields]
-
-    @property
-    def ndim(self):
-        shape = self.shape
-        if type(shape) == list:
-            return -1
-        return len(self.shape)
 
     @property
     def array(self):
