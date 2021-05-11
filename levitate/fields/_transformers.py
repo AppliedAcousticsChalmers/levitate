@@ -1,8 +1,22 @@
 import numpy as np
 import math
 
+
 class NonNumericError(TypeError):
     pass
+
+
+class IncompatibleShapeError(ValueError):
+    pass
+
+
+def broadcast_shapes(*shapes):
+    ndim = max(len(s) for s in shapes)
+    padded_shapes = [(1,) * (ndim - len(s)) + s for s in shapes]
+    out_shape = [max(s) for s in zip(*padded_shapes)]
+    if not all([dim == 1 or dim == out_dim for dims, out_dim in zip(zip(*padded_shapes), out_shape) for dim in dims]):
+        raise IncompatibleShapeError(f"Input shapes {shapes} cannot be broadcast together")
+    return tuple(out_shape)
 
 
 class Transform:
@@ -33,6 +47,8 @@ class Transform:
 class SingleInput:
     def __init__(self, input):
         self.input = input
+        if self.input.ndim is None:
+            raise IncompatibleShapeError(f'Cannot use multi output object of type {type(self.input).__name__} as input to single input transform')
         self._val_reshape = (slice(None),) * self.input.ndim + (None, Ellipsis)
 
     @property
@@ -47,6 +63,8 @@ class SingleInput:
 class MultiInput:
     def __init__(self, input):
         self.input = input
+        if self.input.ndim is not None:
+            raise IncompatibleShapeError(f'Cannot use single output object of type {type(self.input).__name__} as input to multi input transform')
         self._input_val_reshapes = [(slice(None),) * input.ndim + (None, Ellipsis) for input in self.input]
 
     @property
@@ -109,6 +127,10 @@ class Scale(SingleInput, Transform):
     def jacobians(self, values, jacobians):
         return jacobians * self.scale
 
+    @property
+    def shape(self):
+        return broadcast_shapes(self.scale.shape, self.input.shape)
+
 
 class Power(SingleInput, Transform):
     def __init__(self, input, exponent):
@@ -122,6 +144,10 @@ class Power(SingleInput, Transform):
 
     def jacobians(self, values, jacobians):
         return jacobians * self.exponent * values[self._val_reshape] ** (self.exponent - 1)
+
+    @property
+    def shape(self):
+        return broadcast_shapes(self.exponent.shape, self.input.shape)
 
 
 class Exponential(SingleInput, Transform):
@@ -138,6 +164,10 @@ class Exponential(SingleInput, Transform):
         values = self.values(values)
         jacobians = jacobians * values[self._val_reshape] * np.log(self.base)
         return values, jacobians
+
+    @property
+    def shape(self):
+        return broadcast_shapes(self.base.shape, self.input.shape)
 
 
 class ComponentSum(SingleInput, Transform):
@@ -215,6 +245,11 @@ class EigenvalueSum(SingleInput, Transform):
     # since the complex eigenvalues always appear in conjugated pairs.
     # The intention with this was originally to sum the real parts anyhow, so
     # this was deemed an acceptable compromise for the time being.
+    def __init__(self, input):
+        super().__init__(input)
+        if self.input.ndim != 2 or self.input.shape[0] != self.input.shape[1]:
+            raise IncompatibleShapeError(f'Cannot calculate the eigenvalues of an input of shape {self.input.shape}')
+
     @property
     def shape(self):
         return ()
