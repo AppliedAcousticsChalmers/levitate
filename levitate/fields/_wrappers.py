@@ -184,66 +184,6 @@ class FieldImplementation(metaclass=FieldImplementationMeta):
 
             return True
 
-        def __lt__(self, other):
-            # For self to be a smaller requirement than other, all requirements
-            # in self must exist in other, and they must all have a larger value in other.
-            if not isinstance(other, (dict, collections.UserDict)):
-                return NotImplemented
-            if self.keys() > other.keys():
-                # There are requirements in self which are not in the other.
-                return False
-            for key in self:
-                # all(self[n] < other[n]) <=> any(not self[n] < other[n]) <=> any(self[n] >= other[n])
-                if self[key] >= other[key]:
-                    # The `key` requirement in self is not smaller than the one in the other
-                    return False
-            return True
-
-        def __gt__(self, other):
-            # For self to be a larger requirement than other, all requirements in
-            # in other must exist in self, and they must all have a larger value in self.
-            if not isinstance(other, (dict, collections.UserDict)):
-                return NotImplemented
-            if other.keys() > self.keys():
-                # There are requirements in the other which are not in self.
-                return False
-            for key in other:
-                # all(self[n] > other[n]) <=> any(not self[n] > other[n]) <=> any(self[n] <= other[n])
-                if self[key] <= other[key]:
-                    # The `key` requirement in self is not smaller than the one in the other
-                    return False
-            return True
-
-        def __le__(self, other):
-            # For self to be a smaller or equal requirement than other, all requirements
-            # in self must exist in other, and they must all have a larger, or equal value in other.
-            if not isinstance(other, (dict, collections.UserDict)):
-                return NotImplemented
-            if self.keys() > other.keys():
-                # There are requirements in self which are not in the other.
-                return False
-            for key in self:
-                # all(self[n] <= other[n]) <=> any(not self[n] <= other[n]) <=> any(self[n] > other[n])
-                if self[key] > other[key]:
-                    # The `key` requirement in self is larger than the one in the other
-                    return False
-            return True
-
-        def __ge__(self, other):
-            # For self to be a larger or equal requirement than other, all requirements in
-            # in other must exist in self, and they must all have a larger or equal value in self.
-            if not isinstance(other, (dict, collections.UserDict)):
-                return NotImplemented
-            if other.keys() > self.keys():
-                # There are requirements in the other which are not in self.
-                return False
-            for key in other:
-                # all(self[n] >= other[n]) <=> any(not self[n] >= other[n]) <=> any(self[n] < other[n])
-                if self[key] < other[key]:
-                    # The `key` requirement in self is smaller than the one in the other
-                    return False
-            return True
-
 
 class FieldBase:
     """Base class for all field type objects.
