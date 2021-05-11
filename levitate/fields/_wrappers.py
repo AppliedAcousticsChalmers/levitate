@@ -343,7 +343,7 @@ class FieldBase:
         return self.copy()._append_transform(_transformers.Absolute)
 
     def sum(self, axis=None):
-        if self.ndim == -1:
+        if self.ndim is None:
             return self.copy()._append_transform(_transformers.FieldSum)
         elif self.ndim >= 0:
             return self.copy()._append_transform(_transformers.ComponentSum, axis=axis)
