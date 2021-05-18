@@ -43,6 +43,9 @@ class Transform:
     def _values_jacobians(self, values, jacobians):
         return self.values(values), self.jacobians(values, jacobians)
 
+    def _transform_str(self, input_str):
+        return input_str
+
 
 class SingleInput:
     def __init__(self, input):
@@ -113,6 +116,9 @@ class Shift(SingleInput, Transform):
     def shape(self):
         return broadcast_shapes(self.shift.shape, self.input.shape)
 
+    def _transform_str(self, input_str):
+        return f'({input_str} + {self.shift})'
+
 
 class Scale(SingleInput, Transform):
     def __init__(self, input, scale):
@@ -131,6 +137,9 @@ class Scale(SingleInput, Transform):
     def shape(self):
         return broadcast_shapes(self.scale.shape, self.input.shape)
 
+    def _transform_str(self, input_str):
+        return f'({input_str} * {self.scale})'
+
 
 class Power(SingleInput, Transform):
     def __init__(self, input, exponent):
@@ -148,6 +157,9 @@ class Power(SingleInput, Transform):
     @property
     def shape(self):
         return broadcast_shapes(self.exponent.shape, self.input.shape)
+
+    def _transform_str(self, input_str):
+        return f'({input_str} ** {self.exponent})'
 
 
 class Exponential(SingleInput, Transform):
@@ -168,6 +180,9 @@ class Exponential(SingleInput, Transform):
     @property
     def shape(self):
         return broadcast_shapes(self.base.shape, self.input.shape)
+
+    def _transform_str(self, input_str):
+        return f'({self.base} ** {input_str})'
 
 
 class ComponentSum(SingleInput, Transform):
@@ -191,6 +206,9 @@ class ComponentSum(SingleInput, Transform):
     def shape(self):
         return tuple(s for ax, s in enumerate(self.input.shape) if ax not in self.axis)
 
+    def _transform_str(self, input_str):
+        return f'sum({input_str})'
+
 
 class Absolute(SingleInput, Transform):
     def values(self, values):
@@ -201,6 +219,9 @@ class Absolute(SingleInput, Transform):
         jacobians = jacobians * (np.conjugate(values) / abs_values)[self._val_reshape]
         return abs_values, jacobians
 
+    def _transform_str(self, input_str):
+        return f'abs({input_str})'
+
 
 class Negate(SingleInput, Transform):
     def values(self, values):
@@ -209,6 +230,9 @@ class Negate(SingleInput, Transform):
     def jacobians(self, values, jacobians):
         return -jacobians
 
+    def _transform_str(self, input_str):
+        return f'-{input_str}'
+
 
 class Real(SingleInput, Transform):
     def values(self, values):
@@ -216,6 +240,9 @@ class Real(SingleInput, Transform):
 
     def jacobians(self, values, jacobians):
         return jacobians
+
+    def _transform_str(self, input_str):
+        return f'real({input_str})'
 
 
 class Imag(SingleInput, Transform):
@@ -227,6 +254,9 @@ class Imag(SingleInput, Transform):
             return -1j * jacobians
         return np.zeros_like(jacobians)
 
+    def _transform_str(self, input_str):
+        return f'imag({input_str})'
+
 
 class Conjugate(SingleInput, Transform):
     def values(self, values):
@@ -234,6 +264,9 @@ class Conjugate(SingleInput, Transform):
 
     def jacobians(self, values, jacobians):
         return jacobians
+
+    def _transform_str(self, input_str):
+        return f'conj({input_str})'
 
 
 class EigenvalueSum(SingleInput, Transform):
@@ -288,6 +321,9 @@ class EigenvalueSum(SingleInput, Transform):
         return np.sum(evals, axis=0).real, np.sum(eigen_jacobians, axis=0)
         # return evals, eigen_jacobians
 
+    def _transform_str(self, input_str):
+        return f'sum(eigenvalues({input_str}))'
+
 
 class FieldSum(MultiInputReducer, Transform):
     def values(self, values):
@@ -295,6 +331,9 @@ class FieldSum(MultiInputReducer, Transform):
 
     def jacobians(self, values, jacobians):
         return sum(jacobians)
+
+    def _transform_str(self, input_str):
+        return f'sum({input_str})'
 
 
 class Product(MultiInputReducer, Transform):
@@ -306,3 +345,6 @@ class Product(MultiInputReducer, Transform):
         log_derivs = [jac / val[val_shape] for (val, jac, val_shape) in zip(values, jacobians, self._input_val_reshapes)]
         jacobian_product = sum(log_derivs) * value_product[self._output_val_reshape]
         return value_product, jacobian_product
+
+    def _transform_str(self, input_str):
+        return f'product({input_str})'

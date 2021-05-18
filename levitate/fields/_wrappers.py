@@ -230,16 +230,13 @@ class FieldBase:
     def __eq__(self, other):
         return type(self) == type(other)
 
-    def __str__(self, not_api_call=True):
-        return self._str_format_spec.format(self)
+    def __str__(self):
+        return self.__format__('')
 
-    def __format__(self, format_spec):
-        cls = self.__class__.__name__ + ': '
-        weight = getattr(self, 'weight', None)
-        pos = getattr(self, 'position', None)
-        weight = ' * ' + str(weight) if weight is not None else ''
-        pos = ' @ ' + str(pos) if pos is not None else ''
-        return format_spec.replace('%cls', cls).replace('%weight', weight).replace('%position', pos)
+    def __format__(self, fmt_spec):
+        for transform in self.transforms:
+            fmt_spec = transform._transform_str(fmt_spec)
+        return fmt_spec
 
     def _repr_pretty_(self, p, cycle):
         p.text(str(self))
@@ -365,8 +362,6 @@ class Field(FieldBase):
 
     """
 
-    _str_format_spec = '{:%cls%name}'
-
     def __init__(self, field, **kwargs):
         super().__init__(**kwargs)
         self.field = field
@@ -445,9 +440,10 @@ class Field(FieldBase):
             return NotImplemented
         return FieldPoint(position=position, field=self.field, transforms=self.transforms)
 
-    def __format__(self, format_spec):
+    def __format__(self, fmt_spec):
+        fmt_spec = fmt_spec or '%name'
         name = getattr(self, 'name', None) or 'Unknown'
-        return super().__format__(format_spec.replace('%name', name))
+        return super().__format__(fmt_spec.replace('%name', name))
 
 
 class FieldPoint(Field):
@@ -463,8 +459,6 @@ class FieldPoint(Field):
         The position to bind to.
 
     """
-
-    _str_format_spec = '{:%cls%name%position}'
 
     def __init__(self, field, position, **kwargs):
         super().__init__(field=field, **kwargs)
@@ -510,9 +504,13 @@ class FieldPoint(Field):
         values = self.values(requirements)
         return values
 
+    def __format__(self, fmt_spec):
+        fmt_spec = fmt_spec or '%name%position'
+        pos = ' @ ' + str(self.position).replace('\n', '')
+        return super().__format__(fmt_spec.replace('%position', pos))
+
 
 class MultiFieldBase(FieldBase):
-    _str_format_spec = '{:%cls%fields%position}'
 
     def extend(self, other):
         for field in other:
@@ -535,22 +533,19 @@ class MultiFieldBase(FieldBase):
     def array(self):
         return self.fields[0].array
 
-    def __format__(self, format_spec):
-        if '%fields' in format_spec:
-            field_start = format_spec.find('%fields')
-            if len(format_spec) > field_start + 11 and format_spec[field_start + 11] == ':':
-                field_spec_len = format_spec[field_start + 12].find(':')
-                field_spec = format_spec[field_start + 12:field_start + 12 + field_spec_len]
-                pre = format_spec[:field_start + 10]
-                post = format_spec[field_start + 13 + field_spec_len:]
-                format_spec = pre + post
+    def __format__(self, fmt_spec):
+        fmt_spec = fmt_spec or '%fields'
+        if '%fields' in fmt_spec:
+            field_strings = [field.__format__('') for field in self.fields]
+            if sum(map(len, field_strings)) + 2 * len(field_strings) + 2 < 80:
+                # All the fields fit on a single line
+                field_str = '[' + ', '.join(field_strings) + ']'
             else:
-                field_spec = '{:%name%weight}'
-            field_str = '('
-            for field in self.fields:
-                field_str += field_spec.format(field) + ' + '
-            format_spec = format_spec.replace('%fields', field_str.rstrip(' + ') + ')')
-        return super().__format__(format_spec.replace('%name', ''))
+                # Put each field on a separate line, indented one level
+                field_strings = [s.replace('\n', '\n\t') for s in field_strings]
+                field_str = '[\n\t' + ',\n\t'.join(field_strings) + ',\n]'
+            fmt_spec = fmt_spec.replace('%fields', field_str)
+        return super().__format__(fmt_spec)
 
 
 class MultiField(MultiFieldBase):
@@ -821,6 +816,14 @@ class CostFunction(MultiFieldPoint):
         requirements = [self.evaluate_requirements(complex_transducer_amplitudes, request) for request in self._cached_requests]
         values, jacobians = self.values_jacobians(requirements)
         return values, jacobians
+
+    def __format__(self, fmt_spec):
+        base = super().__format__(fmt_spec)
+        if '\n' in base or len(base) > 75:
+            cost = 'Cost:\n'
+        else:
+            cost = 'Cost: '
+        return cost + base
 
 
 unbound_fields = (Field, MultiField)
