@@ -828,6 +828,9 @@ bound_fields = (FieldPoint, MultiFieldPoint)
 
 
 def stack(*fields):
+    if len(fields) == 1 and isinstance(fields[0], collections.abc.Iterable):
+        # A single input which is an iterable can and should be stacked on its own.
+        fields = fields[0]
     is_bound = isinstance(fields[0], bound_fields)
     is_stackable = all([isinstance(field, bound_fields) == is_bound for field in fields])
     if not is_stackable:

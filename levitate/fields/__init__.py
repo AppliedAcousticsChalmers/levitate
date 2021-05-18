@@ -26,7 +26,13 @@ from ._wrappers import stack  # noqa: F401
 
 def sum(*fields):
     if len(fields) == 1:
-        return fields[0].sum()
+        try:
+            # A single input which is some type of field should be summed.
+            return fields[0].sum()
+        except AttributeError:
+            # If the input does not have a sum method it's probably an iterable of fields
+            pass
+    # Unpack the fields, stack them, and sum the stack.
     return stack(*fields).sum()
 
 
