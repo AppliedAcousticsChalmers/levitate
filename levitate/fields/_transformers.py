@@ -46,6 +46,9 @@ class Transform:
     def _transform_str(self, input_str):
         return input_str
 
+    def __eq__(self, other):
+        return type(self) == type(other)
+
 
 class SingleInput:
     def __init__(self, input):
@@ -119,6 +122,9 @@ class Shift(SingleInput, Transform):
     def _transform_str(self, input_str):
         return f'({input_str} + {self.shift})'
 
+    def __eq__(self, other):
+        return super().__eq__(other) and np.allclose(self.shift, other.shift)
+
 
 class Scale(SingleInput, Transform):
     def __init__(self, input, scale):
@@ -140,6 +146,9 @@ class Scale(SingleInput, Transform):
     def _transform_str(self, input_str):
         return f'({input_str} * {self.scale})'
 
+    def __eq__(self, other):
+        return super().__eq__(other) and np.allclose(self.scale, other.scale)
+
 
 class Power(SingleInput, Transform):
     def __init__(self, input, exponent):
@@ -160,6 +169,9 @@ class Power(SingleInput, Transform):
 
     def _transform_str(self, input_str):
         return f'({input_str} ** {self.exponent})'
+
+    def __eq__(self, other):
+        return super().__eq__(other) and np.allclose(self.exponent, other.exponent)
 
 
 class Exponential(SingleInput, Transform):
@@ -183,6 +195,9 @@ class Exponential(SingleInput, Transform):
 
     def _transform_str(self, input_str):
         return f'({self.base} ** {input_str})'
+
+    def __eq__(self, other):
+        return super().__eq__(other) and np.allclose(self.base, other.base)
 
 
 class ComponentSum(SingleInput, Transform):

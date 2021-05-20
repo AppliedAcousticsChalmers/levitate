@@ -228,7 +228,10 @@ class FieldBase:
         return evaluated_requrements
 
     def __eq__(self, other):
-        return type(self) == type(other)
+        return (
+            type(self) == type(other)
+            and self.transforms == other.transforms
+        )
 
     def __str__(self):
         return self.__format__('')
@@ -547,6 +550,9 @@ class MultiFieldBase(FieldBase):
             fmt_spec = fmt_spec.replace('%fields', field_str)
         return super().__format__(fmt_spec)
 
+    def __eq__(self, other):
+        return super().__eq__(other) and self.fields == other.fields
+
 
 class MultiField(MultiFieldBase):
     """Class for multiple fields, single position calculations.
@@ -574,9 +580,6 @@ class MultiField(MultiFieldBase):
         new_obj.values_require = self.values_require
         new_obj.jacobians_require = self.jacobians_require
         return new_obj
-
-    def __eq__(self, other):
-        return super().__eq__(other) and self.fields == other.fields
 
     def __call__(self, complex_transducer_amplitudes, position):
         """Evaluate all fields.
