@@ -345,7 +345,8 @@ def find_trap(array, start_position, complex_transducer_amplitudes, tolerance=10
         from .fields import SphericalHarmonicsForce as Force, SphericalHarmonicsForceGradient as ForceGradient
     else:
         from .fields import RadiationForce as Force, RadiationForceGradient as ForceGradient
-    evaluator = Force(array, **kwargs) + ForceGradient(array, **kwargs)
+    from .fields import stack
+    evaluator = stack(Force(array, **kwargs), ForceGradient(array, **kwargs))
     mg = evaluator.fields[0].field.mg
 
     def f(t, x):

@@ -639,7 +639,7 @@ class MultiField(MultiFieldBase):
         return self
 
     def __matmul__(self, position):
-        return MultiFieldPoint(*[field @ position for field in self.fields])
+        return MultiFieldPoint(*[field @ position for field in self.fields], transforms=self.transforms)
 
 
 class MultiFieldPoint(MultiFieldBase):
@@ -662,7 +662,7 @@ class MultiFieldPoint(MultiFieldBase):
     """
 
     def __init__(self, *fields, **kwargs):
-        super().__init__(*kwargs)
+        super().__init__(**kwargs)
         self.fields = []
         self.values_require = []
         self.jacobians_require = []
