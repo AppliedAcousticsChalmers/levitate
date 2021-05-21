@@ -30,7 +30,7 @@ def sum(*fields):
             # A single input which is some type of field should be summed.
             return fields[0].sum()
         except AttributeError:
-            # If the input does not have a sum method it's probably an iterable of fields
+            # If the input does not have a sum method it's probably an iterable of fields, which is handled by stack
             pass
     # Unpack the fields, stack them, and sum the stack.
     return stack(*fields).sum()

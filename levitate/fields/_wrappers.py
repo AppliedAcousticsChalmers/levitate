@@ -211,7 +211,8 @@ class FieldBase:
         new_obj.transforms = self.transforms
         return new_obj
 
-    def evaluate_requirements(self, complex_transducer_amplitudes, requests):
+    @staticmethod
+    def evaluate_requirements(complex_transducer_amplitudes, requests):
         complex_transducer_amplitudes = np.asarray(complex_transducer_amplitudes)
         # Apply the input complex amplitudes
         evaluated_requrements = {}
@@ -289,10 +290,12 @@ class FieldBase:
         try:
             return stack(self, other)._append_transform(_transformers.FieldSum)
         except IncompatibleFieldsError:
-            try:
-                return self.copy()._append_transform(_transformers.Shift, other)
-            except _transformers.NonNumericError:
-                return NotImplemented
+            pass
+        try:
+            return self.copy()._append_transform(_transformers.Shift, other)
+        except _transformers.NonNumericError:
+            pass
+        return NotImplemented
 
     def __radd__(self, other):
         return self.__add__(other)
@@ -301,16 +304,18 @@ class FieldBase:
         return self.__add__(-other)
 
     def __rsub__(self, other):
-        return self.__sub__(other)
+        return self.__neg__().__add__(other)
 
     def __mul__(self, other):
         try:
             return stack(self, other)._append_transform(_transformers.Product)
         except IncompatibleFieldsError:
-            try:
-                return self.copy()._append_transform(_transformers.Scale, other)
-            except _transformers.NonNumericError:
-                return NotImplemented
+            pass
+        try:
+            return self.copy()._append_transform(_transformers.Scale, other)
+        except _transformers.NonNumericError:
+            pass
+        return NotImplemented
 
     def __rmul__(self, other):
         return self.__mul__(other)
@@ -319,10 +324,10 @@ class FieldBase:
         if isinstance(other, FieldBase):
             return self.__mul__(other ** -1)
         else:
-            return self.__mul__(1 / np.ararray(other))
+            return self.__mul__(1 / np.asarray(other))
 
     def __rtruediv__(self, other):
-        return self.__truediv__(other)
+        return self.__pow__(-1).__mul__(other)
 
     def __pow__(self, other):
         try:

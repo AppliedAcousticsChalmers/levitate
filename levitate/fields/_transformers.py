@@ -90,12 +90,6 @@ class MultiInputReducer(MultiInput):
     @property
     def shape(self):
         return broadcast_shapes(*[input.shape for input in self.input])
-        # ndim = max(len(s) for s in shapes)
-        # padded_shapes = [(1,) * (ndim - len(s)) + s for s in shapes]
-        # out_shape = [max(s) for s in zip(*padded_shapes)]
-        # if not all([dim == 1 or dim == out_dim for dims, out_dim in zip(zip(*padded_shapes), out_shape) for dim in dims]):
-        #     raise IncompatibleShapeError(f"Input shapes {shapes} cannot be broadcast together")
-        # return tuple(out_shape)
 
     @property
     def ndim(self):
@@ -108,6 +102,7 @@ class Shift(SingleInput, Transform):
         super().__init__(input)
         if not np.issubdtype(self.shift.dtype, np.number):
             raise NonNumericError(f'Cannot shift with value {shift} of type {type(shift).__name__}')
+        self.ndim  # Cheks that the shapes are compatible
 
     def values(self, values):
         return values + self.shift
@@ -132,6 +127,7 @@ class Scale(SingleInput, Transform):
         self.scale = np.asarray(scale)
         if not np.issubdtype(self.scale.dtype, np.number):
             raise NonNumericError(f'Cannot scale with value {scale} of type {type(scale).__name__}')
+        self.ndim  # Cheks that the shapes are compatible
 
     def values(self, values):
         return values * self.scale
@@ -156,9 +152,15 @@ class Power(SingleInput, Transform):
         self.exponent = np.asarray(exponent)
         if not np.issubdtype(self.exponent.dtype, np.number):
             raise NonNumericError(f'Cannot raise to value {exponent} of type {type(exponent).__name__}')
+        self.ndim  # Cheks that the shapes are compatible
 
     def values(self, values):
-        return values ** self.exponent
+        with np.errstate(invalid='raise'):
+            try:
+                return values ** self.exponent
+            except FloatingPointError:
+                # If a value is real and negative, and the exponent is not an int
+                return np.asarray(values, complex) ** self.exponent
 
     def jacobians(self, values, jacobians):
         return jacobians * self.exponent * values[self._val_reshape] ** (self.exponent - 1)
@@ -180,9 +182,15 @@ class Exponential(SingleInput, Transform):
         self.base = np.asarray(base)
         if not np.issubdtype(self.base.dtype, np.number):
             raise NonNumericError(f'Cannot exponentiate with base {base} of type {type(base).__name__}')
+        self.ndim  # Cheks that the shapes are compatible
 
     def values(self, values):
-        return self.base ** values
+        with np.errstate(invalid='raise'):
+            try:
+                return self.base ** values
+            except FloatingPointError:
+                # If a base is real and negative, and the values are not a ints
+                return np.asarray(self.base, complex) ** values
 
     def values_jacobians(self, values, jacobians):
         values = self.values(values)
