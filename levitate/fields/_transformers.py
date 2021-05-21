@@ -2,11 +2,15 @@ import numpy as np
 import math
 
 
-class NonNumericError(TypeError):
+class InvalidParameterError(TypeError):
     pass
 
 
 class IncompatibleShapeError(ValueError):
+    pass
+
+
+class DomainError(ValueError):
     pass
 
 
@@ -101,8 +105,8 @@ class Shift(SingleInput, Transform):
         self.shift = np.asarray(shift)
         super().__init__(input)
         if not np.issubdtype(self.shift.dtype, np.number):
-            raise NonNumericError(f'Cannot shift with value {shift} of type {type(shift).__name__}')
-        self.ndim  # Cheks that the shapes are compatible
+            raise InvalidParameterError(f'Cannot shift with value {shift} of type {type(shift).__name__}')
+        self.ndim  # Checks that the shapes are compatible
 
     def values(self, values):
         return values + self.shift
@@ -126,8 +130,10 @@ class Scale(SingleInput, Transform):
         super().__init__(input)
         self.scale = np.asarray(scale)
         if not np.issubdtype(self.scale.dtype, np.number):
-            raise NonNumericError(f'Cannot scale with value {scale} of type {type(scale).__name__}')
-        self.ndim  # Cheks that the shapes are compatible
+            raise InvalidParameterError(f'Cannot scale with value {scale} of type {type(scale).__name__}')
+        if np.issubdtype(self.scale.dtype, np.complex):
+            raise InvalidParameterError(f'Cannot scale with complex value {scale}')
+        self.ndim  # Checks that the shapes are compatible
 
     def values(self, values):
         return values * self.scale
@@ -151,19 +157,22 @@ class Power(SingleInput, Transform):
         super().__init__(input)
         self.exponent = np.asarray(exponent)
         if not np.issubdtype(self.exponent.dtype, np.number):
-            raise NonNumericError(f'Cannot raise to value {exponent} of type {type(exponent).__name__}')
-        self.ndim  # Cheks that the shapes are compatible
+            raise InvalidParameterError(f'Cannot raise to value {exponent} of type {type(exponent).__name__}')
+        self.ndim  # Checks that the shapes are compatible
 
     def values(self, values):
         with np.errstate(invalid='raise'):
             try:
                 return values ** self.exponent
             except FloatingPointError:
-                # If a value is real and negative, and the exponent is not an int
-                return np.asarray(values, complex) ** self.exponent
+                raise DomainError('Cannot take a non-integer exponent of a negative base')
 
     def jacobians(self, values, jacobians):
-        return jacobians * self.exponent * values[self._val_reshape] ** (self.exponent - 1)
+        with np.errstate(invalid='raise'):
+            try:
+                return jacobians * self.exponent * values[self._val_reshape] ** (self.exponent - 1)
+            except FloatingPointError:
+                raise DomainError('Cannot take a non-integer exponent of a negative base')
 
     @property
     def shape(self):
@@ -181,20 +190,28 @@ class Exponential(SingleInput, Transform):
         super().__init__(input)
         self.base = np.asarray(base)
         if not np.issubdtype(self.base.dtype, np.number):
-            raise NonNumericError(f'Cannot exponentiate with base {base} of type {type(base).__name__}')
-        self.ndim  # Cheks that the shapes are compatible
+            raise InvalidParameterError(f'Cannot exponentiate with base {base} of type {type(base).__name__}')
+        if np.issubdtype(self.base.dtype, np.complex):
+            raise InvalidParameterError(f'Cannot exponentiate complex value {base} to a field')
+        if np.min(self.base) < 0:
+            raise DomainError(f'Cannot use negative base {base} for exponentiation')
+        self.ndim  # Checks that the shapes are compatible
 
     def values(self, values):
         with np.errstate(invalid='raise'):
             try:
                 return self.base ** values
             except FloatingPointError:
-                # If a base is real and negative, and the values are not a ints
-                return np.asarray(self.base, complex) ** values
+                raise DomainError('Cannot take a non-integer exponent of a negative base')
 
     def values_jacobians(self, values, jacobians):
         values = self.values(values)
-        jacobians = jacobians * values[self._val_reshape] * np.log(self.base)
+        with np.errstate(invalid='raise'):
+            try:
+                log_base = np.log(self.base)
+            except FloatingPointError:
+                raise DomainError('Cannot take a non-integer exponent of a negative base')
+        jacobians = jacobians * values[self._val_reshape] * log_base
         return values, jacobians
 
     @property

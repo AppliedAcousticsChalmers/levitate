@@ -44,3 +44,18 @@ def sum_of_eigenvalue(field):
 def exp(field):
     import numpy
     return numpy.e ** field
+
+
+def real(field):
+    from ._transformers import Real
+    return field.copy()._append_transform(Real)
+
+
+def imag(field):
+    from ._transformers import Imag
+    return field.copy()._append_transform(Imag)
+
+
+def conjugate(field):
+    from ._transformers import Conjugate
+    return field.copy()._append_transform(Conjugate)

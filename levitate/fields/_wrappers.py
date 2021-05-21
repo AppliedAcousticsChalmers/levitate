@@ -293,7 +293,7 @@ class FieldBase:
             pass
         try:
             return self.copy()._append_transform(_transformers.Shift, other)
-        except _transformers.NonNumericError:
+        except _transformers.InvalidParameterError:
             pass
         return NotImplemented
 
@@ -313,7 +313,7 @@ class FieldBase:
             pass
         try:
             return self.copy()._append_transform(_transformers.Scale, other)
-        except _transformers.NonNumericError:
+        except _transformers.InvalidParameterError:
             pass
         return NotImplemented
 
@@ -332,13 +332,13 @@ class FieldBase:
     def __pow__(self, other):
         try:
             return self.copy()._append_transform(_transformers.Power, other)
-        except _transformers.NonNumericError:
+        except _transformers.InvalidParameterError:
             return NotImplemented
 
     def __rpow__(self, other):
         try:
             return self.copy()._append_transform(_transformers.Exponential, other)
-        except _transformers.NonNumericError:
+        except _transformers.InvalidParameterError:
             return NotImplemented
 
     def __neg__(self):
