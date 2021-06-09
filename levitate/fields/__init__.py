@@ -36,7 +36,7 @@ def sum(*fields):
     return stack(*fields).sum()
 
 
-def sum_of_eigenvalue(field):
+def sum_of_eigenvalues(field):
     from ._transformers import EigenvalueSum
     return field.copy()._append_transform(EigenvalueSum)
 

@@ -517,6 +517,10 @@ class FieldPoint(Field):
         pos = ' @ ' + str(self.position).replace('\n', '')
         return super().__format__(fmt_spec.replace('%position', pos))
 
+    @property
+    def cost_function(self):
+        return CostFunctionSingle(field=self.field, position=self.position, transforms=self.transforms)
+
 
 class MultiFieldBase(FieldBase):
 
@@ -798,8 +802,41 @@ class MultiFieldPoint(MultiFieldBase):
         else:
             self._cached_requests[idx] = None
 
+    @property
+    def cost_function(self):
+        return CostFunctionMulti(*self.fields, transforms=self.transforms)
 
-class CostFunction(MultiFieldPoint):
+
+class CostFunction:
+    """Inheritance check class only.
+
+    The purpose of this class is only to check if an object is a cost function or not.
+    """
+
+
+class CostFunctionSingle(FieldPoint, CostFunction):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.shape != ():
+            raise ValueError(f'Cannot create non-scalar cost function of shape {self.shape}')
+
+    def __call__(self, complex_transducer_amplitudes):
+        try:
+            requests = self._cached_requests
+        except AttributeError:
+            requests = self._cached_requests = self.array.request(self.values_require + self.jacobians_require, self.position)
+
+        requirements = self.evaluate_requirements(complex_transducer_amplitudes, requests)
+        values, jacobians = self.values_jacobians(requirements)
+        return values, jacobians
+
+
+class CostFunctionMulti(MultiFieldPoint, CostFunction):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.shape != ():
+            raise ValueError(f'Cannot create non-scalar cost function of shape {self.shape}')
+
     def __call__(self, complex_transducer_amplitudes):
         """Evaluate all fields.
 
@@ -824,14 +861,6 @@ class CostFunction(MultiFieldPoint):
         requirements = [self.evaluate_requirements(complex_transducer_amplitudes, request) for request in self._cached_requests]
         values, jacobians = self.values_jacobians(requirements)
         return values, jacobians
-
-    def __format__(self, fmt_spec):
-        base = super().__format__(fmt_spec)
-        if '\n' in base or len(base) > 75:
-            cost = 'Cost:\n'
-        else:
-            cost = 'Cost: '
-        return cost + base
 
 
 unbound_fields = (Field, MultiField)
