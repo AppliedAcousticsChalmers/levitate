@@ -34,122 +34,76 @@ magnitudes = np.random.uniform(0.5, 1, large_array.num_transducers)
 cplx_amps = levitate.utils.complex(phases, magnitudes)
 
 
-@pytest.mark.parametrize("func, kwargs, take_abs, weight", [
-    (levitate.fields.GorkovPotential, {}, False, 1),
-    (levitate.fields.GorkovPotential, {}, False, np.random.uniform(-10, 10)),
-    (levitate.fields.GorkovGradient, {}, False, (1, 0, 0)),
-    (levitate.fields.GorkovGradient, {}, False, (0, 1, 0)),
-    (levitate.fields.GorkovGradient, {}, False, (0, 0, 1)),
-    (levitate.fields.GorkovGradient, {}, False, np.random.uniform(-10, 10, 3)),
-    (levitate.fields.GorkovLaplacian, {}, False, (1, 0, 0)),
-    (levitate.fields.GorkovLaplacian, {}, False, (0, 1, 0)),
-    (levitate.fields.GorkovLaplacian, {}, False, (0, 0, 1)),
-    (levitate.fields.GorkovLaplacian, {}, False, np.random.uniform(-10, 10, 3)),
-    (levitate.fields.RadiationForce, {}, False, (1, 0, 0)),
-    (levitate.fields.RadiationForce, {}, False, (0, 1, 0)),
-    (levitate.fields.RadiationForce, {}, False, (0, 0, 1)),
-    (levitate.fields.RadiationForce, {}, False, np.random.uniform(-10, 10, 3)),
-    (levitate.fields.RadiationForceStiffness, {}, False, (1, 0, 0)),
-    (levitate.fields.RadiationForceStiffness, {}, False, (0, 1, 0)),
-    (levitate.fields.RadiationForceStiffness, {}, False, (0, 0, 1)),
-    (levitate.fields.RadiationForceStiffness, {}, False, np.random.uniform(-10, 10, 3)),
-    (levitate.fields.RadiationForceGradient, {}, False, [[1, 0, 0], [0, 0, 0], [0, 0, 0]]),
-    (levitate.fields.RadiationForceGradient, {}, False, [[0, 1, 0], [0, 0, 0], [0, 0, 0]]),
-    (levitate.fields.RadiationForceGradient, {}, False, [[0, 0, 1], [0, 0, 0], [0, 0, 0]]),
-    (levitate.fields.RadiationForceGradient, {}, False, [[0, 0, 0], [1, 0, 0], [0, 0, 0]]),
-    (levitate.fields.RadiationForceGradient, {}, False, [[0, 0, 0], [0, 1, 0], [0, 0, 0]]),
-    (levitate.fields.RadiationForceGradient, {}, False, [[0, 0, 0], [0, 0, 1], [0, 0, 0]]),
-    (levitate.fields.RadiationForceGradient, {}, False, [[0, 0, 0], [0, 0, 0], [1, 0, 0]]),
-    (levitate.fields.RadiationForceGradient, {}, False, [[0, 0, 0], [0, 0, 0], [0, 1, 0]]),
-    (levitate.fields.RadiationForceGradient, {}, False, [[0, 0, 0], [0, 0, 0], [0, 0, 1]]),
-    (levitate.fields.RadiationForceGradient, {}, False, np.random.uniform(-10, 10, (3, 3))),
-    (levitate.fields.Pressure, {}, True, 1),
-    (levitate.fields.Pressure, {}, True, np.random.uniform(-10, 10)),
-    (levitate.fields.Velocity, {}, True, (1, 0, 0)),
-    (levitate.fields.Velocity, {}, True, (0, 1, 0)),
-    (levitate.fields.Velocity, {}, True, (0, 0, 1)),
-    (levitate.fields.Velocity, {}, True, np.random.uniform(-10, 10, 3)),
-    (levitate.fields.SphericalHarmonicsForceDecomposition, {'radius': 1e-3, 'orders': 1}, False, [[1, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]),
-    (levitate.fields.SphericalHarmonicsForceDecomposition, {'radius': 1e-3, 'orders': 1}, False, [[0, 1, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]),
-    (levitate.fields.SphericalHarmonicsForceDecomposition, {'radius': 1e-3, 'orders': 1}, False, [[0, 0, 1, 0], [0, 0, 0, 0], [0, 0, 0, 0]]),
-    (levitate.fields.SphericalHarmonicsForceDecomposition, {'radius': 1e-3, 'orders': 1}, False, [[0, 0, 0, 1], [0, 0, 0, 0], [0, 0, 0, 0]]),
-    (levitate.fields.SphericalHarmonicsForceDecomposition, {'radius': 1e-3, 'orders': 1}, False, [[0, 0, 0, 0], [1, 0, 0, 0], [0, 0, 0, 0]]),
-    (levitate.fields.SphericalHarmonicsForceDecomposition, {'radius': 1e-3, 'orders': 1}, False, [[0, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 0]]),
-    (levitate.fields.SphericalHarmonicsForceDecomposition, {'radius': 1e-3, 'orders': 1}, False, [[0, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 0]]),
-    (levitate.fields.SphericalHarmonicsForceDecomposition, {'radius': 1e-3, 'orders': 1}, False, [[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 0, 0]]),
-    (levitate.fields.SphericalHarmonicsForceDecomposition, {'radius': 1e-3, 'orders': 1}, False, [[0, 0, 0, 0], [0, 0, 0, 0], [1, 0, 0, 0]]),
-    (levitate.fields.SphericalHarmonicsForceDecomposition, {'radius': 1e-3, 'orders': 1}, False, [[0, 0, 0, 0], [0, 0, 0, 0], [0, 1, 0, 0]]),
-    (levitate.fields.SphericalHarmonicsForceDecomposition, {'radius': 1e-3, 'orders': 1}, False, [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 1, 0]]),
-    (levitate.fields.SphericalHarmonicsForceDecomposition, {'radius': 1e-3, 'orders': 1}, False, [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 1]]),
-    (levitate.fields.SphericalHarmonicsForceDecomposition, {'radius': 1e-3, 'orders': 5}, False, np.random.uniform(-10, 10, (3, 36))),
-    (levitate.fields.SphericalHarmonicsForceDecomposition, {'radius': 1e-3, 'orders': 12}, False, np.random.uniform(-10, 10, (3, 169))),
-    (levitate.fields.SphericalHarmonicsForce, {'orders': 4, 'radius': large_array.k * 6}, False, [1, 0, 0]),
-    (levitate.fields.SphericalHarmonicsForce, {'orders': 4, 'radius': large_array.k * 6}, False, [0, 1, 0]),
-    (levitate.fields.SphericalHarmonicsForce, {'orders': 4, 'radius': large_array.k * 6}, False, [0, 0, 1]),
-    (levitate.fields.SphericalHarmonicsForce, {'orders': 7, 'radius': large_array.k * 8}, False, np.random.uniform(-10, 10, 3)),
-    (levitate.fields.SphericalHarmonicsForce, {'orders': 16, 'radius': large_array.k * 19}, False, np.random.uniform(-10, 10, 3)),
-    (levitate.fields.SphericalHarmonicsForceGradientDecomposition, {'orders': 1, 'radius': large_array.k * 2}, False, np.random.uniform(-10, 10, (3, 3, 4))),
-    (levitate.fields.SphericalHarmonicsForceGradientDecomposition, {'orders': 4, 'radius': large_array.k * 6}, False, np.random.uniform(-10, 10, (3, 3, 25))),
-    (levitate.fields.SphericalHarmonicsForceGradientDecomposition, {'orders': 12, 'radius': large_array.k * 18}, False, np.random.uniform(-10, 10, (3, 3, 169))),
-    (levitate.fields.SphericalHarmonicsForceGradient, {'orders': 4, 'radius': large_array.k * 6}, False, [[1, 0, 0], [0, 0, 0], [0, 0, 0]]),
-    (levitate.fields.SphericalHarmonicsForceGradient, {'orders': 4, 'radius': large_array.k * 6}, False, [[0, 1, 0], [0, 0, 0], [0, 0, 0]]),
-    (levitate.fields.SphericalHarmonicsForceGradient, {'orders': 4, 'radius': large_array.k * 6}, False, [[0, 0, 1], [0, 0, 0], [0, 0, 0]]),
-    (levitate.fields.SphericalHarmonicsForceGradient, {'orders': 4, 'radius': large_array.k * 6}, False, [[0, 0, 0], [1, 0, 0], [0, 0, 0]]),
-    (levitate.fields.SphericalHarmonicsForceGradient, {'orders': 4, 'radius': large_array.k * 6}, False, [[0, 0, 0], [0, 1, 0], [0, 0, 0]]),
-    (levitate.fields.SphericalHarmonicsForceGradient, {'orders': 4, 'radius': large_array.k * 6}, False, [[0, 0, 0], [0, 0, 1], [0, 0, 0]]),
-    (levitate.fields.SphericalHarmonicsForceGradient, {'orders': 4, 'radius': large_array.k * 6}, False, [[0, 0, 0], [0, 0, 0], [1, 0, 0]]),
-    (levitate.fields.SphericalHarmonicsForceGradient, {'orders': 4, 'radius': large_array.k * 6}, False, [[0, 0, 0], [0, 0, 0], [0, 1, 0]]),
-    (levitate.fields.SphericalHarmonicsForceGradient, {'orders': 4, 'radius': large_array.k * 6}, False, [[0, 0, 0], [0, 0, 0], [0, 0, 1]]),
-    (levitate.fields.SphericalHarmonicsForceGradient, {'orders': 7, 'radius': large_array.k * 9}, False, np.random.uniform(-10, 10, (3, 3))),
-    (levitate.fields.SphericalHarmonicsForceGradient, {'orders': 12, 'radius': large_array.k * 16}, False, np.random.uniform(-10, 10, (3, 3))),
-    (levitate.fields.SphericalHarmonicsExpansion, {'orders': 2}, True, np.random.uniform(-10, 10, 9)),
-    (levitate.fields.SphericalHarmonicsExpansion, {'orders': 5}, True, np.random.uniform(-10, 10, 36)),
-    (levitate.fields.SphericalHarmonicsExpansionGradient, {'orders': 2}, True, np.random.uniform(-10, 10, (3, 9))),
-    (levitate.fields.SphericalHarmonicsExpansionGradient, {'orders': 5}, True, np.random.uniform(-10, 10, (3, 36))),
+@pytest.mark.parametrize("point", [
+    levitate.fields.GorkovPotential(large_array) @ pos,   
+    levitate.fields.GorkovGradient(large_array).sum() @ pos,
+    levitate.fields.GorkovLaplacian(large_array).sum() @ pos,
+    levitate.fields.RadiationForce(large_array).sum() @ pos,
+    levitate.fields.RadiationForceStiffness(large_array).sum() @ pos,
+    levitate.fields.RadiationForceGradient(large_array).sum() @ pos,
+    abs(levitate.fields.Pressure(large_array)) @ pos,
+    abs(levitate.fields.Velocity(large_array)).sum() @ pos,
+    levitate.fields.SphericalHarmonicsForceDecomposition(large_array, radius=1e-3, orders=1).sum() @ pos,
+    levitate.fields.SphericalHarmonicsForceDecomposition(large_array, radius=1e-3, orders=5).sum() @ pos,
+    levitate.fields.SphericalHarmonicsForceDecomposition(large_array, radius=1e-3, orders=12).sum() @ pos,
+    levitate.fields.SphericalHarmonicsForce(large_array, orders=4, radius=large_array.k * 6).sum() @ pos,
+    levitate.fields.SphericalHarmonicsForce(large_array, orders=7, radius=large_array.k * 8).sum() @ pos,
+    levitate.fields.SphericalHarmonicsForce(large_array, orders=16, radius=large_array.k * 19).sum() @ pos,
+    levitate.fields.SphericalHarmonicsForceGradientDecomposition(large_array, orders=1, radius=large_array.k * 2).sum() @ pos,
+    levitate.fields.SphericalHarmonicsForceGradientDecomposition(large_array, orders=4, radius=large_array.k * 6).sum() @ pos,
+    levitate.fields.SphericalHarmonicsForceGradientDecomposition(large_array, orders=12, radius=large_array.k * 18).sum() @ pos,
+    levitate.fields.SphericalHarmonicsForceGradient(large_array, orders=4, radius=large_array.k * 6).sum() @ pos,
+    levitate.fields.SphericalHarmonicsForceGradient(large_array, orders=7, radius=large_array.k * 9).sum() @ pos,
+    levitate.fields.SphericalHarmonicsForceGradient(large_array, orders=12, radius=large_array.k * 16).sum() @ pos,
+    abs(levitate.fields.SphericalHarmonicsExpansion(large_array, orders=2).sum()) @ pos,
+    abs(levitate.fields.SphericalHarmonicsExpansion(large_array, orders=5).sum()) @ pos,
+    abs(levitate.fields.SphericalHarmonicsExpansionGradient(large_array, orders=2).sum()) @ pos,
+    abs(levitate.fields.SphericalHarmonicsExpansionGradient(large_array, orders=5).sum()) @ pos,
+    (levitate.fields.GorkovLaplacian(large_array).sum() * 1e9 + abs(levitate.fields.Pressure(large_array))) @ pos,
+    abs(levitate.fields.Pressure(large_array)) @ [12e-3, -25e-3, 60e-3] + abs(levitate.fields.Pressure(large_array)) @ [-4e-3, 6.45e-3, 80e-3],
+    abs(levitate.fields.Velocity(large_array).sum() @ pos),
+    abs(levitate.fields.Pressure(large_array) * levitate.fields.RadiationForce(large_array).sum()) @ pos,
+    levitate.fields.sum_of_eigenvalues(levitate.fields.RadiationForceGradient(large_array) @ pos),
 ])
-def test_jacobian_accuracy(func, kwargs, take_abs, weight):
-    point = func(large_array, weight=weight, position=pos, **kwargs)
-    if take_abs:
-        point = abs(point)
-
-    values_at_operating_point = point(cplx_amps)
+def test_jacobian_accuracy(point):
+    values_at_operating_point, jacobians_at_operating_point = point.cost_function(cplx_amps)
 
     phase_jacobians = np.zeros(large_array.num_transducers)
     for idx in range(large_array.num_transducers):
         phases[idx] += 1e-6
-        upper_val = point(levitate.utils.complex(phases, magnitudes))[0]
+        upper_val = point(levitate.utils.complex(phases, magnitudes))
         phases[idx] -= 2e-6
-        lower_val = point(levitate.utils.complex(phases, magnitudes))[0]
+        lower_val = point(levitate.utils.complex(phases, magnitudes))
         phases[idx] += 1e-6
         phase_jacobians[idx] = (upper_val - lower_val) / 2e-6
-    np.testing.assert_allclose(phase_jacobians, -values_at_operating_point[1].imag, 1e-5, 1e-8)
+    np.testing.assert_allclose(phase_jacobians, -jacobians_at_operating_point.imag, 1e-5, 1e-8)
 
     amplitude_jacobians = np.zeros(large_array.num_transducers)
     for idx in range(large_array.num_transducers):
         magnitudes[idx] += 1e-6
-        upper_val = point(levitate.utils.complex(phases, magnitudes))[0]
+        upper_val = point(levitate.utils.complex(phases, magnitudes))
         magnitudes[idx] -= 2e-6
-        lower_val = point(levitate.utils.complex(phases, magnitudes))[0]
+        lower_val = point(levitate.utils.complex(phases, magnitudes))
         magnitudes[idx] += 1e-6
         amplitude_jacobians[idx] = (upper_val - lower_val) / 2e-6
-    np.testing.assert_allclose(amplitude_jacobians, values_at_operating_point[1].real / magnitudes, 1e-5, 1e-8)
+    np.testing.assert_allclose(amplitude_jacobians, jacobians_at_operating_point.real / magnitudes, 1e-5, 1e-8)
 
     real_jacobians = np.zeros(large_array.num_transducers)
     for idx in range(large_array.num_transducers):
         cplx_amps[idx] += 1e-6
-        upper_val = point(cplx_amps)[0]
+        upper_val = point(cplx_amps)
         cplx_amps[idx] -= 2e-6
-        lower_val = point(cplx_amps)[0]
+        lower_val = point(cplx_amps)
         cplx_amps[idx] += 1e-6
         real_jacobians[idx] = (upper_val - lower_val) / 2e-6
-    np.testing.assert_allclose(real_jacobians, np.real(values_at_operating_point[1] / cplx_amps), 1e-5, 1e-8)
+    np.testing.assert_allclose(real_jacobians, np.real(jacobians_at_operating_point / cplx_amps), 1e-5, 1e-8)
 
     imag_jacobians = np.zeros(large_array.num_transducers)
     for idx in range(large_array.num_transducers):
         cplx_amps[idx] += 1j * 1e-6
-        upper_val = point(cplx_amps)[0]
+        upper_val = point(cplx_amps)
         cplx_amps[idx] -= 1j * 2e-6
-        lower_val = point(cplx_amps)[0]
+        lower_val = point(cplx_amps)
         cplx_amps[idx] += 1j * 1e-6
         imag_jacobians[idx] = (upper_val - lower_val) / 2e-6
-    np.testing.assert_allclose(imag_jacobians, -np.imag(values_at_operating_point[1] / cplx_amps), 1e-5, 1e-8)
+    np.testing.assert_allclose(imag_jacobians, -np.imag(jacobians_at_operating_point / cplx_amps), 1e-5, 1e-8)
