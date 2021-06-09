@@ -807,14 +807,7 @@ class MultiFieldPoint(MultiFieldBase):
         return CostFunctionMulti(*self.fields, transforms=self.transforms)
 
 
-class CostFunction:
-    """Inheritance check class only.
-
-    The purpose of this class is only to check if an object is a cost function or not.
-    """
-
-
-class CostFunctionSingle(FieldPoint, CostFunction):
+class CostFunctionSingle(FieldPoint):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.shape != ():
@@ -831,7 +824,7 @@ class CostFunctionSingle(FieldPoint, CostFunction):
         return values, jacobians
 
 
-class CostFunctionMulti(MultiFieldPoint, CostFunction):
+class CostFunctionMulti(MultiFieldPoint):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.shape != ():
@@ -865,6 +858,7 @@ class CostFunctionMulti(MultiFieldPoint, CostFunction):
 
 unbound_fields = (Field, MultiField)
 bound_fields = (FieldPoint, MultiFieldPoint)
+cost_functions = (CostFunctionSingle, CostFunctionMulti)
 
 
 def stack(*fields):

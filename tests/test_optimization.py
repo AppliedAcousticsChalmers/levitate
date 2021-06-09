@@ -14,16 +14,16 @@ amps = levitate.utils.complex(phases)
 
 
 def test_minimize_phases_amplitudes():
-    trap = abs(levitate.fields.Pressure(array)) * 1 @ pos + levitate.fields.RadiationForceStiffness(array) * (1, 1, 1) @ pos
+    trap = abs(levitate.fields.Pressure(array)) @ pos + levitate.fields.RadiationForceStiffness(array).sum() @ pos
     result = levitate.optimization.minimize(trap, array, start_values=amps)
     result = levitate.optimization.minimize(trap, array, variable_amplitudes=True, start_values=0.5 * amps, basinhopping=3)
     result = levitate.optimization.minimize(trap, array, constrain_transducers=[0, 3])
 
 
 def test_minimize_sequence():
-    trap = abs(levitate.fields.Pressure(array)) * 1 @ pos + levitate.fields.RadiationForceStiffness(array) * (1, 1, 1) @ pos
+    trap = abs(levitate.fields.Pressure(array)) @ pos + levitate.fields.RadiationForceStiffness(array).sum() @ pos
     result = levitate.optimization.minimize(trap, array, variable_amplitudes=[False, True], start_values=0.5 * amps)
-    quiet_zone = (abs(levitate.fields.Pressure(array)) * 1 + abs(levitate.fields.Velocity(array)) * (1, 1, 1)) @ (np.array([-5, -2, 60]) * 1e-3)
+    quiet_zone = (abs(levitate.fields.Pressure(array)) + abs(levitate.fields.Velocity(array)).sum()) @ (np.array([-5, -2, 60]) * 1e-3)
     result = levitate.optimization.minimize([trap, trap + quiet_zone], array)
     result, status = levitate.optimization.minimize([trap, trap + quiet_zone], array, basinhopping=True, minimize_kwargs={'tol': 1e-6}, callback=lambda **kwargs: False, return_optim_status=True)
 
