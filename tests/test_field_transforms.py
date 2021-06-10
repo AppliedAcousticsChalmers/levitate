@@ -156,3 +156,50 @@ def test_single_field_transform(field, scale, requests, operation):
     np.testing.assert_allclose(imag_jacobians, numer_imag_jacobians, atol=atol)
     np.testing.assert_allclose(amplitude_jacobians, numer_amplitude_jacobians, atol=atol)
     np.testing.assert_allclose(phase_jacobians, numer_phase_jacobians, atol=atol)
+
+
+@pytest.mark.parametrize("field, index", [
+    (levitate.fields.RadiationForce(array), np.random.randint(0, 3)),
+    (levitate.fields.Velocity(array), np.random.randint(0, 3)),
+    (levitate.fields.GorkovGradient(array), (np.random.randint(0, 3), None)),
+    (levitate.fields.GorkovGradient(array), (None, np.random.randint(0, 3))),
+    (levitate.fields.RadiationForceGradient(array), (np.random.randint(0, 3), np.random.randint(0, 3))),
+])
+def test_indexing(field, index):
+    index_before = field[index](state, pos)
+    index_after = field(state, pos)[index]
+    np.testing.assert_allclose(index_before, index_after)
+
+
+@pytest.mark.parametrize("operation", [
+    lambda x, y: x + y,
+    lambda x, y: x - y,
+    lambda x, y: y - x,
+    lambda x, y: 2 * x + 3 * y,
+    lambda x, y: 3 * x - 5 * y,
+    lambda x, y: (x + y) * 2,
+    lambda x, y: x * y,
+    lambda x, y: y * x,
+    lambda x, y: 2 * x * y,
+    lambda x, y: x * y * 3,
+    lambda x, y: x / y,
+    lambda x, y: y / x,
+])
+@pytest.mark.parametrize("field_a", [
+    levitate.fields.Pressure(array),
+    levitate.fields.Velocity(array),
+    levitate.fields.GorkovGradient(array),
+    levitate.fields.GorkovPotential(array),
+    levitate.fields.RadiationForceGradient(array),
+])
+@pytest.mark.parametrize("field_b", [
+    levitate.fields.Pressure(array),
+    levitate.fields.Velocity(array),
+    levitate.fields.GorkovGradient(array),
+    levitate.fields.GorkovPotential(array),
+    levitate.fields.RadiationForceGradient(array),
+])
+def test_two_field_transforms(field_a, field_b, operation):
+    operation_before = operation(field_a, field_b)(state, pos)
+    operation_after = operation(field_a(state, pos), field_b(state, pos))
+    np.testing.assert_allclose(operation_before, operation_after)
