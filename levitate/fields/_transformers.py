@@ -388,3 +388,21 @@ class Product(MultiInputReducer, Transform):
 
     def _transform_str(self, input_str):
         return f'product({input_str})'
+
+
+class Index(SingleInput, Transform):
+    def __init__(self, input, key):
+        self.key = key
+        super().__init__(input)
+        self.ndim  # Checks that the indexing key works for this input
+
+    @property
+    def shape(self):
+        input_obj = np.empty(self.input.shape, dtype=[])
+        return input_obj[self.key].shape
+
+    def values(self, values):
+        return values[self.key]
+
+    def jacobians(self, values, jacobians):
+        return jacobians[self.key]

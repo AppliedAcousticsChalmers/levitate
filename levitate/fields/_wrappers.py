@@ -381,6 +381,9 @@ class Field(FieldBase):
         new_obj.field = self.field
         return new_obj
 
+    def __getitem__(self, key):
+        return self.copy()._append_transform(_transformers.Index, key=key)
+
     def __eq__(self, other):
         return (
             super().__eq__(other)
