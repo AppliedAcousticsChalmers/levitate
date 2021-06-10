@@ -29,6 +29,7 @@ def test_minimize_sequence():
 
 
 large_array = levitate.arrays.RectangularArray(shape=8)
+np.random.seed(1123)
 phases = np.random.uniform(-np.pi, np.pi, large_array.num_transducers)
 magnitudes = np.random.uniform(0.5, 1, large_array.num_transducers)
 cplx_amps = levitate.utils.complex(phases, magnitudes)
@@ -59,7 +60,7 @@ cplx_amps = levitate.utils.complex(phases, magnitudes)
     abs(levitate.fields.SphericalHarmonicsExpansion(large_array, orders=5).sum()) @ pos,
     abs(levitate.fields.SphericalHarmonicsExpansionGradient(large_array, orders=2).sum()) @ pos,
     abs(levitate.fields.SphericalHarmonicsExpansionGradient(large_array, orders=5).sum()) @ pos,
-    (levitate.fields.GorkovLaplacian(large_array).sum() * 1e9 + abs(levitate.fields.Pressure(large_array))) @ pos,
+    (levitate.fields.GorkovLaplacian(large_array).sum() * 1e9 + abs(levitate.fields.Pressure(large_array)) ** 2) @ pos,
     abs(levitate.fields.Pressure(large_array)) @ [12e-3, -25e-3, 60e-3] + abs(levitate.fields.Pressure(large_array)) @ [-4e-3, 6.45e-3, 80e-3],
     abs(levitate.fields.Velocity(large_array).sum() @ pos),
     abs(levitate.fields.Pressure(large_array) * levitate.fields.RadiationForce(large_array).sum()) @ pos,
