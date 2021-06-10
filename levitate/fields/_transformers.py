@@ -378,10 +378,10 @@ class FieldSum(MultiInputReducer, Transform):
 
 class Product(MultiInputReducer, Transform):
     def values(self, values):
-        return math.prod(values)
+        return np.prod(values)
 
     def values_jacobians(self, values, jacobians):
-        value_product = math.prod(values)
+        value_product = np.prod(values)
         log_derivs = [jac / val[val_shape] for (val, jac, val_shape) in zip(values, jacobians, self._input_val_reshapes)]
         jacobian_product = sum(log_derivs) * value_product[self._output_val_reshape]
         return value_product, jacobian_product
