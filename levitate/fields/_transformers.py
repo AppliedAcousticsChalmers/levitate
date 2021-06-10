@@ -1,5 +1,14 @@
 import numpy as np
-import math
+
+try:
+    from math import prod
+except ImportError:
+    # math.prod introduced in python 3.8
+    import functools
+    import operator
+    
+    def prod(iterable):
+        return functools.reduce(operator.mul, iterable)
 
 
 class InvalidParameterError(TypeError):
@@ -378,10 +387,10 @@ class FieldSum(MultiInputReducer, Transform):
 
 class Product(MultiInputReducer, Transform):
     def values(self, values):
-        return np.prod(values)
+        return prod(values)
 
     def values_jacobians(self, values, jacobians):
-        value_product = np.prod(values)
+        value_product = prod(values)
         log_derivs = [jac / val[val_shape] for (val, jac, val_shape) in zip(values, jacobians, self._input_val_reshapes)]
         jacobian_product = sum(log_derivs) * value_product[self._output_val_reshape]
         return value_product, jacobian_product
