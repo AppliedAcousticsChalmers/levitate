@@ -41,6 +41,11 @@ def sum_of_eigenvalues(field):
     return field.copy()._append_transform(EigenvalueSum)
 
 
+def logloss(field):
+    from ._transformers import LogisticLoss
+    return field.copy()._append_transform(LogisticLoss)
+
+
 def exp(field):
     import numpy
     return numpy.e ** field

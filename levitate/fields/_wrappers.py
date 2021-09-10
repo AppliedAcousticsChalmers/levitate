@@ -384,6 +384,9 @@ class Field(FieldBase):
     def __getitem__(self, key):
         return self.copy()._append_transform(_transformers.Index, key=key)
 
+    def exp(self):
+        return np.e ** self
+
     def __eq__(self, other):
         return (
             super().__eq__(other)

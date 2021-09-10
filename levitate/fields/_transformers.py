@@ -148,7 +148,7 @@ class Scale(SingleInput, Transform):
         return values * self.scale
 
     def jacobians(self, values, jacobians):
-        return jacobians * self.scale
+        return jacobians * self.scale[..., None]
 
     @property
     def shape(self):
@@ -415,3 +415,30 @@ class Index(SingleInput, Transform):
 
     def jacobians(self, values, jacobians):
         return jacobians[self.key]
+
+
+class LogisticLoss(SingleInput, Transform):
+    def values(self, values):
+        if values.ndim > 0:
+            small_value_indices = values < 100
+            values = values.copy()
+            values[small_value_indices] = np.log(1 + np.exp(values[small_value_indices]))
+        elif values < 100:
+            values = np.log(1 + np.exp(values))
+        return values
+
+    def values_jacobians(self, values, jacobians):
+        if values.ndim > 0:
+            small_value_indices = values < 100
+            # jacobian_indices = small_value_indices[self._val_reshape]
+            
+            jacobians = jacobians.copy()
+            jacobians[small_value_indices] = jacobians[small_value_indices] / (1 + np.exp(-values[self._val_reshape][small_value_indices]))
+
+            values = values.copy()
+            values[small_value_indices] = np.log(1 + np.exp(values[small_value_indices]))
+        elif values < 100:
+            jacobians = jacobians / (1 + np.exp(-values))
+            values = np.log(1 + np.exp(values))
+
+        return values, jacobians
