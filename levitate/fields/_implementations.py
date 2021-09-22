@@ -16,6 +16,8 @@ __all__ = [
     'SphericalHarmonicsForceDecomposition',
     'SphericalHarmonicsForceGradient',
     'SphericalHarmonicsForceGradientDecomposition',
+    'SphericalHarmonicsForceDivergence',
+    'SphericalHarmonicsForceCurl',
     'SphericalHarmonicsExpansion',
     'SphericalHarmonicsExpansionGradient',
 ]
@@ -558,11 +560,6 @@ class SphericalHarmonicsForce(SphericalHarmonicsForceDecomposition):
     of the translated expansions of the transducer radiation patterns.
     The radiation force is calculated using a similar derivation as [Sapozhnikov]_,
     but without any plane wave decomposition.
-
-    Todo
-    ----
-    This function does not yet support jacobians, and cannot be used as a cost function.
-
     """
 
     shape = (3,)
@@ -653,6 +650,68 @@ class SphericalHarmonicsForceGradient(SphericalHarmonicsForceGradientDecompositi
 
     def jacobians(self, *args, **kwargs):  # noqa: D102
         return np.sum(super().jacobians(*args, **kwargs), axis=2)
+
+
+class SphericalHarmonicsForceDivergence(SphericalHarmonicsForceGradient):
+    """Divergence of the force calculated from a spherical harmonics expansion.
+
+    The divergence of the force F is dFx/dx + dFy/dy + dFz/dz, which is a scalar.
+    This value is calculated by taking the sum of the diagonal elements in the full
+    gradient matrix. 
+    """
+
+    shape = tuple()
+
+    def values(self, *args, **kwargs):  # noqa: D102
+        gradient = super().values(*args, **kwargs)
+        dFx_dx = gradient[0, 0]
+        dFy_dy = gradient[1, 1]
+        dFz_dz = gradient[2, 2]
+        return dFx_dx + dFy_dy + dFz_dz
+
+    def jacobians(self, *args, **kwargs):  # noqa: D102
+        gradient = super().jacobians(*args, **kwargs)
+        dFx_dx = gradient[0, 0]
+        dFy_dy = gradient[1, 1]
+        dFz_dz = gradient[2, 2]
+        return dFx_dx + dFy_dy + dFz_dz
+
+
+class SphericalHarmonicsForceCurl(SphericalHarmonicsForceGradient):
+    """Curl of the force calculated from a spherical harmonics expansion.
+
+    The curl of the force F is (dFz/dy - dFy/dz, dFx/dz - dFz/dx, dFy/dx - dFx/dy),
+    which is redurned as a vector. This value is calculated by taking the appropriate
+    elements from the full gradient matrix.
+    """
+
+    shape = (3,)
+
+    def values(self, *args, **kwargs):  # noqa: D102
+        gradient = super().values(*args, **kwargs)
+        dFx_dy = gradient[0, 1]
+        dFx_dz = gradient[0, 2]
+        dFy_dx = gradient[1, 0]
+        dFy_dz = gradient[1, 2]
+        dFz_dx = gradient[2, 0]
+        dFz_dy = gradient[2, 1]
+        curl_x = dFz_dy - dFy_dz
+        curl_y = dFx_dz - dFz_dx
+        curl_z = dFy_dx - dFx_dy
+        return np.stack([curl_x, curl_y, curl_z], axis=0)
+
+    def jacobians(self, *args, **kwargs):  # noqa: D102
+        gradient = super().jacobians(*args, **kwargs)
+        dFx_dy = gradient[0, 1]
+        dFx_dz = gradient[0, 2]
+        dFy_dx = gradient[1, 0]
+        dFy_dz = gradient[1, 2]
+        dFz_dx = gradient[2, 0]
+        dFz_dy = gradient[2, 1]
+        curl_x = dFz_dy - dFy_dz
+        curl_y = dFx_dz - dFz_dx
+        curl_z = dFy_dx - dFx_dy
+        return np.stack([curl_x, curl_y, curl_z], axis=0)
 
 
 class SphericalHarmonicsExpansion(FieldImplementation):
