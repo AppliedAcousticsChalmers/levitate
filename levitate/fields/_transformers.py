@@ -431,14 +431,19 @@ class LogisticLoss(SingleInput, Transform):
         if values.ndim > 0:
             small_value_indices = values < 100
             # jacobian_indices = small_value_indices[self._val_reshape]
+
+            exp_and_one = 1 + np.exp(values[small_value_indices])
             
             jacobians = jacobians.copy()
-            jacobians[small_value_indices] = jacobians[small_value_indices] / (1 + np.exp(-values[self._val_reshape][small_value_indices]))
+            # Normally we would need to use self._val_reshape to reshape the values to fit with the jacobians
+            # with all the dimentions correctly. Here we don't need this since the logical indexing flattens.
+            jacobians[small_value_indices] = jacobians[small_value_indices] * (1 - 1 / exp_and_one[:, None])
 
             values = values.copy()
-            values[small_value_indices] = np.log(1 + np.exp(values[small_value_indices]))
+            values[small_value_indices] = np.log(exp_and_one)
         elif values < 100:
-            jacobians = jacobians / (1 + np.exp(-values))
-            values = np.log(1 + np.exp(values))
+            exp_and_one = 1 + np.exp(values)
+            jacobians = jacobians * (1 - 1 / exp_and_one)
+            values = np.log(exp_and_one)
 
         return values, jacobians
