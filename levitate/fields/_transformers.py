@@ -417,7 +417,7 @@ class Index(SingleInput, Transform):
         return jacobians[self.key]
 
 
-class LogisticLoss(SingleInput, Transform):
+class Softmax(SingleInput, Transform):
     def values(self, values):
         if values.ndim > 0:
             small_value_indices = values < 100
