@@ -41,9 +41,9 @@ def sum_of_eigenvalues(field):
     return field.copy()._append_transform(EigenvalueSum)
 
 
-def softmax(field):
-    from ._transformers import Softmax
-    return field.copy()._append_transform(Softmax)
+def softplus(field):
+    from ._transformers import Softplus
+    return field.copy()._append_transform(Softplus)
 
 
 def exp(field):

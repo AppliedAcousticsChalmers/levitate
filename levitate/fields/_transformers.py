@@ -417,7 +417,7 @@ class Index(SingleInput, Transform):
         return jacobians[self.key]
 
 
-class Softmax(SingleInput, Transform):
+class Softplus(SingleInput, Transform):
     def values(self, values):
         if values.ndim > 0:
             small_value_indices = values < 100
@@ -433,7 +433,7 @@ class Softmax(SingleInput, Transform):
             # jacobian_indices = small_value_indices[self._val_reshape]
 
             exp_and_one = 1 + np.exp(values[small_value_indices])
-            
+
             jacobians = jacobians.copy()
             # Normally we would need to use self._val_reshape to reshape the values to fit with the jacobians
             # with all the dimentions correctly. Here we don't need this since the logical indexing flattens.

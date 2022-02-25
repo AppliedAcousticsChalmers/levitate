@@ -60,7 +60,7 @@ scalar_operations = [
     lambda x, s: levitate.fields.real(x) if np.asarray(x).dtype == object else np.real(x),
     lambda x, s: levitate.fields.imag(x) if np.asarray(x).dtype == object else np.imag(x),
     lambda x, s: levitate.fields.conjugate(x) if np.asarray(x).dtype == object else np.conjugate(x),
-    lambda x, s: levitate.fields.logloss((x / s)) if np.asarray(x).dtype == object else np.log(np.exp(x / s) + 1)
+    lambda x, s: levitate.fields.softplus((x / s)) if np.asarray(x).dtype == object else np.log(np.exp(x / s) + 1)
 ]
 
 
