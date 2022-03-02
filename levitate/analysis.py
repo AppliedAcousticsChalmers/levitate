@@ -1,6 +1,8 @@
 """Some tools for analysis of sound fields and levitation traps."""
 
 import numpy as np
+import scipy.integrate
+from . import fields, materials
 
 
 def dB(x, power=False):
@@ -118,14 +120,13 @@ def find_trap(array, start_position, complex_transducer_amplitudes, tolerance=10
         The found trap position, or the path from the starting position to the trap position.
 
     """
-    from scipy.integrate import solve_ivp
-    from numpy.linalg import lstsq
     if 'radius' in kwargs:
-        from .fields import SphericalHarmonicsForce as Force, SphericalHarmonicsForceGradient as ForceGradient
+        Force = fields.SphericalHarmonicsForce
+        ForceGradient = fields.SphericalHarmonicsForceGradient
     else:
-        from .fields import RadiationForce as Force, RadiationForceGradient as ForceGradient
-    from .fields import stack
-    evaluator = stack(Force(array, **kwargs), ForceGradient(array, **kwargs))
+        Force = fields.RadiationForce
+        ForceGradient = fields.RadiationForceGradient
+    evaluator = fields.stack(Force(array, **kwargs), ForceGradient(array, **kwargs))
     mg = evaluator.fields[0].field.mg
 
     def f(t, x):
@@ -136,14 +137,138 @@ def find_trap(array, start_position, complex_transducer_amplitudes, tolerance=10
     def bead_close(t, x):
         F, dF = evaluator(complex_transducer_amplitudes, x)
         F[2] -= mg
-        dx = lstsq(dF, F, rcond=None)[0]
+        dx = np.linalg.lstsq(dF, F, rcond=None)[0]
         distance = np.sum(dx**2, axis=0)**0.5
         return np.clip(distance - tolerance, 0, None)
     bead_close.terminal = True
-    outs = solve_ivp(f, (0, time_interval), np.asarray(start_position), events=bead_close, vectorized=True, dense_output=path_points > 1)
+    outs = scipy.integrate.solve_ivp(f, (0, time_interval), np.asarray(start_position), events=bead_close, vectorized=True, dense_output=path_points > 1)
     if outs.message != 'A termination event occurred.':
         print('End criterion not met. Final path position might not be close to trap location.')
     if path_points > 1:
         return outs.sol(np.linspace(0, outs.sol.t_max, path_points))
     else:
         return outs.y[:, -1]
+
+
+class KineticSimulation:
+    """Performs kinetic simulations for levitated spherical objects.
+
+    Initialize with the relevant parameters. Call the object with a state
+    and a position to start the simulation.
+    After a simulation, the object stores attributes for the results.
+
+    If the simulation is not started at the center of something resembling a trap,
+    the energy tracking will not work properly.
+
+    Attributes
+    ----------
+    t : ndarray, shape (T,)
+        Time vector for the simulated positions.
+    position : ndarray, shape (3, T)
+        Simulated positions.
+    velocity : ndarray, shape (3, T)
+        Simulated velocities.
+    kinetic_energy : ndarray, shape (T,)
+        Simulated kinetic energy.
+    potential_energy : ndarray, shape (T,)
+        Approximate potential energy. Calculated from a linear approximation at the starting position.
+    total_energy : ndarray, shape (T,)
+        Sum of kinetic and potential energy.
+    """
+    def __init__(self, array, t_end=1,
+                 radius=1e-3, material=materials.styrofoam,
+                 force=None, force_gradient=None,
+                 **solver_kwargs
+                 ):
+        self.array = array
+        self.t_end = t_end
+
+        self.radius = radius
+        self.mass = 4 / 3 * np.pi * radius**3 * material.rho
+        self.weight = self.mass * 9.82
+
+        if force is None or force_gradient is None:
+            if (force, force_gradient) != (None, None):
+                raise TypeError('Cannot supply only one of `force` and `force_gradient`')
+            if radius * array.k < 0.1:
+                force = fields.RadiationForce(array, radius=radius, material=material)
+                force_gradient = fields.RadiationForceGradient(array, radius=radius, material=material)
+            else:
+                force = fields.SphericalHarmonicsForce(array, radius=radius, material=material)
+                force_gradient = fields.SphericalHarmonicsForceGradient(array, radius=radius, material=material)
+        self._radiation_force = force
+        self._radiation_force_and_gradient = fields.stack([force, force_gradient])
+
+        self.solver_kwargs = solver_kwargs
+
+    def _differential(self, t, x):
+        F = self._radiation_force(self._state, x[:3]) + self._drag_force(x[3:6])
+        F[2] -= self.weight
+        acceleration = F / self.mass
+
+        return np.concatenate([x[3:6], acceleration], axis=0)
+
+    def _drag_force(self, velocity):
+        velocity_magnitude = np.sum(velocity**2, axis=0)**0.5
+        if np.allclose(velocity_magnitude, 0):
+            return np.zeros_like(velocity)
+
+        R = 2 * self.radius * velocity_magnitude / self.array.medium.kinematic_viscosity
+        Cd = 24 / R * (1 + 0.15 * R ** 0.618) + 0.407 / (1 + 8701 / R)
+        F_drag = -np.pi / 2 * self.radius**2 * self.array.medium.rho * Cd * velocity * velocity_magnitude
+        return F_drag
+
+    def _kinetic_energy(self, velocity):
+        return np.sum(velocity**2, axis=0) * self.mass / 2
+
+    def _potential_energy(self, position):
+        offset = position - self._initial_position.reshape((3,) + (-1,) * (np.ndim(position) - 1))
+        return np.einsum('i..., ij, j... -> ...', offset, -self._initial_force_gradient, offset).squeeze() / 2
+
+    def _diverged(self, t, x):
+        distance_from_start = np.sum((x[:3] - self._initial_position)**2)**0.5
+        if distance_from_start > 100e-3:
+            return 0
+        return 1
+
+    _diverged.terminal = True
+
+    def _converged(self, t, x):
+        energy = self._kinetic_energy(x[3:6]) + self._potential_energy(x[:3])
+        return np.clip(energy - self._initial_energy / 10, 0, None)
+
+    def __call__(self, state, initial_position):
+        self._state = state
+        self._initial_position = np.asarray(initial_position)
+
+        F, dF = self._radiation_force_and_gradient(state, self._initial_position)
+        eigenvals, eigenvecs = np.linalg.eig(dF)
+        resonance_omega = (np.abs(eigenvals) / self.mass)**0.5
+        shortest_period = np.min(2 * np.pi / resonance_omega)
+        initial_speed = np.min(resonance_omega) / self.array.k
+        initial_direction = np.linalg.solve(dF, [1, 1, 1])
+        initial_direction = np.abs(np.diag(dF))**0.5
+        self._initial_velocity = initial_speed * initial_direction / np.sum(initial_direction**2)**0.5
+
+        self._initial_force_gradient = dF
+        self._initial_energy = self._kinetic_energy(self._initial_velocity)
+
+        x0 = np.concatenate([self._initial_position, self._initial_velocity], axis=0)
+        output = scipy.integrate.solve_ivp(
+            self._differential, (0, self.t_end), x0,
+            events=[self._diverged, self._converged],
+            dense_output=True, vectorized=True, max_step=shortest_period / 6,
+            t_eval=np.linspace(0, self.t_end, np.math.ceil(self.t_end / shortest_period * 24)),
+            **self.solver_kwargs
+        )
+        self.solver_output = output
+
+        self.t = output.t
+        self.position = output.y[:3]
+        self.velocity = output.y[3:]
+        self.kinetic_energy = self._kinetic_energy(self.velocity)
+        self.potential_energy = self._potential_energy(self.position)
+        self.total_energy = self.kinetic_energy + self.potential_energy
+
+        return self
+
