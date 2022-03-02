@@ -82,12 +82,12 @@ def SVL(u):
     return dB(u / (50e-9 * 2**0.5))
 
 
-def find_trap(array, start_position, complex_transducer_amplitudes, tolerance=10e-6, time_interval=50, path_points=1, **kwargs):
+def find_trap(array, state, position, tolerance=10e-6, time_interval=50, path_points=1, **kwargs):
     r"""Find the approximate location of a levitation trap.
 
     Find an approximate position of a acoustic levitation trap close to a starting point.
     This is done by following the radiation force in the sound field using an differential
-    equation solver. The differential equation is the unphysical equation
+    equation solver. The differential equation is the un-physical equation
     :math:`d\vec x/dt  = \vec F(x,t)`, i.e. interpreting the force field as a velocity field.
     This works for finding the location of a trap and the field line from the starting position
     to the trap position, but it can not be seen as a proper kinematic simulation of the system.
@@ -99,17 +99,17 @@ def find_trap(array, start_position, complex_transducer_amplitudes, tolerance=10
 
     Parameters
     ----------
-    array : TrasducerArray
+    array : TransducerArray
         The transducer array to use for the solving.
-    start_position : array_like, 3 elements
-        The starting point for the solving.
-    complex_transducer_amplitudes: complex array like
+    state: complex array like
         The complex transducer amplitudes to use for the solving.
+    position : array_like, 3 elements
+        The starting point for the solving.
     tolerance : numeric, default 10e-6
         The approximate tolerance of the solution, i.e. how close should
         the found position be to the true position, in meters.
     time_interval : numeric, default 50
-        The unphysical time of the solution range in the differential equation above.
+        The un-physical time of the solution range in the differential equation above.
     path_points : int, default 1
         Sets the number of points to return the path at.
         A single evaluation point will only return the found position of the trap.
@@ -130,18 +130,18 @@ def find_trap(array, start_position, complex_transducer_amplitudes, tolerance=10
     mg = evaluator.fields[0].field.mg
 
     def f(t, x):
-        F = evaluator(complex_transducer_amplitudes, x)[0]
+        F = evaluator(state, x)[0]
         F[2] -= mg
         return F
 
     def bead_close(t, x):
-        F, dF = evaluator(complex_transducer_amplitudes, x)
+        F, dF = evaluator(state, x)
         F[2] -= mg
         dx = np.linalg.lstsq(dF, F, rcond=None)[0]
         distance = np.sum(dx**2, axis=0)**0.5
         return np.clip(distance - tolerance, 0, None)
     bead_close.terminal = True
-    outs = scipy.integrate.solve_ivp(f, (0, time_interval), np.asarray(start_position), events=bead_close, vectorized=True, dense_output=path_points > 1)
+    outs = scipy.integrate.solve_ivp(f, (0, time_interval), np.asarray(position), events=bead_close, vectorized=True, dense_output=path_points > 1)
     if outs.message != 'A termination event occurred.':
         print('End criterion not met. Final path position might not be close to trap location.')
     if path_points > 1:
