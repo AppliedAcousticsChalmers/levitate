@@ -359,7 +359,7 @@ class TrapPath(Trace):
         self.kwargs = dict(self._default_args, **kwargs)
 
     def __call__(self, complex_transducer_amplitudes):
-        from .utils import find_trap
+        from .analysis import find_trap
         path = find_trap(array=self.array, start_position=self.start_position,
                          complex_transducer_amplitudes=complex_transducer_amplitudes,
                          **self.kwargs)
@@ -734,7 +734,7 @@ class PressureSlice(ScalarFieldSlice):
     name = 'Pressure'
     label = 'Sound pressure in dB re. 20 µPa'
     from .fields import Pressure as _field_class
-    from .utils import SPL
+    from .analysis import SPL
     postprocessing = staticmethod(SPL)
     cmin = 130
     cmax = 170
@@ -744,7 +744,7 @@ class VelocitySlice(ScalarFieldSlice):
     name = 'Velocity'
     label = 'Particle velocity in dB re. 50 nm/s'
     from .fields import Velocity as _field_class
-    from .utils import SVL
+    from .analysis import SVL
     postprocessing = staticmethod(SVL)
     cmin = 130
     cmax = 170

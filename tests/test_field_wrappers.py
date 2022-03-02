@@ -12,7 +12,7 @@ pos_0 = np.array([0.1, 0.2, 0.3])
 pos_1 = np.array([-0.15, 1.27, 0.001])
 pos_both = np.stack((pos_0, pos_1), axis=1)
 phases = array.focus_phases((pos_0 + pos_1) / 2) + array.signature(stype='twin')
-amps = levitate.utils.complex(phases)
+amps = levitate.complex(phases)
 
 spat_ders = array.pressure_derivs(pos_both, orders=3)
 ind_ders = np.einsum('i, ji...->ji...', amps, spat_ders)

@@ -10,7 +10,7 @@ air.rho = 1.2
 pos = np.array([5, -2, 80]) * 1e-3
 array = levitate.arrays.RectangularArray(shape=2)
 phases = array.focus_phases(pos) + array.signature(stype='twin')
-amps = levitate.utils.complex(phases)
+amps = levitate.complex(phases)
 
 
 def test_minimize_phases_amplitudes():
@@ -32,7 +32,7 @@ large_array = levitate.arrays.RectangularArray(shape=8)
 np.random.seed(1123)
 phases = np.random.uniform(-np.pi, np.pi, large_array.num_transducers)
 magnitudes = np.random.uniform(0.5, 1, large_array.num_transducers)
-cplx_amps = levitate.utils.complex(phases, magnitudes)
+cplx_amps = levitate.complex(phases, magnitudes)
 
 
 @pytest.mark.parametrize("point", [
@@ -72,9 +72,9 @@ def test_jacobian_accuracy(point):
     phase_jacobians = np.zeros(large_array.num_transducers)
     for idx in range(large_array.num_transducers):
         phases[idx] += 1e-6
-        upper_val = point(levitate.utils.complex(phases, magnitudes))
+        upper_val = point(levitate.complex(phases, magnitudes))
         phases[idx] -= 2e-6
-        lower_val = point(levitate.utils.complex(phases, magnitudes))
+        lower_val = point(levitate.complex(phases, magnitudes))
         phases[idx] += 1e-6
         phase_jacobians[idx] = (upper_val - lower_val) / 2e-6
     np.testing.assert_allclose(phase_jacobians, -jacobians_at_operating_point.imag, 1e-5, 1e-8)
@@ -82,9 +82,9 @@ def test_jacobian_accuracy(point):
     amplitude_jacobians = np.zeros(large_array.num_transducers)
     for idx in range(large_array.num_transducers):
         magnitudes[idx] += 1e-6
-        upper_val = point(levitate.utils.complex(phases, magnitudes))
+        upper_val = point(levitate.complex(phases, magnitudes))
         magnitudes[idx] -= 2e-6
-        lower_val = point(levitate.utils.complex(phases, magnitudes))
+        lower_val = point(levitate.complex(phases, magnitudes))
         magnitudes[idx] += 1e-6
         amplitude_jacobians[idx] = (upper_val - lower_val) / 2e-6
     np.testing.assert_allclose(amplitude_jacobians, jacobians_at_operating_point.real / magnitudes, 1e-5, 1e-8)

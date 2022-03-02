@@ -230,8 +230,8 @@ def test_Array_visualizer():
     pos = np.array([0, 0, 0.05])
     signature = array.signature(angle=np.pi, stype='twin')
     phase = array.focus_phases(pos) + signature
-    amps = levitate.utils.complex(phase)
-    from levitate.utils import find_trap
+    amps = levitate.complex(phase)
+    from levitate.analysis import find_trap
     trap_pos = find_trap(array, pos, amps)
     np.testing.assert_allclose(pos, trap_pos, atol=0.1e-3)
     np.testing.assert_allclose(signature, array.signature(pos, phase))

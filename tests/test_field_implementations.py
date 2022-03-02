@@ -12,7 +12,7 @@ air.rho = 1.2
 large_array = levitate.arrays.RectangularArray(shape=(9, 8))
 pos = np.array([-23, 12, 34.1]) * 1e-3
 phases = large_array.focus_phases(pos) + large_array.signature(stype='vortex')
-amps_large = levitate.utils.complex(phases)
+amps_large = levitate.complex(phases)
 
 
 def test_gorkov_differentiations():
@@ -121,7 +121,7 @@ pos_1 = np.array([0.1, 0.2, 0.3])
 pos_2 = np.array([-0.15, 1.27, 0.001])
 both_pos = np.stack((pos_1, pos_2), axis=1)
 phases = array.focus_phases((pos_1 + pos_2) / 2)
-amps = levitate.utils.complex(phases)
+amps = levitate.complex(phases)
 
 spat_ders = array.pressure_derivs(both_pos, orders=3)
 ind_ders = np.einsum('i, ji...->ji...', amps, spat_ders)

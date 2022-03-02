@@ -22,7 +22,7 @@ import logging
 from scipy.special import j0, j1
 from scipy.special import spherical_jn, spherical_yn, sph_harm
 from .materials import air
-from . import utils
+from . import _indexing
 
 logger = logging.getLogger(__name__)
 
@@ -301,7 +301,7 @@ class PointSource(TransducerModel):
         jkr = 1j * kr
         phase = np.exp(jkr)
 
-        derivatives = np.empty((utils.num_pressure_derivs[orders],) + r.shape, dtype=np.complex128)
+        derivatives = np.empty((_indexing.num_pressure_derivs[orders],) + r.shape, dtype=np.complex128)
         derivatives[0] = phase / r
 
         if orders > 0:
@@ -392,7 +392,7 @@ class PointSource(TransducerModel):
             finite_difference_coefficients['zzy'] = (np.array([[0, 1, 1], [0, -1, -1], [0, -1, 1], [0, 1, -1], [0, 1, 0], [0, -1, 0]]).T, np.array([0.5, -0.5, -0.5, 0.5, -1, 1]))  # Alt -- (np.array([[0, 1, 2], [0, -1, -2], [0, -1, 2], [0, 1, -2], [0, 1, 0], [0, -1, 0]]), [0.125, -0.125, -0.125, 0.125, -0.25, 0.25])
             finite_difference_coefficients['xyz'] = (np.array([[1, 1, 1], [-1, -1, -1], [1, -1, -1], [-1, 1, 1], [-1, 1, -1], [1, -1, 1], [-1, -1, 1], [1, 1, -1]]).T, np.array([1, -1, 1, -1, 1, -1, 1, -1]) * 0.125)
 
-        derivatives = np.empty((utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[1:], dtype=np.complex128)
+        derivatives = np.empty((_indexing.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[1:], dtype=np.complex128)
         h = 1 / self.k
         # For all derivatives needed:
         for derivative, (shifts, weights) in finite_difference_coefficients.items():
@@ -403,7 +403,7 @@ class PointSource(TransducerModel):
             # weighted_values.shape = (n_difference_points, n_receiver_points)
             weighted_values = self.directivity(source_positions, source_normals, positions) * weights.reshape((source_positions.ndim - 1) * [1] + [-1] + (receiver_positions.ndim - 1) * [1])
             # sum the finite weighted points and store in the correct position in the output array.
-            derivatives[utils.pressure_derivs_order.index(derivative)] = np.sum(weighted_values, axis=(source_positions.ndim - 1)) / h**len(derivative)
+            derivatives[_indexing.pressure_derivs_order.index(derivative)] = np.sum(weighted_values, axis=(source_positions.ndim - 1)) / h**len(derivative)
         return derivatives
 
     def spherical_harmonics(self, source_positions, source_normals, receiver_positions, orders=0, **kwargs):
@@ -430,7 +430,7 @@ class PointSource(TransducerModel):
         coefficients : numpy.ndarray
             Array with the calculated expansion coefficients. Has the shape
             `(M,) + source_positions.shape[1:] + receiver_positions.shape[1:]`,
-            where `M=len(SphericalHarmonicsIndexer(orders))`, see `~levitate.utils.SphericalHarmonicsIndexer`
+            where `M=len(SphericalHarmonicsIndexer(orders))`, see `~levitate._indexing.SphericalHarmonicsIndexer`
             for details on the structure of the coefficients.
 
         """
@@ -453,7 +453,7 @@ class PointSource(TransducerModel):
         # See Ahrens 2.37a with Errata for the 4pi
         # exp(-jk|r-r'|) / (4pi |r-r'|) = -jk sum_n j_n(k r_min) h^(2)_n(k r_max) sum_m Y_n^-m (theta', phi') Y_n^m (theta, phi)
 
-        sph_idx = utils.SphericalHarmonicsIndexer(orders)
+        sph_idx = _indexing.SphericalHarmonicsIndexer(orders)
         coefficients = np.empty((len(sph_idx),) + source_positions.shape[1:2] + receiver_positions.shape[1:], dtype=np.complex128)
         for n in sph_idx.orders:
             hankel_func = spherical_jn(n, kr) + 1j * spherical_yn(n, kr)
@@ -658,7 +658,7 @@ class PlaneWaveTransducer(TransducerModel):
         diff = receiver_positions.reshape((3,) + (1,) * (source_positions.ndim - 1) + receiver_positions.shape[1:]) - source_positions.reshape(source_positions.shape[:2] + (receiver_positions.ndim - 1) * (1,))
         x_dot_n = np.einsum('i..., i...', diff, source_normals)
 
-        derivatives = np.empty((utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[1:], dtype=np.complex128)
+        derivatives = np.empty((_indexing.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[1:], dtype=np.complex128)
         derivatives[0] = self.p0 * np.exp(1j * self.k * x_dot_n)
 
         if orders > 0:
@@ -867,7 +867,7 @@ class CircularRing(PointSource):
         ka = self.k * self.effective_radius
         ka_sin = ka * sin
 
-        derivatives = np.empty((utils.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[1:], dtype=np.complex128)
+        derivatives = np.empty((_indexing.num_pressure_derivs[orders],) + source_positions.shape[1:2] + receiver_positions.shape[1:], dtype=np.complex128)
         J0 = j0(ka_sin)
         derivatives[0] = J0
         if orders > 0:

@@ -1,5 +1,5 @@
 import numpy as np
-from .. import materials, utils
+from .. import materials, _indexing
 from ._wrappers import FieldImplementation
 
 __all__ = [
@@ -452,7 +452,7 @@ class SphericalHarmonicsForceDecomposition(FieldImplementation):
         self.values_require = FieldImplementation.requirement(spherical_harmonics_summed=self.orders + 1)
         self.jacobians_require = FieldImplementation.requirement(spherical_harmonics_summed=self.orders + 1, spherical_harmonics_individual=self.orders + 1)
 
-        sph_idx = utils.SphericalHarmonicsIndexer(self.orders)
+        sph_idx = _indexing.SphericalHarmonicsIndexer(self.orders)
         from scipy.special import spherical_jn, spherical_yn
         # Create indexing arrays for sound field harmonics
         self.N_M = []  # Indices for the S_n^m coefficients
@@ -743,7 +743,7 @@ class SphericalHarmonicsExpansion(FieldImplementation):
         super().__init__(array, *args, **kwargs)
         if -1 in self.shape:
             self.shape = tuple((orders + 1)**2 if s == -1 else s for s in self.shape)
-        self.max_idx = len(utils.SphericalHarmonicsIndexer(orders))
+        self.max_idx = len(_indexing.SphericalHarmonicsIndexer(orders))
         self.values_require = FieldImplementation.requirement(spherical_harmonics_summed=orders)
         self.jacobians_require = FieldImplementation.requirement(spherical_harmonics_individual=orders)
 

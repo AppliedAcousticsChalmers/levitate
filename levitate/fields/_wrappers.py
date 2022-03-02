@@ -135,7 +135,7 @@ class FieldImplementation(metaclass=FieldImplementationMeta):
             pressure_derivs_summed
                 The number of orders of Cartesian spatial derivatives of the total sound pressure field.
                 Currently implemented to third order derivatives.
-                See `levitate.utils.pressure_derivs_order` and `levitate.utils.num_pressure_derivs`
+                See `levitate._indexing.pressure_derivs_order` and `levitate._indexing.num_pressure_derivs`
                 for a description of the structure.
             pressure_derivs_summed
                 Like pressure_derivs_summed, but for individual transducers.

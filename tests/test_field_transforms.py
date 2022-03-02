@@ -13,7 +13,7 @@ pos = np.array([0.1, 0.2, 0.3])
 # pos_1 = np.array([-0.15, 1.27, 0.001])
 # pos_both = np.stack((pos_0, pos_1), axis=1)
 phases = array.focus_phases(pos + [1e-3, 1e-3, 1e-3]) + array.signature(stype='twin')
-state = levitate.utils.complex(phases)
+state = levitate.complex(phases)
 
 # Get the requirements manually, so that they dont have to be recomputed for
 # every test case.
