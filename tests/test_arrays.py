@@ -232,7 +232,7 @@ def test_Array_visualizer():
     phase = array.focus_phases(pos) + signature
     amps = levitate.complex(phase)
     from levitate.analysis import find_trap
-    trap_pos = find_trap(array, pos, amps)
+    trap_pos = find_trap(array, amps, pos)
     np.testing.assert_allclose(pos, trap_pos, atol=0.1e-3)
     np.testing.assert_allclose(signature, array.signature(pos, phase))
 
