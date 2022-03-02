@@ -272,3 +272,38 @@ class KineticSimulation:
 
         return self
 
+
+def linear_stability_metric(array, radius, force_divergence=None, force_curl=None, material=materials.styrofoam):
+    r"""A crude stability metric for traps.
+
+    This is based on considering the dynamics of a linear approximation
+    of a trap which has equal axial stiffness. The metric is larger than one
+    for traps which are empirically stable, and smaller than one for traps which
+    empirically are unstable. This is not a guaranteed metric, but relies on very
+    heavy assumptions of the trap behavior.
+    See "Sound Field Design for Transducer Array-Based Acoustic Levitation",
+    Andersson, 2022, PhD thesis, for further information.
+
+    The output is a field object, which can be called with a state and a position
+    like the other field objects in this toolbox.
+    The implemented relation is
+
+    .. math ::
+
+         - \frac{27 \pi\mu^2}{a \rho_*} \frac{\nabla\cdot\vec{F}}{|\nabla\times\vec{F}|^2}
+
+    where :math:`F` is the force field in the trap, :math:`\mu` is the dynamic viscosity of the medium,
+    :math:`\rho_*` is the density of the object, and :math:`a` its radius.
+    """
+    if force_curl is None or force_divergence is None:
+        if (force_curl, force_divergence) != (None, None):
+            raise TypeError('Cannot supply only one of `force_divergence` and `force_curl`')
+        if radius * array.k < 0.1:
+            force_curl = fields.RadiationForceCurl(array, radius=radius, material=material)
+            force_divergence = fields.RadiationForceStiffness(array, radius=radius, material=material).sum()
+        else:
+            force_curl = fields.SphericalHarmonicsForceCurl(array, radius=radius, material=material)
+            force_divergence = fields.SphericalHarmonicsForceDivergence(array, radius=radius, material=material)
+
+    dynamic_scaling = -27 * np.pi * array.medium.dynamic_viscosity**2 / (radius * material.rho)
+    return dynamic_scaling * force_divergence / (force_curl**2).sum()
