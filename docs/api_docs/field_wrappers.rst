@@ -5,7 +5,7 @@
 Field Wrappers
 ##############
 
-.. automodule:: levitate._field_wrappers
+.. automodule:: levitate.fields._wrappers
 
 Class list
 ==========
@@ -15,60 +15,60 @@ Public API
 These are the only classes and functions regarded as part of the public API,
 but they will only be used directly when implementing new algorithm types.
 
-.. autoclass:: levitate._field_wrappers.FieldImplementation
+.. autoclass:: levitate.fields._wrappers.FieldImplementation
     :members:
 
 Basic Types
 -----------
-.. autoclass:: levitate._field_wrappers.Field
+.. autoclass:: levitate.fields._wrappers.Field
     :members:
 
-.. autoclass:: levitate._field_wrappers.FieldPoint
+.. autoclass:: levitate.fields._wrappers.FieldPoint
     :members:
 
-.. autoclass:: levitate._field_wrappers.CostField
+.. autoclass:: levitate.fields._wrappers.CostField
     :members:
 
-.. autoclass:: levitate._field_wrappers.CostFieldPoint
+.. autoclass:: levitate.fields._wrappers.CostFieldPoint
     :members:
 
 Magnitude Squared Types
 -----------------------
-.. autoclass:: levitate._field_wrappers.SquaredFieldBase
+.. autoclass:: levitate.fields._wrappers.SquaredFieldBase
     :members:
 
-.. autoclass:: levitate._field_wrappers.SquaredField
+.. autoclass:: levitate.fields._wrappers.SquaredField
     :members:
 
-.. autoclass:: levitate._field_wrappers.SquaredFieldPoint
+.. autoclass:: levitate.fields._wrappers.SquaredFieldPoint
     :members:
 
-.. autoclass:: levitate._field_wrappers.SquaredCostField
+.. autoclass:: levitate.fields._wrappers.SquaredCostField
     :members:
 
-.. autoclass:: levitate._field_wrappers.SquaredCostFieldPoint
+.. autoclass:: levitate.fields._wrappers.SquaredCostFieldPoint
     :members:
 
 MultiFields
 -----------
-.. autoclass:: levitate._field_wrappers.MultiField
+.. autoclass:: levitate.fields._wrappers.MultiField
     :members:
 
-.. autoclass:: levitate._field_wrappers.MultiFieldPoint
+.. autoclass:: levitate.fields._wrappers.MultiFieldPoint
     :members:
 
-.. autoclass:: levitate._field_wrappers.MultiCostField
+.. autoclass:: levitate.fields._wrappers.MultiCostField
     :members:
 
-.. autoclass:: levitate._field_wrappers.MultiCostFieldPoint
+.. autoclass:: levitate.fields._wrappers.MultiCostFieldPoint
     :members:
 
 MultiPoints
 -----------
-.. autoclass:: levitate._field_wrappers.MultiFieldMultiPoint
+.. autoclass:: levitate.fields._wrappers.MultiFieldMultiPoint
     :members:
 
-.. autoclass:: levitate._field_wrappers.MultiCostFieldMultiPoint
+.. autoclass:: levitate.fields._wrappers.MultiCostFieldMultiPoint
     :members:
 
 Private Classes
@@ -76,13 +76,13 @@ Private Classes
 These classes are not considered part of the public API, and should not appear
 other than as superclasses.
 
-.. autoclass:: levitate._field_wrappers.FieldBase
+.. autoclass:: levitate.fields._wrappers.FieldBase
     :members:
     :private-members:
 
-.. autoclass:: levitate._field_wrappers.FieldImplementationMeta
+.. autoclass:: levitate.fields._wrappers.FieldImplementationMeta
     :members:
 
-.. autoclass:: levitate._field_wrappers.FieldMeta
+.. autoclass:: levitate.fields._wrappers.FieldMeta
     :members:
     :private-members:

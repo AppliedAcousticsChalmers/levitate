@@ -113,7 +113,7 @@ html_theme = 'sphinx_rtd_theme'
 html_theme_options = {
     'collapse_navigation': False,
     'logo_only': True,
-	'navigation_depth': 2,
+    'navigation_depth': 3,
 }
 
 html_logo = 'levitate_icon.png'

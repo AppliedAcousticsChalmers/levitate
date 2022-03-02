@@ -8,6 +8,7 @@ should be constructed using the `~levitate.fields` module.
 import numpy as np
 import scipy.optimize
 import itertools
+from .fields import _wrappers
 
 
 def phase_alignment(*states, method='parallel', output='states'):
@@ -202,6 +203,9 @@ def _minimize_phase_amplitude(function, array, start_values,
     elif not isinstance(variable_amplitudes, bool):
         raise TypeError('the `variable_amplitudes` argument should be a bool or "phases first"')
 
+    if not isinstance(function, _wrappers.cost_functions):
+        function = function.cost_function
+
     num_total_transducers = len(start_values)
     unconstrained_transducers = np.delete(np.arange(num_total_transducers), constrain_transducers)
     num_unconstrained_transducers = len(unconstrained_transducers)
@@ -347,14 +351,7 @@ def minimize(functions, array,
     if constrain_transducers is None or constrain_transducers is False:
         constrain_transducers = []
     # Check if we should do sequenced optimization
-    try:
-        iter(functions)
-    except TypeError:
-        do_sequence = False
-    else:
-        do_sequence = True
-
-    if not do_sequence:
+    if isinstance(functions, _wrappers.FieldBase):
         if use_real_imag is True:
             return _minimize_real_imag(function=functions, array=array, start_values=start_values,
                                        constrain_transducers=constrain_transducers, variable_amplitudes=variable_amplitudes,
