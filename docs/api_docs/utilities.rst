@@ -3,9 +3,9 @@
 #########
 Utilities
 #########
-This page documents four modules, `~levitate.utils`, `~levitate.visualizers`, `~levitate.materials`, and `~levitate.hardware`.
+This page documents four modules, `~levitate.analysis`, `~levitate.visualizers`, `~levitate.materials`, and `~levitate.hardware`.
 
-.. automodule:: levitate.utils
+.. automodule:: levitate.analysis
     :members:
 
 Visualization
@@ -23,5 +23,8 @@ Hardware
 .. automodule:: levitate.hardware
     :members:
 
-.. autoclass:: levitate.hardware.TCPArray
+.. autoclass:: levitate.hardware.AcoustophoreticBoard
+    :members:
+
+.. autoclass:: levitate.hardware.DragonflyArray
     :members:

@@ -9,13 +9,13 @@ simplify the creation of the transducer positions for common array geometries.
     TransducerArray
     NormalTransducerArray
     RectangularArray
+    SphericalCapArray
     DoublesidedArray
-    DragonflyArray
 
 """
 
 import numpy as np
-from . import utils
+from . import _indexing
 
 
 class TransducerArray:
@@ -303,7 +303,7 @@ class TransducerArray:
         ------
         spherical_harmonics_coefficients : numpy.ndarray
             Array with the calculated expansion coefficients. The order of the coefficients
-            are described in `~levitate.utils.SphericalHarmonicsIndexer`.
+            are described in `~levitate._indexing.SphericalHarmonicsIndexer`.
             Has shape (M, N, ...) where `M=len(SphericalHarmonicsIndexer(orders))`,
             `N` is the number of transducers in the array, and the remaining dimensions are
             the same as the `positions` input with the first dimension removed.
@@ -361,7 +361,7 @@ class TransducerArray:
             evaluated_requests['spherical_harmonics'] = self.spherical_harmonics(position, orders=parsed_requests.pop('spherical_harmonics'))
         if 'spherical_harmonics_gradient' in parsed_requests:
             gradient_order = parsed_requests.pop('spherical_harmonics_gradient')
-            sph_idx = utils.SphericalHarmonicsIndexer(gradient_order)
+            sph_idx = _indexing.SphericalHarmonicsIndexer(gradient_order)
 
             def A(n, m):
                 return ((n + m + 1) * (n + m + 2) / (2 * n + 1) / (2 * n + 3)) ** 0.5

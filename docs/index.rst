@@ -6,12 +6,13 @@ Contents
 ========
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 3
 
     introduction
     package
-    examples
+    examples/index
     api_docs/index
+    changelog
 
 
 .. only:: html

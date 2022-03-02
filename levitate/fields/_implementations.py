@@ -1,41 +1,26 @@
-"""A collection of levitation related mathematical implementations.
-
-The fields is one of the most important parts of the package,
-containing implementations of various ways to calculate levitate-related physical properties.
-To simplify the management and manipulation of the implemented fields they are wrapped
-in an additional abstraction layer.
-The short version is that the classes implemented in the `~levitate.fields` module
-will not return objects of the called class, but typically objects of `~levitate.field_wrappers.Field`.
-These objects support algebraic operations, like `+`, `*`, and `abs`. The full description of
-what the different operands do can be found in the documentation of `~levitate._field_wrappers`.
-
-.. autosummary::
-    :nosignatures:
-
-    Pressure
-    Velocity
-    GorkovPotential
-    GorkovGradient
-    GorkovLaplacian
-    RadiationForce
-    RadiationForceStiffness
-    RadiationForceCurl
-    RadiationForceGradient
-    SphericalHarmonicsForce
-
-References
-----------
-.. [Gorkov] L. P. Gorkov, “On the Forces Acting on a Small Particle in an Acoustical Field in an Ideal Fluid”
-            Soviet Physics Doklady, vol. 6, p. 773, Mar. 1962.
-
-.. [Sapozhnikov] O. A. Sapozhnikov and M. R. Bailey, “Radiation force of an arbitrary acoustic beam on an elastic sphere in a fluid”
-                 J Acoust Soc Am, vol. 133, no. 2, pp. 661–676, Feb. 2013.
-
-"""
-
 import numpy as np
-from . import materials, utils
-from ._field_wrappers import FieldImplementation
+from .. import materials, _indexing
+from ._wrappers import FieldImplementation
+
+__all__ = [
+    'Pressure',
+    'Velocity',
+    'GorkovPotential',
+    'GorkovGradient',
+    'GorkovLaplacian',
+    'RadiationForce',
+    'RadiationForceStiffness',
+    'RadiationForceCurl',
+    'RadiationForceGradient',
+    'SphericalHarmonicsForce',
+    'SphericalHarmonicsForceDecomposition',
+    'SphericalHarmonicsForceGradient',
+    'SphericalHarmonicsForceGradientDecomposition',
+    'SphericalHarmonicsForceDivergence',
+    'SphericalHarmonicsForceCurl',
+    'SphericalHarmonicsExpansion',
+    'SphericalHarmonicsExpansionGradient',
+]
 
 
 class Pressure(FieldImplementation):
@@ -45,7 +30,7 @@ class Pressure(FieldImplementation):
 
     """
 
-    ndim = 0
+    shape = tuple()
     values_require = FieldImplementation.requirement(pressure_derivs_summed=0)
     jacobians_require = FieldImplementation.requirement(pressure_derivs_individual=0)
 
@@ -69,7 +54,7 @@ class Velocity(FieldImplementation):
 
     """
 
-    ndim = 1
+    shape = (3,)
     values_require = FieldImplementation.requirement(pressure_derivs_summed=1)
     jacobians_require = FieldImplementation.requirement(pressure_derivs_individual=1)
 
@@ -108,7 +93,7 @@ class GorkovPotential(FieldImplementation):
     where :math:`a` is the radius of the particle.
     """
 
-    ndim = 0
+    shape = tuple()
     values_require = FieldImplementation.requirement(pressure_derivs_summed=1)
     jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=1, pressure_derivs_individual=1)
 
@@ -165,7 +150,7 @@ class GorkovGradient(GorkovPotential):
     `RadiationForce` field instead.
     """
 
-    ndim = 1
+    shape = (3,)
     values_require = FieldImplementation.requirement(pressure_derivs_summed=2)
     jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
@@ -198,7 +183,7 @@ class GorkovLaplacian(GorkovPotential):
     `RadiationForceStiffness` field instead.
     """
 
-    ndim = 1
+    shape = (3,)
     values_require = FieldImplementation.requirement(pressure_derivs_summed=3)
     jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
 
@@ -247,7 +232,7 @@ class RadiationForce(FieldImplementation):
 
     """
 
-    ndim = 1
+    shape = (3,)
     values_require = FieldImplementation.requirement(pressure_derivs_summed=2)
     jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
@@ -307,7 +292,7 @@ class RadiationForceStiffness(RadiationForce):
 
     """
 
-    ndim = 1
+    shape = (3,)
     values_require = FieldImplementation.requirement(pressure_derivs_summed=3)
     jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
 
@@ -340,7 +325,7 @@ class RadiationForceCurl(RadiationForce):
 
     """
 
-    ndim = 1
+    shape = (3,)
     values_require = FieldImplementation.requirement(pressure_derivs_summed=2)
     jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=2, pressure_derivs_individual=2)
 
@@ -375,7 +360,7 @@ class RadiationForceGradient(RadiationForce):
 
     """
 
-    ndim = 2
+    shape = (3, 3)
     values_require = FieldImplementation.requirement(pressure_derivs_summed=3)
     jacobians_require = FieldImplementation.requirement(pressure_derivs_summed=3, pressure_derivs_individual=3)
 
@@ -438,7 +423,7 @@ class SphericalHarmonicsForceDecomposition(FieldImplementation):
     decomposed in individual spherical harmonics bases is of interest.
     """
 
-    ndim = 2
+    shape = (3, -1)
 
     def __init__(self, array, radius, orders=None, material=materials.styrofoam, scattering_model='Hard sphere', *args, **kwargs):  # noqa: D205, D400
         """
@@ -461,11 +446,13 @@ class SphericalHarmonicsForceDecomposition(FieldImplementation):
         """
         super().__init__(array, *args, **kwargs)
         self._orders = orders if orders is not None else int(self.array.k * radius) + 3
+        if -1 in self.shape:
+            self.shape = tuple((self.orders + 1)**2 if s == -1 else s for s in self.shape)
         self.mg = 4 / 3 * np.pi * radius**3 * 9.82 * material.rho
         self.values_require = FieldImplementation.requirement(spherical_harmonics_summed=self.orders + 1)
         self.jacobians_require = FieldImplementation.requirement(spherical_harmonics_summed=self.orders + 1, spherical_harmonics_individual=self.orders + 1)
 
-        sph_idx = utils.SphericalHarmonicsIndexer(self.orders)
+        sph_idx = _indexing.SphericalHarmonicsIndexer(self.orders)
         from scipy.special import spherical_jn, spherical_yn
         # Create indexing arrays for sound field harmonics
         self.N_M = []  # Indices for the S_n^m coefficients
@@ -573,14 +560,9 @@ class SphericalHarmonicsForce(SphericalHarmonicsForceDecomposition):
     of the translated expansions of the transducer radiation patterns.
     The radiation force is calculated using a similar derivation as [Sapozhnikov]_,
     but without any plane wave decomposition.
-
-    Todo
-    ----
-    This function does not yet support jacobians, and cannot be used as a cost function.
-
     """
 
-    ndim = 1
+    shape = (3,)
 
     def values(self, *args, **kwargs):  # noqa: D102
         return np.sum(super().values(*args, **kwargs), axis=1)
@@ -598,7 +580,7 @@ class SphericalHarmonicsForceGradientDecomposition(SphericalHarmonicsForceDecomp
 
     """
 
-    ndim = 3
+    shape = (3, 3, -1)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -661,13 +643,75 @@ class SphericalHarmonicsForceGradient(SphericalHarmonicsForceGradientDecompositi
 
     """
 
-    ndim = 2
+    shape = (3, 3)
 
     def values(self, *args, **kwargs):  # noqa: D102
         return np.sum(super().values(*args, **kwargs), axis=2)
 
     def jacobians(self, *args, **kwargs):  # noqa: D102
         return np.sum(super().jacobians(*args, **kwargs), axis=2)
+
+
+class SphericalHarmonicsForceDivergence(SphericalHarmonicsForceGradient):
+    """Divergence of the force calculated from a spherical harmonics expansion.
+
+    The divergence of the force F is dFx/dx + dFy/dy + dFz/dz, which is a scalar.
+    This value is calculated by taking the sum of the diagonal elements in the full
+    gradient matrix. 
+    """
+
+    shape = tuple()
+
+    def values(self, *args, **kwargs):  # noqa: D102
+        gradient = super().values(*args, **kwargs)
+        dFx_dx = gradient[0, 0]
+        dFy_dy = gradient[1, 1]
+        dFz_dz = gradient[2, 2]
+        return dFx_dx + dFy_dy + dFz_dz
+
+    def jacobians(self, *args, **kwargs):  # noqa: D102
+        gradient = super().jacobians(*args, **kwargs)
+        dFx_dx = gradient[0, 0]
+        dFy_dy = gradient[1, 1]
+        dFz_dz = gradient[2, 2]
+        return dFx_dx + dFy_dy + dFz_dz
+
+
+class SphericalHarmonicsForceCurl(SphericalHarmonicsForceGradient):
+    """Curl of the force calculated from a spherical harmonics expansion.
+
+    The curl of the force F is (dFz/dy - dFy/dz, dFx/dz - dFz/dx, dFy/dx - dFx/dy),
+    which is redurned as a vector. This value is calculated by taking the appropriate
+    elements from the full gradient matrix.
+    """
+
+    shape = (3,)
+
+    def values(self, *args, **kwargs):  # noqa: D102
+        gradient = super().values(*args, **kwargs)
+        dFx_dy = gradient[0, 1]
+        dFx_dz = gradient[0, 2]
+        dFy_dx = gradient[1, 0]
+        dFy_dz = gradient[1, 2]
+        dFz_dx = gradient[2, 0]
+        dFz_dy = gradient[2, 1]
+        curl_x = dFz_dy - dFy_dz
+        curl_y = dFx_dz - dFz_dx
+        curl_z = dFy_dx - dFx_dy
+        return np.stack([curl_x, curl_y, curl_z], axis=0)
+
+    def jacobians(self, *args, **kwargs):  # noqa: D102
+        gradient = super().jacobians(*args, **kwargs)
+        dFx_dy = gradient[0, 1]
+        dFx_dz = gradient[0, 2]
+        dFy_dx = gradient[1, 0]
+        dFy_dz = gradient[1, 2]
+        dFz_dx = gradient[2, 0]
+        dFz_dy = gradient[2, 1]
+        curl_x = dFz_dy - dFy_dz
+        curl_y = dFx_dz - dFz_dx
+        curl_z = dFy_dx - dFx_dy
+        return np.stack([curl_x, curl_y, curl_z], axis=0)
 
 
 class SphericalHarmonicsExpansion(FieldImplementation):
@@ -678,7 +722,7 @@ class SphericalHarmonicsExpansion(FieldImplementation):
 
     """
 
-    ndim = 1
+    shape = (-1,)
 
     def __eq__(self, other):
         return(
@@ -697,7 +741,9 @@ class SphericalHarmonicsExpansion(FieldImplementation):
 
         """
         super().__init__(array, *args, **kwargs)
-        self.max_idx = len(utils.SphericalHarmonicsIndexer(orders))
+        if -1 in self.shape:
+            self.shape = tuple((orders + 1)**2 if s == -1 else s for s in self.shape)
+        self.max_idx = len(_indexing.SphericalHarmonicsIndexer(orders))
         self.values_require = FieldImplementation.requirement(spherical_harmonics_summed=orders)
         self.jacobians_require = FieldImplementation.requirement(spherical_harmonics_individual=orders)
 
@@ -716,7 +762,7 @@ class SphericalHarmonicsExpansionGradient(SphericalHarmonicsExpansion):
     See `SphericalHarmonicsExpansion` for documentation of parameters.
     """
 
-    ndim = 2
+    shape = (3, -1)
 
     def __init__(self, array, orders, *args, **kwargs):
         super().__init__(array, orders, *args, **kwargs)

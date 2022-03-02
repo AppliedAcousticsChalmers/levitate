@@ -206,6 +206,8 @@ class Gas(Material):
     constants, see `update_properties`.
     """
 
+    properties = {'dynamic_viscosity': "Dynamic viscosity, in Pa * s."}
+
     def update_properties(self, temperature=None, pressure=None):
         r"""Update the material properties with the ambient conditions.
 
@@ -231,6 +233,11 @@ class Gas(Material):
         pressure = pressure if pressure is not None else 101325
         self.c = (self._gamma * self._R_spec * (temperature + 273.15))**0.5
         self.rho = pressure / self._R_spec / (temperature + 273.15)
+
+    @property
+    def kinematic_viscosity(self):
+        """Kinematic viscosity, in m^2/s."""
+        return self.dynamic_viscosity / self.rho
 
 
 class Solid(Material):
@@ -263,6 +270,7 @@ class Air(Gas):
         rho = 1.2040847588826422
     """
 
+    _dynamic_viscosity = 18.5e-6
     _R_spec = 287.05864074988347
     _gamma = 1.4
 
